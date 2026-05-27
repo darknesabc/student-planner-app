@@ -24,76 +24,101 @@
         <div id="chartContainer" style="min-height: 350px;"></div>
     </div>
 
+    <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 25px;">
+        <h3 style="margin-top: 0; color: #2c3e50; text-align: center;">🌱 최근 30일 공부 잔디 (Contribution)</h3>
+        
+        <div id="grassCalendar" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 15px 0;">
+            </div>
+        
+        <div style="text-align: center; margin-top: 15px; font-size: 13px; color: #7f8c8d; display: flex; justify-content: center; align-items: center; gap: 10px;">
+            <span>안 함</span>
+            <div style="width: 15px; height: 15px; background-color: #ebedf0; border-radius: 3px;"></div>
+            <div style="width: 15px; height: 15px; background-color: #c6e48b; border-radius: 3px;"></div>
+            <div style="width: 15px; height: 15px; background-color: #7bc96f; border-radius: 3px;"></div>
+            <div style="width: 15px; height: 15px; background-color: #196127; border-radius: 3px;"></div>
+            <span>열공!</span>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://twdptukivwkkzwlzewrz.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
         const today = new Date().toISOString().split('T')[0];
 
         async function loadStatistics() {
-            // 오늘 날짜, 105번 김철수 학생의 타이머 기록 다 가져오기!
-            const { data, error } = await supabaseClient
-                .from('focus_logs')
-                .select('*')
-                .eq('seat_number', '105')
-                .eq('created_at::date', today); // 오늘 데이터만 필터링 (생성일 기준)
-                
-            // 만약 위 코드가 구버전 SQL 환경에서 에러가 나면 아래 방식으로 안전하게 백업 가동합니다.
-            const { data: backupData, error: backupError } = await supabaseClient
+            // 105번 학생의 '모든' 타이머 기록을 다 가져옵니다 (최근 30일치 분석을 위해)
+            const { data: logs, error } = await supabaseClient
                 .from('focus_logs')
                 .select('*')
                 .eq('seat_number', '105');
 
-            // 오늘 날짜에 해당하는 데이터만 자바스크립트로 한 번 더 꼼꼼하게 골라냅니다.
-            const logs = (backupData || []).filter(log => log.created_at.startsWith(today));
+            if (error) {
+                console.error(error);
+                return;
+            }
 
-            let totalSeconds = 0;
-            let successCount = 0;
-            let interruptedCount = 0;
-            let stopwatchCount = 0;
+            // --- 1. 오늘 치 데이터만 골라내서 상단 차트 그리기 ---
+            const todayLogs = (logs || []).filter(log => log.created_at.startsWith(today));
+            let todaySeconds = 0, successCount = 0, interruptedCount = 0, stopwatchCount = 0;
 
-            // 쌓인 데이터를 보면서 계산기 두드리기
-            logs.forEach(log => {
-                totalSeconds += log.actual_seconds; // 총 공부 시간 누적
-                
+            todayLogs.forEach(log => {
+                todaySeconds += log.actual_seconds;
                 if (log.status === 'SUCCESS') successCount++;
                 else if (log.status === 'INTERRUPTED') interruptedCount++;
                 else if (log.status === 'STOPWATCH') stopwatchCount++;
             });
 
-            // 1. 상단 총 공부 시간 텍스트 업데이트 (초 -> 시간/분)
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            document.getElementById('totalTimeDisplay').innerText = `${hours}시간 ${minutes}분`;
+            document.getElementById('totalTimeDisplay').innerText = 
+                `${Math.floor(todaySeconds / 3600)}시간 ${Math.floor((todaySeconds % 3600) / 60)}분`;
 
-            // 2. ★ 오늘의 하이라이트: ApexCharts 그래프 그리기 ★
             const chartOptions = {
-                chart: {
-                    type: 'donut', // 도넛 모양 원형 그래프
-                    width: '100%',
-                    animations: { enabled: true, speed: 800 } // 부드러운 애니메이션 효과
-                },
-                // 차트에 들어갈 수치 데이터 [성공 횟수, 포기 횟수, 스톱워치 횟수]
+                chart: { type: 'donut', width: '100%', animations: { enabled: true, speed: 800 } },
                 series: [successCount, interruptedCount, stopwatchCount], 
-                // 각 수치의 이름 라벨
                 labels: ['목표 달성 (SUCCESS)', '중도 포기 (INTERRUPTED)', '자유 스톱워치 (STOPWATCH)'], 
-                // 그래프 색상 예쁘게 지정 (초록, 빨강, 노랑)
                 colors: ['#2ecc71', '#e74c3c', '#f1c40f'], 
-                responsive: [{
-                    breakpoint: 480,
-                    options: { chart: { width: 200 }, legend: { position: 'bottom' } }
-                }],
-                noData: {
-                    text: "오늘 쌓인 타이머 기록이 아직 없습니다. 플래너에서 타이머를 먼저 실행해 보세요!",
-                    align: 'center',
-                    verticalAlign: 'middle',
-                    style: { color: '#95a5a6', fontSize: '16px' }
-                }
+                noData: { text: "오늘 기록이 없습니다.", align: 'center', verticalAlign: 'middle' }
             };
+            new ApexCharts(document.querySelector("#chartContainer"), chartOptions).render();
 
-            // HTML 구멍에 차트 조립해서 집어넣기
-            const chart = new ApexCharts(document.querySelector("#chartContainer"), chartOptions);
-            chart.render();
+
+            // --- ★ 2. 새로 추가된 30일 잔디 달력 로직 ★ ---
+            
+            // 날짜별로 총 공부 시간을 더해서 정리할 빈 사전(Dictionary) 만들기
+            const dailyStats = {};
+            
+            // 가져온 모든 데이터를 돌면서 날짜별로 초(seconds)를 합산합니다.
+            (logs || []).forEach(log => {
+                const dateStr = log.created_at.split('T')[0]; // "2026-05-27" 모양으로 자르기
+                if (!dailyStats[dateStr]) dailyStats[dateStr] = 0;
+                dailyStats[dateStr] += log.actual_seconds;
+            });
+
+            const grassContainer = document.getElementById('grassCalendar');
+            let grassHTML = '';
+
+            // 오늘부터 29일 전까지(총 30일)를 반복하며 네모 상자를 만듭니다.
+            for(let i = 29; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateString = d.toISOString().split('T')[0];
+                
+                // 그 날짜의 공부 시간 (없으면 0)
+                const seconds = dailyStats[dateString] || 0;
+                const minutes = Math.floor(seconds / 60);
+                
+                // 시간에 따른 잔디 색상 결정!
+                let color = '#ebedf0'; // 기본 회색 (0분)
+                if (minutes > 0 && minutes < 60) color = '#c6e48b';       // 1시간 미만 (연두색)
+                else if (minutes >= 60 && minutes < 120) color = '#7bc96f'; // 1~2시간 (녹색)
+                else if (minutes >= 120) color = '#196127';               // 2시간 이상 (진녹색)
+
+                // 마우스를 올리면 "날짜: OO분" 이 뜨도록 title 속성 추가
+                grassHTML += `<div title="${dateString} : ${minutes}분 공부함" style="width: 25px; height: 25px; background-color: ${color}; border-radius: 5px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>`;
+            }
+
+            grassContainer.innerHTML = grassHTML;
         }
 
         loadStatistics();
