@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학습 통계 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body style="font-family: sans-serif; padding: 20px; background-color: #f3f4f6; max-width: 800px; margin: 0 auto;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1 style="color: #333; margin: 0;">📊 학습 통계 리포트</h1>
+        <a href="index.html" style="padding: 10px 20px; background-color: #34495e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">📅 플래너로 돌아가기</a>
+    </div>
+
+    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; text-align: center;">
+        <h3 style="margin-top: 0; color: #7f8c8d;">오늘 총 공부 시간</h3>
+        <div id="totalTimeDisplay" style="font-size: 40px; font-weight: bold; color: #2c3e50;">00시간 00분</div>
+    </div>
+
+    <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h3 style="margin-top: 0; color: #2c3e50; text-align: center;">🔥 집중 모드 성과 분석 (성공 vs 실패)</h3>
+        <div id="chartContainer" style="min-height: 350px;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://twdptukivwkkzwlzewrz.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const today = new Date().toISOString().split('T')[0];
+
+        async function loadStatistics() {
+            // 오늘 날짜, 105번 김철수 학생의 타이머 기록 다 가져오기!
+            const { data, error } = await supabaseClient
+                .from('focus_logs')
+                .select('*')
+                .eq('seat_number', '105')
+                .eq('created_at::date', today); // 오늘 데이터만 필터링 (생성일 기준)
+                
+            // 만약 위 코드가 구버전 SQL 환경에서 에러가 나면 아래 방식으로 안전하게 백업 가동합니다.
+            const { data: backupData, error: backupError } = await supabaseClient
+                .from('focus_logs')
+                .select('*')
+                .eq('seat_number', '105');
+
+            // 오늘 날짜에 해당하는 데이터만 자바스크립트로 한 번 더 꼼꼼하게 골라냅니다.
+            const logs = (backupData || []).filter(log => log.created_at.startsWith(today));
+
+            let totalSeconds = 0;
+            let successCount = 0;
+            let interruptedCount = 0;
+            let stopwatchCount = 0;
+
+            // 쌓인 데이터를 보면서 계산기 두드리기
+            logs.forEach(log => {
+                totalSeconds += log.actual_seconds; // 총 공부 시간 누적
+                
+                if (log.status === 'SUCCESS') successCount++;
+                else if (log.status === 'INTERRUPTED') interruptedCount++;
+                else if (log.status === 'STOPWATCH') stopwatchCount++;
+            });
+
+            // 1. 상단 총 공부 시간 텍스트 업데이트 (초 -> 시간/분)
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            document.getElementById('totalTimeDisplay').innerText = `${hours}시간 ${minutes}분`;
+
+            // 2. ★ 오늘의 하이라이트: ApexCharts 그래프 그리기 ★
+            const chartOptions = {
+                chart: {
+                    type: 'donut', // 도넛 모양 원형 그래프
+                    width: '100%',
+                    animations: { enabled: true, speed: 800 } // 부드러운 애니메이션 효과
+                },
+                // 차트에 들어갈 수치 데이터 [성공 횟수, 포기 횟수, 스톱워치 횟수]
+                series: [successCount, interruptedCount, stopwatchCount], 
+                // 각 수치의 이름 라벨
+                labels: ['목표 달성 (SUCCESS)', '중도 포기 (INTERRUPTED)', '자유 스톱워치 (STOPWATCH)'], 
+                // 그래프 색상 예쁘게 지정 (초록, 빨강, 노랑)
+                colors: ['#2ecc71', '#e74c3c', '#f1c40f'], 
+                responsive: [{
+                    breakpoint: 480,
+                    options: { chart: { width: 200 }, legend: { position: 'bottom' } }
+                }],
+                noData: {
+                    text: "오늘 쌓인 타이머 기록이 아직 없습니다. 플래너에서 타이머를 먼저 실행해 보세요!",
+                    align: 'center',
+                    verticalAlign: 'middle',
+                    style: { color: '#95a5a6', fontSize: '16px' }
+                }
+            };
+
+            // HTML 구멍에 차트 조립해서 집어넣기
+            const chart = new ApexCharts(document.querySelector("#chartContainer"), chartOptions);
+            chart.render();
+        }
+
+        loadStatistics();
+    </script>
+</body>
+</html>
