@@ -92,63 +92,59 @@
         }
         fetchTasks();
 
-        // --- ★ 새로 추가된 집중 모드 타이머 로직 ★ ---
-        let timerInterval; // 타이머를 돌아가게 할 톱니바퀴
-        let endTime;       // 종료 예정 시각을 기억할 변수
-        let targetMins;    // 처음 설정한 목표 분(minute)
+       // --- ★ 집중 모드 타이머 로직 (requestAnimationFrame으로 업그레이드!) ★ ---
+        let animationFrameId; // 톱니바퀴 대신, 화면을 부드럽게 그리는 붓(Brush)
+        let endTime;       
+        let targetMins;    
 
-        // 1. 집중 시작 버튼을 눌렀을 때
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value);
             if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분을 입력하세요!");
 
-            // 진짜 중요한 공식! (현재 시간 + 목표 시간 = 종료 예정 시간)
             endTime = Date.now() + (targetMins * 60 * 1000); 
 
-            // 버튼 모양 바꾸기
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('stopBtn').style.display = 'inline-block';
-            document.getElementById('targetMinutes').disabled = true; // 시간 변경 못하게 막기
+            document.getElementById('targetMinutes').disabled = true; 
 
-            // 1초마다 남은 시간 계산해서 화면에 그리기
-            timerInterval = setInterval(updateTimerUI, 1000);
-            updateTimerUI(); // 1초 기다리기 전에 바로 1번 실행
+            // 부드럽게 화면을 그리기 시작!
+            updateTimerUI(); 
         }
 
-        // 2. 화면의 숫자를 실시간으로 바꿔주는 함수
         function updateTimerUI() {
             const now = Date.now();
-            let remaining = Math.floor((endTime - now) / 1000); // 남은 초 계산
+            let remaining = Math.floor((endTime - now) / 1000); 
 
-            // 시간이 다 끝났다면?
             if (remaining <= 0) {
                 remaining = 0;
-                finishFocus('SUCCESS'); // 성공으로 기록!
+                document.getElementById('timerDisplay').innerText = "00:00:00";
+                finishFocus('SUCCESS'); 
+                return; // 시간 다 됐으면 더 이상 화면을 그리지 마!
             }
 
-            // 남은 초를 시:분:초 로 예쁘게 바꾸기
             const h = String(Math.floor(remaining / 3600)).padStart(2, '0');
             const m = String(Math.floor((remaining % 3600) / 60)).padStart(2, '0');
             const s = String(remaining % 60).padStart(2, '0');
 
             document.getElementById('timerDisplay').innerText = `${h}:${m}:${s}`;
+
+            // 핵심! 모니터 화면이 깜빡일 다음 턴에 '나 자신(updateTimerUI)'을 한 번 더 불러줘!
+            animationFrameId = requestAnimationFrame(updateTimerUI); 
         }
 
-        // 3. 중간에 포기하기 버튼을 눌렀을 때
         function stopFocus() {
             if(confirm("정말 포기하시겠습니까? 기록은 저장됩니다.")) {
-                finishFocus('INTERRUPTED'); // 실패(중단)로 기록!
+                finishFocus('INTERRUPTED'); 
             }
         }
 
-        // 4. 타이머 종료 & Supabase DB에 저장!
         async function finishFocus(status) {
-            clearInterval(timerInterval); // 톱니바퀴 멈추기
+            // 붓(Brush)을 멈추기 (화면 렌더링 중지)
+            cancelAnimationFrame(animationFrameId); 
 
             const now = Date.now();
             const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - now) / 1000);
 
-            // 화면 원래대로 되돌리기
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false;
@@ -156,15 +152,9 @@
 
             if(status === 'SUCCESS') alert("축하합니다! 목표 시간을 달성했습니다!");
 
-            // DB(focus_logs 테이블)에 결과 전송!
             const { error } = await supabaseClient
                 .from('focus_logs')
-                .insert([{ 
-                    seat_number: '105', 
-                    target_minutes: targetMins, 
-                    actual_seconds: actualSeconds, 
-                    status: status 
-                }]);
+                .insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
 
             if(error) console.error("타이머 기록 에러:", error);
         }
