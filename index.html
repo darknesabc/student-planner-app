@@ -36,8 +36,12 @@
             목표 시간: <input type="number" id="targetMinutes" value="120" style="width: 60px; padding: 5px; font-size: 16px; text-align: center;"> 분
         </div>
 
-        <div id="timerDisplay" style="font-size: 60px; font-weight: bold; margin-bottom: 20px; font-family: monospace; letter-spacing: 2px;">
+        <div id="timerDisplay" style="font-size: 60px; font-weight: bold; margin-bottom: 10px; font-family: monospace; letter-spacing: 2px;">
             02:00:00
+        </div>
+
+        <div style="width: 100%; height: 8px; background-color: #1a252f; border-radius: 4px; margin-bottom: 25px; overflow: hidden;">
+            <div id="progressFill" style="width: 100%; height: 100%; background-color: #2ecc71; transition: background-color 0.5s ease;"></div>
         </div>
 
         <div>
@@ -47,14 +51,14 @@
     </div>
 
     <script>
-        // ★여기에 URL과 KEY를 다시 넣어주세요!★
+        // 원장님의 연결 주소와 열쇠 (수정 안 하셔도 됩니다!)
         const SUPABASE_URL = 'https://twdptukivwkkzwlzewrz.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         const today = new Date().toISOString().split('T')[0];
 
-        // --- 할 일(To-Do) 로직 (기존과 동일) ---
+        // --- 할 일(To-Do) 로직 ---
         async function fetchTasks() {
             const { data, error } = await supabaseClient.from('planner_tasks').select('*').eq('seat_number', '105').eq('task_date', today).order('created_at', { ascending: true });
             if (error) return;
@@ -92,43 +96,57 @@
         }
         fetchTasks();
 
-       // --- ★ 집중 모드 타이머 로직 (requestAnimationFrame으로 업그레이드!) ★ ---
-        let animationFrameId; // 톱니바퀴 대신, 화면을 부드럽게 그리는 붓(Brush)
+        // --- ★ 완전히 새로워진 부드러운 타이머 로직 ★ ---
+        let animationFrameId; 
         let endTime;       
         let targetMins;    
+        let totalDurationMs; // 전체 시간(밀리초)
 
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value);
             if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분을 입력하세요!");
 
-            endTime = Date.now() + (targetMins * 60 * 1000); 
+            totalDurationMs = targetMins * 60 * 1000;
+            endTime = Date.now() + totalDurationMs; 
 
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('stopBtn').style.display = 'inline-block';
             document.getElementById('targetMinutes').disabled = true; 
+            
+            // 바 색상을 시작할 때 초록색으로 꽉 채움
+            document.getElementById('progressFill').style.backgroundColor = "#2ecc71";
 
-            // 부드럽게 화면을 그리기 시작!
             updateTimerUI(); 
         }
 
         function updateTimerUI() {
             const now = Date.now();
-            let remaining = Math.floor((endTime - now) / 1000); 
+            let remainingMs = endTime - now; // 밀리초(1/1000초) 단위로 계산!
 
-            if (remaining <= 0) {
-                remaining = 0;
+            if (remainingMs <= 0) {
+                remainingMs = 0;
                 document.getElementById('timerDisplay').innerText = "00:00:00";
+                document.getElementById('progressFill').style.width = "0%";
                 finishFocus('SUCCESS'); 
-                return; // 시간 다 됐으면 더 이상 화면을 그리지 마!
+                return; 
             }
 
-            const h = String(Math.floor(remaining / 3600)).padStart(2, '0');
-            const m = String(Math.floor((remaining % 3600) / 60)).padStart(2, '0');
-            const s = String(remaining % 60).padStart(2, '0');
-
+            // 1. 숫자는 초 단위로 째깍거리게
+            const remainingSec = Math.floor(remainingMs / 1000);
+            const h = String(Math.floor(remainingSec / 3600)).padStart(2, '0');
+            const m = String(Math.floor((remainingSec % 3600) / 60)).padStart(2, '0');
+            const s = String(remainingSec % 60).padStart(2, '0');
             document.getElementById('timerDisplay').innerText = `${h}:${m}:${s}`;
 
-            // 핵심! 모니터 화면이 깜빡일 다음 턴에 '나 자신(updateTimerUI)'을 한 번 더 불러줘!
+            // 2. 바(Bar)는 소수점 퍼센트까지 쪼개서 부드럽게!
+            const percent = (remainingMs / totalDurationMs) * 100;
+            document.getElementById('progressFill').style.width = percent + "%";
+
+            // 3. 1분(60,000ms) 남았을 때 빨간색으로 경고!
+            if (remainingMs <= 60000) {
+                document.getElementById('progressFill').style.backgroundColor = "#e74c3c";
+            }
+
             animationFrameId = requestAnimationFrame(updateTimerUI); 
         }
 
@@ -139,7 +157,6 @@
         }
 
         async function finishFocus(status) {
-            // 붓(Brush)을 멈추기 (화면 렌더링 중지)
             cancelAnimationFrame(animationFrameId); 
 
             const now = Date.now();
@@ -148,7 +165,10 @@
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false;
+            
             document.getElementById('timerDisplay').innerText = "00:00:00";
+            document.getElementById('progressFill').style.width = "100%";
+            document.getElementById('progressFill').style.backgroundColor = "#2ecc71";
 
             if(status === 'SUCCESS') alert("축하합니다! 목표 시간을 달성했습니다!");
 
