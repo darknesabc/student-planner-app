@@ -63,9 +63,10 @@
                 00:00:00
             </div>
 
-            <div>
-                <button id="swStartBtn" onclick="startStopwatch()" style="padding: 12px 25px; font-size: 16px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">공부 시작</button>
-                <button id="swStopBtn" onclick="stopStopwatch()" style="padding: 12px 25px; font-size: 16px; background-color: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: none;">종료 및 저장</button>
+            <div style="display: flex; justify-content: center; gap: 10px;">
+                <button id="swStartBtn" onclick="toggleStopwatch()" style="padding: 12px 20px; font-size: 16px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">공부 시작</button>
+                <button id="swPauseBtn" onclick="pauseStopwatch()" style="padding: 12px 20px; font-size: 16px; background-color: #f39c12; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: none;">일시 정지</button>
+                <button id="swStopBtn" onclick="stopStopwatch()" style="padding: 12px 20px; font-size: 16px; background-color: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: none;">종료 및 저장</button>
             </div>
         </div>
 
@@ -115,7 +116,7 @@
         }
         fetchTasks();
 
-        // --- 2. 집중 모드 타이머 로직 (기존) ---
+        // --- 2. 집중 모드 타이머 로직 (역산) ---
         let animationFrameId; 
         let endTime;       
         let targetMins;    
@@ -174,46 +175,86 @@
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
         }
 
-        // --- ★ 3. 새로 추가된 스톱워치 로직 ★ ---
+        // --- ★ 3. 일시정지가 추가된 스톱워치 로직 ★ ---
         let swAnimationFrameId;
-        let swStartTime;
+        let swStartTime = 0;         // 마지막으로 [시작/이어서하기]를 누른 시점
+        let accumulatedMs = 0;       // 일시정지 할 때마다 누적된 시간 바구니
+        let isSwRunning = false;     // 현재 타이머가 돌아가고 있는지 확인하는 스위치
 
-        function startStopwatch() {
-            swStartTime = Date.now(); // 누른 시점의 절대 시간을 저장!
-            document.getElementById('swStartBtn').style.display = 'none';
-            document.getElementById('swStopBtn').style.display = 'inline-block';
-            updateStopwatchUI();
+        // 시작 또는 이어서 하기 버튼
+        function toggleStopwatch() {
+            if (!isSwRunning) {
+                swStartTime = Date.now(); // 지금부터 시간 잰다!
+                isSwRunning = true;
+                
+                // UI 버튼 바꾸기
+                document.getElementById('swStartBtn').style.display = 'none';
+                document.getElementById('swPauseBtn').style.display = 'inline-block';
+                document.getElementById('swStopBtn').style.display = 'inline-block';
+                
+                updateStopwatchUI();
+            }
         }
 
-        function updateStopwatchUI() {
-            const now = Date.now();
-            const elapsedMs = now - swStartTime; // 현재 시간 - 시작 시간 = 누적 시간!
-            const elapsedSec = Math.floor(elapsedMs / 1000);
+        // 일시 정지 버튼
+        function pauseStopwatch() {
+            if (isSwRunning) {
+                // 핵심: 지금까지 달려온 시간을 바구니(accumulatedMs)에 담아둡니다!
+                accumulatedMs += (Date.now() - swStartTime);
+                isSwRunning = false;
+                cancelAnimationFrame(swAnimationFrameId); // 화면 그리기 멈춤
+                
+                // UI 버튼 바꾸기 ('이어서 하기'로 이름 변경)
+                document.getElementById('swStartBtn').innerText = '이어서 하기';
+                document.getElementById('swStartBtn').style.display = 'inline-block';
+                document.getElementById('swStartBtn').style.backgroundColor = "#27ae60"; // 초록색으로 변경
+                document.getElementById('swPauseBtn').style.display = 'none';
+            }
+        }
 
-            // 초를 시:분:초로 변환
+        // 화면에 숫자 그리기
+        function updateStopwatchUI() {
+            if (!isSwRunning) return;
+            
+            const now = Date.now();
+            // 총 시간 = 바구니에 담긴 시간 + 방금 시작해서 지금까지 흐른 시간
+            const currentElapsedMs = accumulatedMs + (now - swStartTime);
+            const elapsedSec = Math.floor(currentElapsedMs / 1000);
+
             const h = String(Math.floor(elapsedSec / 3600)).padStart(2, '0');
             const m = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0');
             const s = String(elapsedSec % 60).padStart(2, '0');
 
             document.getElementById('stopwatchDisplay').innerText = `${h}:${m}:${s}`;
-            swAnimationFrameId = requestAnimationFrame(updateStopwatchUI); // 역시 부드럽게!
+            swAnimationFrameId = requestAnimationFrame(updateStopwatchUI); 
         }
 
+        // 종료 및 DB 저장 버튼
         async function stopStopwatch() {
             if(!confirm("공부를 종료하고 순공 시간을 저장할까요?")) return;
 
-            cancelAnimationFrame(swAnimationFrameId); // 화면 그리기 멈춤
-            const now = Date.now();
-            const actualSeconds = Math.floor((now - swStartTime) / 1000);
+            let finalElapsedMs = accumulatedMs;
+            
+            // 만약 일시 정지가 아니라 막 돌아가고 있는 도중에 종료를 눌렀다면?
+            if (isSwRunning) {
+                finalElapsedMs += (Date.now() - swStartTime); // 마지막까지 달린 시간 추가
+            }
+            
+            isSwRunning = false;
+            cancelAnimationFrame(swAnimationFrameId);
+            const actualSeconds = Math.floor(finalElapsedMs / 1000);
 
-            // UI 초기화
+            // 전부 초기화 시키기
+            accumulatedMs = 0;
+            document.getElementById('swStartBtn').innerText = '공부 시작';
+            document.getElementById('swStartBtn').style.backgroundColor = "#3498db"; // 파란색으로 원상복구
             document.getElementById('swStartBtn').style.display = 'inline-block';
+            document.getElementById('swPauseBtn').style.display = 'none';
             document.getElementById('swStopBtn').style.display = 'none';
             document.getElementById('stopwatchDisplay').innerText = "00:00:00";
 
             alert(`수고하셨습니다! 총 ${actualSeconds}초 동안 공부했습니다.`);
 
-            // DB에 저장 (목표 시간이 없으므로 target_minutes는 0, 상태는 'STOPWATCH')
             const { error } = await supabaseClient
                 .from('focus_logs')
                 .insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
