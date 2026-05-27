@@ -6,12 +6,12 @@
     <title>학생 플래너 MVP</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body style="font-family: sans-serif; padding: 20px; background-color: #f3f4f6;">
+<body style="font-family: sans-serif; padding: 20px; background-color: #f3f4f6; max-width: 800px; margin: 0 auto;">
 
-    <h1 style="color: #333;">📝 나의 학습 플래너 (105번 김철수)</h1>
+    <h1 style="color: #333; text-align: center;">📝 나의 학습 플래너 (105번 김철수)</h1>
     
     <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
-        <h3>오늘 할 일 추가하기</h3>
+        <h3>📌 오늘 할 일 추가하기</h3>
         <select id="subjectInput" style="padding: 10px; font-size: 16px;">
             <option value="국어">국어</option>
             <option value="수학">수학</option>
@@ -23,42 +23,61 @@
     </div>
 
     <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
-        <h3>오늘의 계획 리스트</h3>
+        <h3>📋 오늘의 계획 리스트</h3>
         <ul id="taskList" style="font-size: 18px; line-height: 1.8; list-style: none; padding-left: 0;">
             데이터를 불러오는 중...
         </ul>
     </div>
 
-    <div style="background: #2c3e50; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
-        <h3 style="margin-top: 0; color: #ecf0f1;">🔥 집중 모드 (카운트다운)</h3>
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
         
-        <div style="margin-bottom: 20px;">
-            목표 시간: <input type="number" id="targetMinutes" value="120" style="width: 60px; padding: 5px; font-size: 16px; text-align: center;"> 분
+        <div style="flex: 1; min-width: 300px; background: #2c3e50; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
+            <h3 style="margin-top: 0; color: #ecf0f1;">🔥 집중 모드 (역산)</h3>
+            
+            <div style="margin-bottom: 20px;">
+                목표: <input type="number" id="targetMinutes" value="120" style="width: 60px; padding: 5px; font-size: 16px; text-align: center;"> 분
+            </div>
+
+            <div id="timerDisplay" style="font-size: 50px; font-weight: bold; margin-bottom: 10px; font-family: monospace; letter-spacing: 2px;">
+                02:00:00
+            </div>
+
+            <div style="width: 100%; height: 8px; background-color: #1a252f; border-radius: 4px; margin-bottom: 25px; overflow: hidden;">
+                <div id="progressFill" style="width: 100%; height: 100%; background-color: #2ecc71; transition: background-color 0.5s ease;"></div>
+            </div>
+
+            <div>
+                <button id="startBtn" onclick="startFocus()" style="padding: 12px 25px; font-size: 16px; background-color: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">시작</button>
+                <button id="stopBtn" onclick="stopFocus()" style="padding: 12px 25px; font-size: 16px; background-color: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: none;">포기</button>
+            </div>
         </div>
 
-        <div id="timerDisplay" style="font-size: 60px; font-weight: bold; margin-bottom: 10px; font-family: monospace; letter-spacing: 2px;">
-            02:00:00
+        <div style="flex: 1; min-width: 300px; background: #34495e; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
+            <h3 style="margin-top: 0; color: #ecf0f1;">⏱️ 순공 측정 (스톱워치)</h3>
+            
+            <div style="margin-bottom: 20px; color: #bdc3c7;">
+                시간 제한 없이 쭉 달립니다!
+            </div>
+
+            <div id="stopwatchDisplay" style="font-size: 50px; font-weight: bold; margin-bottom: 43px; font-family: monospace; letter-spacing: 2px; color: #f1c40f;">
+                00:00:00
+            </div>
+
+            <div>
+                <button id="swStartBtn" onclick="startStopwatch()" style="padding: 12px 25px; font-size: 16px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">공부 시작</button>
+                <button id="swStopBtn" onclick="stopStopwatch()" style="padding: 12px 25px; font-size: 16px; background-color: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: none;">종료 및 저장</button>
+            </div>
         </div>
 
-        <div style="width: 100%; height: 8px; background-color: #1a252f; border-radius: 4px; margin-bottom: 25px; overflow: hidden;">
-            <div id="progressFill" style="width: 100%; height: 100%; background-color: #2ecc71; transition: background-color 0.5s ease;"></div>
-        </div>
-
-        <div>
-            <button id="startBtn" onclick="startFocus()" style="padding: 15px 30px; font-size: 18px; background-color: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">집중 시작!</button>
-            <button id="stopBtn" onclick="stopFocus()" style="padding: 15px 30px; font-size: 18px; background-color: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: none;">포기하기</button>
-        </div>
     </div>
 
     <script>
-        // 원장님의 연결 주소와 열쇠 (수정 안 하셔도 됩니다!)
         const SUPABASE_URL = 'https://twdptukivwkkzwlzewrz.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
-        
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         const today = new Date().toISOString().split('T')[0];
 
-        // --- 할 일(To-Do) 로직 ---
+        // --- 1. 할 일(To-Do) 로직 ---
         async function fetchTasks() {
             const { data, error } = await supabaseClient.from('planner_tasks').select('*').eq('seat_number', '105').eq('task_date', today).order('created_at', { ascending: true });
             if (error) return;
@@ -81,7 +100,7 @@
         async function addTask() {
             const subjectValue = document.getElementById('subjectInput').value;
             const contentValue = document.getElementById('contentInput').value;
-            if (contentValue === "") return alert("할 일 내용을 입력해주세요!");
+            if (contentValue === "") return alert("내용을 입력해주세요!");
             const { error } = await supabaseClient.from('planner_tasks').insert([{ seat_number: '105', task_date: today, subject: subjectValue, content: contentValue }]);
             if (!error) { document.getElementById('contentInput').value = ""; fetchTasks(); }
         }
@@ -96,33 +115,27 @@
         }
         fetchTasks();
 
-        // --- ★ 완전히 새로워진 부드러운 타이머 로직 ★ ---
+        // --- 2. 집중 모드 타이머 로직 (기존) ---
         let animationFrameId; 
         let endTime;       
         let targetMins;    
-        let totalDurationMs; // 전체 시간(밀리초)
+        let totalDurationMs;
 
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value);
             if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분을 입력하세요!");
-
             totalDurationMs = targetMins * 60 * 1000;
             endTime = Date.now() + totalDurationMs; 
-
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('stopBtn').style.display = 'inline-block';
             document.getElementById('targetMinutes').disabled = true; 
-            
-            // 바 색상을 시작할 때 초록색으로 꽉 채움
             document.getElementById('progressFill').style.backgroundColor = "#2ecc71";
-
             updateTimerUI(); 
         }
 
         function updateTimerUI() {
             const now = Date.now();
-            let remainingMs = endTime - now; // 밀리초(1/1000초) 단위로 계산!
-
+            let remainingMs = endTime - now; 
             if (remainingMs <= 0) {
                 remainingMs = 0;
                 document.getElementById('timerDisplay').innerText = "00:00:00";
@@ -130,53 +143,82 @@
                 finishFocus('SUCCESS'); 
                 return; 
             }
-
-            // 1. 숫자는 초 단위로 째깍거리게
             const remainingSec = Math.floor(remainingMs / 1000);
             const h = String(Math.floor(remainingSec / 3600)).padStart(2, '0');
             const m = String(Math.floor((remainingSec % 3600) / 60)).padStart(2, '0');
             const s = String(remainingSec % 60).padStart(2, '0');
             document.getElementById('timerDisplay').innerText = `${h}:${m}:${s}`;
-
-            // 2. 바(Bar)는 소수점 퍼센트까지 쪼개서 부드럽게!
+            
             const percent = (remainingMs / totalDurationMs) * 100;
             document.getElementById('progressFill').style.width = percent + "%";
-
-            // 3. 1분(60,000ms) 남았을 때 빨간색으로 경고!
-            if (remainingMs <= 60000) {
-                document.getElementById('progressFill').style.backgroundColor = "#e74c3c";
-            }
-
+            if (remainingMs <= 60000) document.getElementById('progressFill').style.backgroundColor = "#e74c3c";
             animationFrameId = requestAnimationFrame(updateTimerUI); 
         }
 
         function stopFocus() {
-            if(confirm("정말 포기하시겠습니까? 기록은 저장됩니다.")) {
-                finishFocus('INTERRUPTED'); 
-            }
+            if(confirm("정말 포기하시겠습니까? 기록은 저장됩니다.")) finishFocus('INTERRUPTED'); 
         }
 
         async function finishFocus(status) {
             cancelAnimationFrame(animationFrameId); 
-
             const now = Date.now();
             const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - now) / 1000);
-
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false;
-            
             document.getElementById('timerDisplay').innerText = "00:00:00";
             document.getElementById('progressFill').style.width = "100%";
             document.getElementById('progressFill').style.backgroundColor = "#2ecc71";
-
             if(status === 'SUCCESS') alert("축하합니다! 목표 시간을 달성했습니다!");
 
+            await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
+        }
+
+        // --- ★ 3. 새로 추가된 스톱워치 로직 ★ ---
+        let swAnimationFrameId;
+        let swStartTime;
+
+        function startStopwatch() {
+            swStartTime = Date.now(); // 누른 시점의 절대 시간을 저장!
+            document.getElementById('swStartBtn').style.display = 'none';
+            document.getElementById('swStopBtn').style.display = 'inline-block';
+            updateStopwatchUI();
+        }
+
+        function updateStopwatchUI() {
+            const now = Date.now();
+            const elapsedMs = now - swStartTime; // 현재 시간 - 시작 시간 = 누적 시간!
+            const elapsedSec = Math.floor(elapsedMs / 1000);
+
+            // 초를 시:분:초로 변환
+            const h = String(Math.floor(elapsedSec / 3600)).padStart(2, '0');
+            const m = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0');
+            const s = String(elapsedSec % 60).padStart(2, '0');
+
+            document.getElementById('stopwatchDisplay').innerText = `${h}:${m}:${s}`;
+            swAnimationFrameId = requestAnimationFrame(updateStopwatchUI); // 역시 부드럽게!
+        }
+
+        async function stopStopwatch() {
+            if(!confirm("공부를 종료하고 순공 시간을 저장할까요?")) return;
+
+            cancelAnimationFrame(swAnimationFrameId); // 화면 그리기 멈춤
+            const now = Date.now();
+            const actualSeconds = Math.floor((now - swStartTime) / 1000);
+
+            // UI 초기화
+            document.getElementById('swStartBtn').style.display = 'inline-block';
+            document.getElementById('swStopBtn').style.display = 'none';
+            document.getElementById('stopwatchDisplay').innerText = "00:00:00";
+
+            alert(`수고하셨습니다! 총 ${actualSeconds}초 동안 공부했습니다.`);
+
+            // DB에 저장 (목표 시간이 없으므로 target_minutes는 0, 상태는 'STOPWATCH')
             const { error } = await supabaseClient
                 .from('focus_logs')
-                .insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
+                .insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
 
-            if(error) console.error("타이머 기록 에러:", error);
+            if(error) console.error("스톱워치 기록 에러:", error);
         }
     </script>
 </body>
