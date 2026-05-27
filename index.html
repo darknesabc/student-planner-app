@@ -14,16 +14,25 @@
         <a href="stats.html" style="padding: 10px 20px; background-color: #9b59b6; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">📊 나의 학습 통계 보러 가기</a>
     </div>
     
-    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
-        <h3>📌 오늘 할 일 추가하기</h3>
-        <select id="subjectInput" style="padding: 10px; font-size: 16px;">
-            <option value="국어">국어</option>
-            <option value="수학">수학</option>
-            <option value="영어">영어</option>
-            <option value="탐구">탐구</option>
-        </select>
-        <input type="text" id="contentInput" placeholder="예: 뉴런 수1 3강 완강" style="padding: 10px; font-size: 16px; width: 250px;">
-        <button onclick="addTask()" style="padding: 10px 20px; font-size: 16px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">추가</button>
+    <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
+        <h3 style="margin-top: 0; margin-bottom: 15px; color: #333;">📌 오늘 할 일 추가하기</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <select id="subjectInput" style="padding: 12px; font-size: 16px; border: 2px solid #e0e0e0; border-radius: 8px; outline: none; max-width: 150px;">
+                <option value="국어">국어</option>
+                <option value="수학">수학</option>
+                <option value="영어">영어</option>
+                <option value="탐구">탐구</option>
+            </select>
+            
+            <input type="text" id="contentInput" placeholder="✏️ 펜으로 여기에 바로 쓰세요! (예: 뉴런 수1 3강)" 
+                   spellcheck="false" autocomplete="off"
+                   style="width: 100%; box-sizing: border-box; padding: 18px; font-size: 18px; border: 2px solid #3498db; border-radius: 8px; background-color: #f8f9fa; outline: none; transition: border 0.3s;">
+            
+            <button onclick="addTask()" style="padding: 15px; font-size: 18px; background-color: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 5px;">
+                리스트에 추가하기
+            </button>
+        </div>
     </div>
 
     <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
