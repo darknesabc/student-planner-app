@@ -125,6 +125,7 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
+        // ★ 완벽한 대한민국 KST 날짜 고정 코드 ★
         const now = new Date();
         const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
         const today = koreaTime.toISOString().split('T')[0];
@@ -171,7 +172,7 @@
             document.getElementById('customTimeArea').style.display = timeMode === 'custom' ? 'flex' : 'none';
         }
 
-        // 3. 플래너 데이터 로딩 및 렌더링 (독립시행 필터링 구조 설계)
+        // 플래너 데이터 로딩 및 렌더링
         async function fetchTasks() {
             const { data, error } = await supabaseClient.from('planner_tasks').select('*')
                 .eq('seat_number', '105').eq('task_date', today).order('start_time', { ascending: true, nullsFirst: true });
@@ -186,7 +187,6 @@
             timeListElement.innerHTML = '';
             timelineElement.innerHTML = '';
 
-            // 타임라인 배경 눈금선 그리기
             for(let i = 8; i <= 24; i++) {
                 const hourStr = String(i).padStart(2, '0') + ':00';
                 const topPos = (i - 8) * 60; 
@@ -196,11 +196,9 @@
                 `;
             }
 
-            // 독립시행을 위해 데이터를 미리 필터링합니다.
             const simpleTasks = data.filter(task => !task.start_time || !task.end_time);
             const timeTasks = data.filter(task => task.start_time && task.end_time);
 
-            // 각 독립 그룹별 비어있을 때 메시지 노출 처리
             if (simpleTasks.length === 0) simpleElement.innerHTML = '<li>아직 등록된 단순 할 일이 없습니다.</li>';
             if (timeTasks.length === 0) timeListElement.innerHTML = '<li>아직 등록된 시간표 일과가 없습니다.</li>';
 
@@ -225,9 +223,10 @@
 
                 let actionButtonsHtml = '';
                 if (activeTaskId === task.task_id) {
+                    // ★ 종료 버튼 클릭 시 현재 작업의 시작 시간 유무를 같이 전달합니다 ★
                     actionButtonsHtml = `
                         <button class="p-btn" style="background-color: #f39c12;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
-                        <button class="p-btn" style="background-color: #e74c3c;" onclick="stopTask('${task.task_id}', ${savedSec})">■ 종료</button>
+                        <button class="p-btn" style="background-color: #e74c3c;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}')">■ 종료</button>
                     `;
                 } else {
                     const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
@@ -236,7 +235,6 @@
                     `;
                 }
 
-                // 공통 레이블 디자인 틀
                 const contentInnerHtml = `
                     <label style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center; flex-wrap: wrap;">
                         <input type="checkbox" onchange="toggleTask('${task.task_id}', ${task.is_completed})" ${isChecked} style="transform: scale(1.3); margin-right: 15px;">
@@ -246,12 +244,9 @@
                     <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #ff4d4d; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 16px;">✕</button>
                 `;
 
-                // ★ 핵심: 독립시행 분류 배치 ★
                 if (!hasTime) {
-                    // 시간이 없는 것은 오직 [단순 리스트 뷰]에만 주입
                     simpleElement.innerHTML += `<li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">${contentInnerHtml.replace('{TIME_PLACEHOLDER}', '')}</li>`;
                 } else {
-                    // 시간이 있는 것은 [타임 리스트 뷰]와 [타임테이블 뷰]에만 주입
                     timeListElement.innerHTML += `<li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">${contentInnerHtml.replace('{TIME_PLACEHOLDER}', timeSpan)}</li>`;
 
                     const sParts = task.start_time.split(':');
@@ -261,7 +256,9 @@
                     if(endMins < startMins) endMins += 24 * 60; 
 
                     const topPx = startMins - (8 * 60); 
-                    const heightPx = endMins - startMins; 
+                    let heightPx = endMins - startMins; 
+                    if (heightPx < 15) heightPx = 15; // 타이머를 짧게 잰 경우에도 최소한의 블록 모양이 유지되도록 방어!
+
                     const bgColor = subjectColors[task.subject] || '#34495e';
                     const opacity = task.is_completed ? '0.5' : '1.0'; 
 
@@ -276,7 +273,7 @@
             });
         }
 
-        // 계획별 실시간 타이머 가동 로직
+        // 계획별 실시간 타이머 작동 로직
         async function startTask(taskId, currentSeconds) {
             if (activeTaskId && activeTaskId !== taskId) {
                 alert("현재 다른 과목 공부가 가동 중입니다. 진행 중인 과목을 먼저 [일시정지] 혹은 [종료] 해주세요.");
@@ -311,13 +308,42 @@
             fetchTasks();
         }
 
-        async function stopTask(taskId, currentSeconds) {
+        // ★ 핵심: [■ 종료] 버튼을 눌렀을 때 시간을 역추산하여 부여하는 마법의 로직 ★
+        async function stopTask(taskId, currentSeconds, existingStartTime) {
             if (!confirm("해당 계획을 마감하고 타이머를 종료할까요? 완료 체크박스가 활성화됩니다.")) return;
+            
             cancelAnimationFrame(taskAnimationFrameId);
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000);
             activeTaskId = null;
-            await supabaseClient.from('planner_tasks').update({ study_seconds: finalSeconds, is_completed: true }).eq('task_id', taskId);
-            alert("수고하셨습니다! 학습 시간 기록 및 마감이 완료되었습니다.");
+
+            let updatePayload = { study_seconds: finalSeconds, is_completed: true };
+
+            // 단순 할 일(시간이 없던 계획)이고, 단 1초라도 공부를 했다면 사후 스케줄링 발동!
+            if (!existingStartTime && finalSeconds > 0) {
+                const currentMs = Date.now();
+                const startMs = currentMs - (finalSeconds * 1000); // 현재 시간에서 공부한 초만큼 빼기
+                
+                // 한국 시간(KST) 문자열 'HH:mm'을 안전하게 뽑아내는 함수
+                function getKstTimeStr(ms) {
+                    const d = new Date(ms);
+                    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+                    const kst = new Date(utc + (9 * 60 * 60 * 1000));
+                    const hh = String(kst.getHours()).padStart(2, '0');
+                    const mm = String(kst.getMinutes()).padStart(2, '0');
+                    return `${hh}:${mm}`;
+                }
+
+                updatePayload.start_time = getKstTimeStr(startMs);
+                updatePayload.end_time = getKstTimeStr(currentMs);
+                
+                alert(`공부하신 ${Math.floor(finalSeconds/60)}분 ${finalSeconds%60}초의 시간만큼 타임테이블에 [${updatePayload.start_time} ~ ${updatePayload.end_time}] 블록이 자동 생성되었습니다!`);
+            } else {
+                alert("수고하셨습니다! 학습 시간 기록 및 마감이 완료되었습니다.");
+            }
+
+            await supabaseClient.from('planner_tasks').update(updatePayload).eq('task_id', taskId);
+            
+            // fetchTasks가 실행되면서 시간이 부여된 계획은 자연스럽게 "단순 리스트"를 졸업하고 "타임테이블"로 이동합니다.
             fetchTasks();
         }
 
@@ -363,7 +389,7 @@
 
         fetchTasks();
 
-        // 전역 메인 타이머 & 스톱워치 로직 (유지)
+        // 전역 메인 타이머 & 스톱워치 로직
         let animationFrameId, endTime, targetMins, totalDurationMs;
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value);
