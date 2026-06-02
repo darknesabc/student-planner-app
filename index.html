@@ -127,7 +127,14 @@
         const SUPABASE_URL = 'https://twdptukivwkkzwlzewrz.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        const today = new Date().toISOString().split('T')[0];
+        // 1. 현재 접속한 기기의 시간을 가져옵니다.
+const now = new Date();
+// 2. 기기의 타임존 차이를 없애고 완전한 세계 표준시(UTC)로 만듭니다.
+const utcNow = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+// 3. 세계 표준시에 정확히 9시간(한국 KST)을 더해줍니다.
+const koreaTime = new Date(utcNow + (9 * 60 * 60 * 1000));
+// 4. "YYYY-MM-DD" 형태로 깔끔하게 잘라냅니다.
+const today = koreaTime.toISOString().split('T')[0];
 
         let currentInputMode = 'simple'; 
         let currentOutputView = 'simpleList'; 
