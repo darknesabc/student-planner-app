@@ -11,7 +11,6 @@
         .timeline-grid { position: absolute; width: 100%; height: 1px; background: #ecf0f1; }
         .task-block { position: absolute; width: 90%; left: 5%; border-radius: 6px; padding: 5px 10px; color: white; font-size: 13px; box-sizing: border-box; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3); transition: transform 0.2s; }
         .task-block:hover { transform: scale(1.02); z-index: 10; }
-        /* 탭 버튼 스타일 조금 더 슬림하게 수정 */
         .tab-btn { padding: 10px 15px; font-size: 14px; font-weight: bold; border: none; background: #ecf0f1; color: #7f8c8d; cursor: pointer; border-radius: 5px 5px 0 0; transition: background 0.2s; }
         .tab-btn.active { background: white; color: #2c3e50; border-top: 3px solid #3498db; }
         .mode-btn { padding: 8px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
@@ -26,6 +25,7 @@
         <a href="stats.html" style="padding: 10px 20px; background-color: #9b59b6; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">📊 나의 학습 통계</a>
     </div>
     
+    <!-- 1. 할 일 추가 영역 -->
     <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -79,28 +79,25 @@
         </button>
     </div>
 
+    <!-- 2. 계획 출력 (불필요한 탭 자동 숨김 적용) -->
     <div style="margin-bottom: 20px;">
         <div style="display: flex; gap: 5px; padding-left: 10px;">
             <button id="btnSimpleList" class="tab-btn active" onclick="switchOutputView('simpleList')">📋 단순 리스트 뷰</button>
-            <button id="btnTimeList" class="tab-btn" onclick="switchOutputView('timeList')">⏱️ 타임 리스트 뷰</button>
+            <!-- 시작할 땐 단순 모드이므로 타임 리스트 탭은 숨겨둡니다 -->
+            <button id="btnTimeList" class="tab-btn" style="display: none;" onclick="switchOutputView('timeList')">⏱️ 타임 리스트 뷰</button>
             <button id="btnTimeTable" class="tab-btn" onclick="switchOutputView('timeTable')">📊 타임테이블 뷰</button>
         </div>
         
         <div style="background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-height: 300px;">
-            
-            <ul id="simpleListContainer" style="font-size: 16px; line-height: 1.8; list-style: none; padding-left: 0; margin: 0;">
-                데이터를 불러오는 중...
-            </ul>
-
+            <ul id="simpleListContainer" style="font-size: 16px; line-height: 1.8; list-style: none; padding-left: 0; margin: 0;"></ul>
             <ul id="timeListContainer" style="display: none; font-size: 16px; line-height: 1.8; list-style: none; padding-left: 0; margin: 0;"></ul>
-
             <div id="timeTableContainer" style="display: none;">
                 <div class="timeline-container" id="timelineVisuals"></div>
             </div>
-            
         </div>
     </div>
 
+    <!-- 3. 타이머 & 스톱워치 영역 -->
     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 300px; background: #2c3e50; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
             <h3 style="margin-top: 0; color: #ecf0f1;">🔥 집중 모드 (역산)</h3>
@@ -135,19 +132,26 @@
         let currentInputMode = 'simple'; 
         let currentOutputView = 'simpleList'; 
 
-        // 1. 입력 모드 스위치 로직
+        // ★ 1. 업데이트된 입력 모드 스위치 로직 (탭 숨기기/보이기 연동) ★
         function switchInputMode(mode) {
             currentInputMode = mode;
             document.getElementById('modeListBtn').className = mode === 'simple' ? 'mode-btn active' : 'mode-btn inactive';
             document.getElementById('modeTimeBtn').className = mode === 'time' ? 'mode-btn active' : 'mode-btn inactive';
             document.getElementById('timeSettingArea').style.display = mode === 'time' ? 'block' : 'none';
 
-            // 센스 장착: 입력 모드 변경 시 출력 뷰도 어울리게 자동 변경!
-            if(mode === 'simple') switchOutputView('simpleList');
-            if(mode === 'time') switchOutputView('timeList');
+            if (mode === 'simple') {
+                // 단순 모드일 땐 타임 리스트 탭을 숨기고 단순 탭을 보여줍니다.
+                document.getElementById('btnSimpleList').style.display = 'block';
+                document.getElementById('btnTimeList').style.display = 'none';
+                switchOutputView('simpleList');
+            } else if (mode === 'time') {
+                // 시간표 모드일 땐 단순 리스트 탭을 숨기고 타임 탭을 보여줍니다.
+                document.getElementById('btnSimpleList').style.display = 'none';
+                document.getElementById('btnTimeList').style.display = 'block';
+                switchOutputView('timeList');
+            }
         }
 
-        // 2. 출력 뷰 스위치 로직
         function switchOutputView(view) {
             currentOutputView = view;
             document.getElementById('btnSimpleList').className = view === 'simpleList' ? 'tab-btn active' : 'tab-btn';
@@ -165,7 +169,7 @@
             document.getElementById('customTimeArea').style.display = timeMode === 'custom' ? 'flex' : 'none';
         }
 
-        // 3. 플래너 데이터 로딩 및 3가지 뷰 렌더링
+        // 플래너 데이터 로딩 및 렌더링
         async function fetchTasks() {
             const { data, error } = await supabaseClient.from('planner_tasks').select('*')
                 .eq('seat_number', '105').eq('task_date', today).order('start_time', { ascending: true, nullsFirst: true });
@@ -180,7 +184,6 @@
             timeListElement.innerHTML = '';
             timelineElement.innerHTML = '';
 
-            // 타임테이블 배경 그리기
             for(let i = 8; i <= 24; i++) {
                 const hourStr = String(i).padStart(2, '0') + ':00';
                 const topPos = (i - 8) * 60; 
@@ -206,13 +209,11 @@
                 const startStr = hasTime ? task.start_time.substring(0, 5) : "";
                 const endStr = hasTime ? task.end_time.substring(0, 5) : "";
                 
-                // 공통 텍스트 조각들
                 const subjectSpan = `<span style="display:inline-block; width: 60px; color: ${subjectColors[task.subject] || '#333'}; font-weight: bold;">[${task.subject}]</span>`;
                 const timeSpan = hasTime 
                     ? `<span style="display:inline-block; width: 110px; font-weight: bold; color: #3498db;">[${startStr}~${endStr}]</span>`
                     : `<span style="display:inline-block; width: 110px; font-weight: bold; color: #bdc3c7;">[시간 미지정]</span>`;
 
-                // --- 뷰 1. 단순 리스트 뷰 (시간 완전 제거!) ---
                 simpleElement.innerHTML += `
                     <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
                         <label style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center;">
@@ -222,7 +223,6 @@
                         <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #ff4d4d; font-weight: bold; cursor: pointer;">✕</button>
                     </li>`;
 
-                // --- 뷰 2. 타임 리스트 뷰 (시간 표시) ---
                 timeListElement.innerHTML += `
                     <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
                         <label style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center;">
@@ -232,7 +232,6 @@
                         <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #ff4d4d; font-weight: bold; cursor: pointer;">✕</button>
                     </li>`;
 
-                // --- 뷰 3. 타임테이블 뷰 (시간 있는 것만) ---
                 if (hasTime) {
                     const sParts = task.start_time.split(':');
                     const eParts = task.end_time.split(':');
@@ -303,7 +302,6 @@
 
         fetchTasks();
 
-        // --- 타이머 & 스톱워치 로직 유지 ---
         let animationFrameId, endTime, targetMins, totalDurationMs;
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value);
