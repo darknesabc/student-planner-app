@@ -10,23 +10,20 @@
         .time-label { position: absolute; left: -50px; font-size: 12px; color: #7f8c8d; font-weight: bold; transform: translateY(-50%); }
         .timeline-grid { position: absolute; width: 100%; height: 1px; background: #ecf0f1; }
         
-        /* ★ 시간표 블록 디자인 대폭 업그레이드 ★ */
         .task-block { 
             position: absolute; width: 90%; left: 5%; border-radius: 6px; padding: 6px 10px; 
             color: white; font-size: 13px; box-sizing: border-box; overflow: hidden; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3); 
             transition: all 0.2s ease;
-            min-height: 38px; /* 공부 시간이 짧아도 텍스트가 안 깨지도록 최소 높이 강제 보장! */
+            min-height: 38px; 
             display: flex; flex-direction: column; justify-content: center;
         }
-        /* 마우스를 올리면 내용이 다 보이게 스르륵 커지고 맨 위로 올라옵니다 */
         .task-block:hover { 
             transform: scale(1.02); z-index: 100; 
             height: auto !important; min-height: max-content; box-shadow: 0 6px 12px rgba(0,0,0,0.3);
         }
-        /* 글씨가 넘치면 '...' 으로 예쁘게 자르기 */
         .task-block-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .task-block:hover .task-block-text { white-space: normal; } /* 마우스 올리면 여러 줄로 다 보임 */
+        .task-block:hover .task-block-text { white-space: normal; } 
 
         .tab-btn { padding: 10px 15px; font-size: 14px; font-weight: bold; border: none; background: #ecf0f1; color: #7f8c8d; cursor: pointer; border-radius: 5px 5px 0 0; transition: background 0.2s; }
         .tab-btn.active { background: white; color: #2c3e50; border-top: 3px solid #3498db; }
@@ -57,6 +54,7 @@
                 <label style="margin-right: 15px; cursor: pointer;"><input type="radio" name="timeMode" value="period" checked onchange="toggleTimeInput()"> 🏫 정규 교시 선택</label>
                 <label style="cursor: pointer;"><input type="radio" name="timeMode" value="custom" onchange="toggleTimeInput()"> ⏰ 시간 직접 입력</label>
             </div>
+
             <div id="periodSelectArea" style="display: flex; gap: 10px;">
                 <select id="periodInput" style="padding: 10px; font-size: 16px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
                     <option value="08:00|08:30">1교시 (08:00 ~ 08:30)</option>
@@ -71,6 +69,7 @@
                     <option value="23:20|23:59">10교시 (23:20 ~ 24:00)</option>
                 </select>
             </div>
+            
             <div id="customTimeArea" style="display: none; gap: 10px; align-items: center;">
                 <input type="time" id="startTimeInput" style="padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
                 <span>~</span>
@@ -105,7 +104,6 @@
             
             <div id="timeTableContainer" style="display: none;">
                 <h4 id="timetableTitle" style="text-align: center; color: #2c3e50; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px;">🌱 나의 실제 공부 궤적 (사후 스케줄링)</h4>
-                
                 <div class="timeline-container" id="timelineVisualsSimple"></div>
                 <div class="timeline-container" id="timelineVisualsTime" style="display: none;"></div>
             </div>
@@ -165,7 +163,6 @@
                 document.getElementById('btnSimpleList').style.display = 'block';
                 document.getElementById('btnTimeList').style.display = 'none';
                 
-                // 타임테이블의 내용과 제목을 '단순(실제 기록)'으로 스위치
                 document.getElementById('timetableTitle').innerHTML = '🌱 나의 실제 공부 궤적 (사후 스케줄링)';
                 document.getElementById('timelineVisualsSimple').style.display = 'block';
                 document.getElementById('timelineVisualsTime').style.display = 'none';
@@ -175,7 +172,6 @@
                 document.getElementById('btnSimpleList').style.display = 'none';
                 document.getElementById('btnTimeList').style.display = 'block';
                 
-                // 타임테이블의 내용과 제목을 '시간표(계획)'로 스위치
                 document.getElementById('timetableTitle').innerHTML = '🏫 나의 계획된 시간표 (정규 스케줄링)';
                 document.getElementById('timelineVisualsSimple').style.display = 'none';
                 document.getElementById('timelineVisualsTime').style.display = 'block';
@@ -201,7 +197,6 @@
             document.getElementById('customTimeArea').style.display = timeMode === 'custom' ? 'flex' : 'none';
         }
 
-        // --- 3. 플래너 데이터 로딩 및 독립 렌더링 ---
         async function fetchTasks() {
             const { data, error } = await supabaseClient.from('planner_tasks').select('*')
                 .eq('seat_number', '105').eq('task_date', today).order('start_time', { ascending: true, nullsFirst: true });
@@ -217,7 +212,6 @@
             timelineSimple.innerHTML = '';
             timelineTime.innerHTML = '';
 
-            // 양쪽 타임테이블에 배경 눈금선 그리기
             for(let i = 8; i <= 24; i++) {
                 const hourStr = String(i).padStart(2, '0') + ':00';
                 const topPos = (i - 8) * 60; 
@@ -226,7 +220,6 @@
                 timelineTime.innerHTML += gridHtml;
             }
 
-            // DB에서 꺼내온 출신 성분(task_mode)으로 데이터 갈라치기! (구버전 데이터는 start_time 유무로 자동 판별)
             const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time));
             const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && task.start_time));
 
@@ -235,7 +228,6 @@
 
             const subjectColors = { '국어': '#e74c3c', '수학': '#3498db', '영어': '#f1c40f', '탐구': '#9b59b6' };
 
-            // 블록을 그려주는 공통 함수
             function renderTask(task, listContainer, timelineContainer) {
                 const isChecked = task.is_completed ? "checked" : "";
                 const textStyle = task.is_completed ? "text-decoration: line-through; color: #999;" : "color: #333;";
@@ -244,8 +236,9 @@
                 const startStr = hasTime ? task.start_time.substring(0, 5) : "";
                 const endStr = hasTime ? task.end_time.substring(0, 5) : "";
                 
-                const subjectSpan = `<span style="display:inline-block; width: 55px; color: ${subjectColors[task.subject] || '#333'}; font-weight: bold;">[${task.subject}]</span>`;
-                const timeSpan = hasTime ? `<span style="display:inline-block; width: 100px; font-weight: bold; color: #3498db;">[${startStr}~${endStr}]</span>` : '';
+                // ★ 해결 포인트: 가로 길이를 더 넉넉하게 키우고, 오른쪽 여백(margin-right)을 추가하여 띄워줍니다! ★
+                const subjectSpan = `<span style="display:inline-block; min-width: 60px; margin-right: 8px; color: ${subjectColors[task.subject] || '#333'}; font-weight: bold;">[${task.subject}]</span>`;
+                const timeSpan = hasTime ? `<span style="display:inline-block; min-width: 115px; margin-right: 8px; font-weight: bold; color: #3498db;">[${startStr}~${endStr}]</span>` : '';
 
                 const savedSec = task.study_seconds || 0;
                 const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
@@ -264,19 +257,17 @@
                     actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db;" onclick="startTask('${task.task_id}', ${savedSec})">${btnText}</button>`;
                 }
 
-                // 리스트 뷰 삽입
                 listContainer.innerHTML += `
                     <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
                         <label style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center; flex-wrap: wrap;">
                             <input type="checkbox" onchange="toggleTask('${task.task_id}', ${task.is_completed})" ${isChecked} style="transform: scale(1.3); margin-right: 15px;">
-                            ${timeSpan} ${subjectSpan} <span style="font-weight: 500;">${task.content}</span>
+                            ${timeSpan} ${subjectSpan} <span style="font-weight: 500; margin-right: 10px;">${task.content}</span>
                             ${timerHtml} ${actionButtonsHtml}
                         </label>
                         <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #ff4d4d; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 16px;">✕</button>
                     </li>
                 `;
 
-                // 타임테이블 뷰 삽입 (시간이 배정된 경우에만)
                 if (hasTime) {
                     const sParts = task.start_time.split(':');
                     const eParts = task.end_time.split(':');
@@ -285,11 +276,12 @@
                     if(endMins < startMins) endMins += 24 * 60; 
 
                     const topPx = startMins - (8 * 60); 
-                    const heightPx = endMins - startMins; 
+                    let heightPx = endMins - startMins; 
+                    if (heightPx < 15) heightPx = 15; 
+
                     const bgColor = subjectColors[task.subject] || '#34495e';
                     const opacity = task.is_completed ? '0.5' : '1.0'; 
 
-                    // ★ 블록 HTML 구조 개선 (말줄임표 및 CSS 적용) ★
                     timelineContainer.innerHTML += `
                         <div class="task-block" style="top: ${topPx}px; height: ${heightPx}px; background-color: ${bgColor}; opacity: ${opacity};">
                             <strong class="task-block-text" style="font-size: 11px;">${startStr} ~ ${endStr}</strong>
@@ -300,12 +292,10 @@
                 }
             }
 
-            // 분리된 도화지에 각각 할당
             simpleTasks.forEach(task => renderTask(task, simpleElement, timelineSimple));
             timeTasks.forEach(task => renderTask(task, timeListElement, timelineTime));
         }
 
-        // --- 개별 실시간 타이머 로직 ---
         async function startTask(taskId, currentSeconds) {
             if (activeTaskId && activeTaskId !== taskId) {
                 alert("현재 다른 과목 공부가 가동 중입니다. 진행 중인 과목을 먼저 [일시정지] 혹은 [종료] 해주세요.");
@@ -340,7 +330,6 @@
             fetchTasks();
         }
 
-        // ★ 사후 스케줄링 (단순 할 일 마감 시 타임테이블로 복제) ★
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (!confirm("해당 계획을 마감하고 타이머를 종료할까요?")) return;
             cancelAnimationFrame(taskAnimationFrameId);
@@ -349,7 +338,6 @@
 
             let updatePayload = { study_seconds: finalSeconds, is_completed: true };
 
-            // 단순 할 일이고 처음 종료하는 경우 (시간을 역추산하여 도장 찍기!)
             if (taskMode === 'simple' && !existingStartTime && finalSeconds > 0) {
                 const currentMs = Date.now();
                 const startMs = currentMs - (finalSeconds * 1000); 
@@ -371,7 +359,6 @@
             fetchTasks();
         }
 
-        // --- 공통 CRUD ---
         async function addTask() {
             let startVal = null, endVal = null;
             if (currentInputMode === 'time') {
@@ -390,7 +377,6 @@
             const contentValue = document.getElementById('contentInput').value;
             if (contentValue === "") return alert("할 일 내용을 입력해주세요!");
 
-            // ★ 저장할 때 'task_mode' 꼬리표 붙여서 DB에 보내기 ★
             const insertData = { 
                 seat_number: '105', task_date: today, 
                 subject: subjectValue, content: contentValue,
@@ -418,7 +404,6 @@
 
         fetchTasks();
 
-        // --- 전역 타이머 기능 (유지) ---
         let animationFrameId, endTime, targetMins, totalDurationMs;
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value);
