@@ -45,17 +45,12 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // 1. 현재 접속한 기기의 시간을 가져옵니다.
-const now = new Date();
-// 2. 기기의 타임존 차이를 없애고 완전한 세계 표준시(UTC)로 만듭니다.
-const utcNow = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
-// 3. 세계 표준시에 정확히 9시간(한국 KST)을 더해줍니다.
-const koreaTime = new Date(utcNow + (9 * 60 * 60 * 1000));
-// 4. "YYYY-MM-DD" 형태로 깔끔하게 잘라냅니다.
-const today = koreaTime.toISOString().split('T')[0];
+        // ★ 1. 공통 대한민국 KST 날짜 고정 ★
+        const now = new Date();
+        const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+        const today = koreaTime.toISOString().split('T')[0];
 
         async function loadStatistics() {
-            // 105번 학생의 '모든' 타이머 기록을 다 가져옵니다 (최근 30일치 분석을 위해)
             const { data: logs, error } = await supabaseClient
                 .from('focus_logs')
                 .select('*')
@@ -66,7 +61,6 @@ const today = koreaTime.toISOString().split('T')[0];
                 return;
             }
 
-            // --- 1. 오늘 치 데이터만 골라내서 상단 차트 그리기 ---
             const todayLogs = (logs || []).filter(log => log.created_at.startsWith(today));
             let todaySeconds = 0, successCount = 0, interruptedCount = 0, stopwatchCount = 0;
 
@@ -90,14 +84,11 @@ const today = koreaTime.toISOString().split('T')[0];
             new ApexCharts(document.querySelector("#chartContainer"), chartOptions).render();
 
 
-            // --- ★ 2. 새로 추가된 30일 잔디 달력 로직 ★ ---
-            
-            // 날짜별로 총 공부 시간을 더해서 정리할 빈 사전(Dictionary) 만들기
+            // --- 2. 새로 추가된 30일 잔디 달력 로직 ---
             const dailyStats = {};
             
-            // 가져온 모든 데이터를 돌면서 날짜별로 초(seconds)를 합산합니다.
             (logs || []).forEach(log => {
-                const dateStr = log.created_at.split('T')[0]; // "2026-05-27" 모양으로 자르기
+                const dateStr = log.created_at.split('T')[0]; 
                 if (!dailyStats[dateStr]) dailyStats[dateStr] = 0;
                 dailyStats[dateStr] += log.actual_seconds;
             });
@@ -105,23 +96,20 @@ const today = koreaTime.toISOString().split('T')[0];
             const grassContainer = document.getElementById('grassCalendar');
             let grassHTML = '';
 
-            // 오늘부터 29일 전까지(총 30일)를 반복하며 네모 상자를 만듭니다.
             for(let i = 29; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                const dateString = d.toISOString().split('T')[0];
+                // ★ 2. 잔디 달력 과거 날짜 구하기 KST 고정 ★
+                // 한국 시간(koreaTime) 기준으로 정확히 i일 치 밀리초(ms)를 빼서 계산합니다.
+                const targetTime = new Date(koreaTime.getTime() - (i * 24 * 60 * 60 * 1000));
+                const dateString = targetTime.toISOString().split('T')[0];
                 
-                // 그 날짜의 공부 시간 (없으면 0)
                 const seconds = dailyStats[dateString] || 0;
                 const minutes = Math.floor(seconds / 60);
                 
-                // 시간에 따른 잔디 색상 결정!
-                let color = '#ebedf0'; // 기본 회색 (0분)
-                if (minutes > 0 && minutes < 60) color = '#c6e48b';       // 1시간 미만 (연두색)
-                else if (minutes >= 60 && minutes < 120) color = '#7bc96f'; // 1~2시간 (녹색)
-                else if (minutes >= 120) color = '#196127';               // 2시간 이상 (진녹색)
+                let color = '#ebedf0';
+                if (minutes > 0 && minutes < 60) color = '#c6e48b';       
+                else if (minutes >= 60 && minutes < 120) color = '#7bc96f'; 
+                else if (minutes >= 120) color = '#196127';               
 
-                // 마우스를 올리면 "날짜: OO분" 이 뜨도록 title 속성 추가
                 grassHTML += `<div title="${dateString} : ${minutes}분 공부함" style="width: 25px; height: 25px; background-color: ${color}; border-radius: 5px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>`;
             }
 
