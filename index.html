@@ -9,8 +9,25 @@
         .timeline-container { position: relative; height: 960px; background: #f8f9fa; border-left: 2px solid #bdc3c7; margin-left: 50px; margin-top: 20px; border-radius: 5px; }
         .time-label { position: absolute; left: -50px; font-size: 12px; color: #7f8c8d; font-weight: bold; transform: translateY(-50%); }
         .timeline-grid { position: absolute; width: 100%; height: 1px; background: #ecf0f1; }
-        .task-block { position: absolute; width: 90%; left: 5%; border-radius: 6px; padding: 5px 10px; color: white; font-size: 13px; box-sizing: border-box; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3); transition: transform 0.2s; }
-        .task-block:hover { transform: scale(1.02); z-index: 10; }
+        
+        /* ★ 시간표 블록 디자인 대폭 업그레이드 ★ */
+        .task-block { 
+            position: absolute; width: 90%; left: 5%; border-radius: 6px; padding: 6px 10px; 
+            color: white; font-size: 13px; box-sizing: border-box; overflow: hidden; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3); 
+            transition: all 0.2s ease;
+            min-height: 38px; /* 공부 시간이 짧아도 텍스트가 안 깨지도록 최소 높이 강제 보장! */
+            display: flex; flex-direction: column; justify-content: center;
+        }
+        /* 마우스를 올리면 내용이 다 보이게 스르륵 커지고 맨 위로 올라옵니다 */
+        .task-block:hover { 
+            transform: scale(1.02); z-index: 100; 
+            height: auto !important; min-height: max-content; box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        /* 글씨가 넘치면 '...' 으로 예쁘게 자르기 */
+        .task-block-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .task-block:hover .task-block-text { white-space: normal; } /* 마우스 올리면 여러 줄로 다 보임 */
+
         .tab-btn { padding: 10px 15px; font-size: 14px; font-weight: bold; border: none; background: #ecf0f1; color: #7f8c8d; cursor: pointer; border-radius: 5px 5px 0 0; transition: background 0.2s; }
         .tab-btn.active { background: white; color: #2c3e50; border-top: 3px solid #3498db; }
         .mode-btn { padding: 8px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
@@ -27,7 +44,6 @@
     </div>
     
     <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
-        
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h3 style="margin: 0; color: #333;">📌 오늘 할 일 추가하기</h3>
             <div style="display: flex; gap: 5px; background: #ecf0f1; padding: 4px; border-radius: 8px;">
@@ -41,7 +57,6 @@
                 <label style="margin-right: 15px; cursor: pointer;"><input type="radio" name="timeMode" value="period" checked onchange="toggleTimeInput()"> 🏫 정규 교시 선택</label>
                 <label style="cursor: pointer;"><input type="radio" name="timeMode" value="custom" onchange="toggleTimeInput()"> ⏰ 시간 직접 입력</label>
             </div>
-
             <div id="periodSelectArea" style="display: flex; gap: 10px;">
                 <select id="periodInput" style="padding: 10px; font-size: 16px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
                     <option value="08:00|08:30">1교시 (08:00 ~ 08:30)</option>
@@ -56,7 +71,6 @@
                     <option value="23:20|23:59">10교시 (23:20 ~ 24:00)</option>
                 </select>
             </div>
-            
             <div id="customTimeArea" style="display: none; gap: 10px; align-items: center;">
                 <input type="time" id="startTimeInput" style="padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
                 <span>~</span>
@@ -73,7 +87,6 @@
             </select>
             <input type="text" id="contentInput" placeholder="✏️ 예: 뉴런 수1 3강 완강" style="flex: 1; padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
         </div>
-        
         <button onclick="addTask()" style="width: 100%; margin-top: 15px; padding: 15px; font-size: 16px; background-color: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
             리스트에 추가하기
         </button>
@@ -89,8 +102,12 @@
         <div style="background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-height: 300px;">
             <ul id="simpleListContainer" style="font-size: 16px; line-height: 1.8; list-style: none; padding-left: 0; margin: 0;"></ul>
             <ul id="timeListContainer" style="display: none; font-size: 16px; line-height: 1.8; list-style: none; padding-left: 0; margin: 0;"></ul>
+            
             <div id="timeTableContainer" style="display: none;">
-                <div class="timeline-container" id="timelineVisuals"></div>
+                <h4 id="timetableTitle" style="text-align: center; color: #2c3e50; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px;">🌱 나의 실제 공부 궤적 (사후 스케줄링)</h4>
+                
+                <div class="timeline-container" id="timelineVisualsSimple"></div>
+                <div class="timeline-container" id="timelineVisualsTime" style="display: none;"></div>
             </div>
         </div>
     </div>
@@ -125,7 +142,7 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // ★ 완벽한 대한민국 KST 날짜 고정 코드 ★
+        // KST 고정
         const now = new Date();
         const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
         const today = koreaTime.toISOString().split('T')[0];
@@ -147,10 +164,22 @@
             if (mode === 'simple') {
                 document.getElementById('btnSimpleList').style.display = 'block';
                 document.getElementById('btnTimeList').style.display = 'none';
+                
+                // 타임테이블의 내용과 제목을 '단순(실제 기록)'으로 스위치
+                document.getElementById('timetableTitle').innerHTML = '🌱 나의 실제 공부 궤적 (사후 스케줄링)';
+                document.getElementById('timelineVisualsSimple').style.display = 'block';
+                document.getElementById('timelineVisualsTime').style.display = 'none';
+                
                 switchOutputView('simpleList');
             } else if (mode === 'time') {
                 document.getElementById('btnSimpleList').style.display = 'none';
                 document.getElementById('btnTimeList').style.display = 'block';
+                
+                // 타임테이블의 내용과 제목을 '시간표(계획)'로 스위치
+                document.getElementById('timetableTitle').innerHTML = '🏫 나의 계획된 시간표 (정규 스케줄링)';
+                document.getElementById('timelineVisualsSimple').style.display = 'none';
+                document.getElementById('timelineVisualsTime').style.display = 'block';
+                
                 switchOutputView('timeList');
             }
         }
@@ -172,39 +201,42 @@
             document.getElementById('customTimeArea').style.display = timeMode === 'custom' ? 'flex' : 'none';
         }
 
-        // 플래너 데이터 로딩 및 렌더링
+        // --- 3. 플래너 데이터 로딩 및 독립 렌더링 ---
         async function fetchTasks() {
             const { data, error } = await supabaseClient.from('planner_tasks').select('*')
                 .eq('seat_number', '105').eq('task_date', today).order('start_time', { ascending: true, nullsFirst: true });
-            
             if (error) { console.error(error); return; }
 
             const simpleElement = document.getElementById('simpleListContainer');
             const timeListElement = document.getElementById('timeListContainer');
-            const timelineElement = document.getElementById('timelineVisuals');
+            const timelineSimple = document.getElementById('timelineVisualsSimple');
+            const timelineTime = document.getElementById('timelineVisualsTime');
             
             simpleElement.innerHTML = ''; 
             timeListElement.innerHTML = '';
-            timelineElement.innerHTML = '';
+            timelineSimple.innerHTML = '';
+            timelineTime.innerHTML = '';
 
+            // 양쪽 타임테이블에 배경 눈금선 그리기
             for(let i = 8; i <= 24; i++) {
                 const hourStr = String(i).padStart(2, '0') + ':00';
                 const topPos = (i - 8) * 60; 
-                timelineElement.innerHTML += `
-                    <div class="time-label" style="top: ${topPos}px;">${hourStr}</div>
-                    <div class="timeline-grid" style="top: ${topPos}px;"></div>
-                `;
+                const gridHtml = `<div class="time-label" style="top: ${topPos}px;">${hourStr}</div><div class="timeline-grid" style="top: ${topPos}px;"></div>`;
+                timelineSimple.innerHTML += gridHtml;
+                timelineTime.innerHTML += gridHtml;
             }
 
-            const simpleTasks = data.filter(task => !task.start_time || !task.end_time);
-            const timeTasks = data.filter(task => task.start_time && task.end_time);
+            // DB에서 꺼내온 출신 성분(task_mode)으로 데이터 갈라치기! (구버전 데이터는 start_time 유무로 자동 판별)
+            const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time));
+            const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && task.start_time));
 
             if (simpleTasks.length === 0) simpleElement.innerHTML = '<li>아직 등록된 단순 할 일이 없습니다.</li>';
             if (timeTasks.length === 0) timeListElement.innerHTML = '<li>아직 등록된 시간표 일과가 없습니다.</li>';
 
             const subjectColors = { '국어': '#e74c3c', '수학': '#3498db', '영어': '#f1c40f', '탐구': '#9b59b6' };
 
-            data.forEach(task => {
+            // 블록을 그려주는 공통 함수
+            function renderTask(task, listContainer, timelineContainer) {
                 const isChecked = task.is_completed ? "checked" : "";
                 const textStyle = task.is_completed ? "text-decoration: line-through; color: #999;" : "color: #333;";
                 
@@ -213,7 +245,7 @@
                 const endStr = hasTime ? task.end_time.substring(0, 5) : "";
                 
                 const subjectSpan = `<span style="display:inline-block; width: 55px; color: ${subjectColors[task.subject] || '#333'}; font-weight: bold;">[${task.subject}]</span>`;
-                const timeSpan = `<span style="display:inline-block; width: 100px; font-weight: bold; color: #3498db;">[${startStr}~${endStr}]</span>`;
+                const timeSpan = hasTime ? `<span style="display:inline-block; width: 100px; font-weight: bold; color: #3498db;">[${startStr}~${endStr}]</span>` : '';
 
                 const savedSec = task.study_seconds || 0;
                 const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
@@ -223,32 +255,29 @@
 
                 let actionButtonsHtml = '';
                 if (activeTaskId === task.task_id) {
-                    // ★ 종료 버튼 클릭 시 현재 작업의 시작 시간 유무를 같이 전달합니다 ★
                     actionButtonsHtml = `
                         <button class="p-btn" style="background-color: #f39c12;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
-                        <button class="p-btn" style="background-color: #e74c3c;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}')">■ 종료</button>
+                        <button class="p-btn" style="background-color: #e74c3c;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${task.task_mode}')">■ 종료</button>
                     `;
                 } else {
                     const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
-                    actionButtonsHtml = `
-                        <button class="p-btn" style="background-color: #3498db;" onclick="startTask('${task.task_id}', ${savedSec})">${btnText}</button>
-                    `;
+                    actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db;" onclick="startTask('${task.task_id}', ${savedSec})">${btnText}</button>`;
                 }
 
-                const contentInnerHtml = `
-                    <label style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center; flex-wrap: wrap;">
-                        <input type="checkbox" onchange="toggleTask('${task.task_id}', ${task.is_completed})" ${isChecked} style="transform: scale(1.3); margin-right: 15px;">
-                        {TIME_PLACEHOLDER} ${subjectSpan} <span style="font-weight: 500;">${task.content}</span>
-                        ${timerHtml} ${actionButtonsHtml}
-                    </label>
-                    <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #ff4d4d; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 16px;">✕</button>
+                // 리스트 뷰 삽입
+                listContainer.innerHTML += `
+                    <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
+                        <label style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center; flex-wrap: wrap;">
+                            <input type="checkbox" onchange="toggleTask('${task.task_id}', ${task.is_completed})" ${isChecked} style="transform: scale(1.3); margin-right: 15px;">
+                            ${timeSpan} ${subjectSpan} <span style="font-weight: 500;">${task.content}</span>
+                            ${timerHtml} ${actionButtonsHtml}
+                        </label>
+                        <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #ff4d4d; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 16px;">✕</button>
+                    </li>
                 `;
 
-                if (!hasTime) {
-                    simpleElement.innerHTML += `<li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">${contentInnerHtml.replace('{TIME_PLACEHOLDER}', '')}</li>`;
-                } else {
-                    timeListElement.innerHTML += `<li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">${contentInnerHtml.replace('{TIME_PLACEHOLDER}', timeSpan)}</li>`;
-
+                // 타임테이블 뷰 삽입 (시간이 배정된 경우에만)
+                if (hasTime) {
                     const sParts = task.start_time.split(':');
                     const eParts = task.end_time.split(':');
                     const startMins = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
@@ -256,24 +285,27 @@
                     if(endMins < startMins) endMins += 24 * 60; 
 
                     const topPx = startMins - (8 * 60); 
-                    let heightPx = endMins - startMins; 
-                    if (heightPx < 15) heightPx = 15; // 타이머를 짧게 잰 경우에도 최소한의 블록 모양이 유지되도록 방어!
-
+                    const heightPx = endMins - startMins; 
                     const bgColor = subjectColors[task.subject] || '#34495e';
                     const opacity = task.is_completed ? '0.5' : '1.0'; 
 
-                    timelineElement.innerHTML += `
+                    // ★ 블록 HTML 구조 개선 (말줄임표 및 CSS 적용) ★
+                    timelineContainer.innerHTML += `
                         <div class="task-block" style="top: ${topPx}px; height: ${heightPx}px; background-color: ${bgColor}; opacity: ${opacity};">
-                            <strong style="display:block; font-size: 11px;">${startStr} ~ ${endStr}</strong>
-                            <b>[${task.subject}]</b> ${task.content}
-                            <div style="font-size: 11px; font-weight: bold; margin-top: 2px; background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px; display: inline-block;">⏱ ${h}:${m}:${s}</div>
+                            <strong class="task-block-text" style="font-size: 11px;">${startStr} ~ ${endStr}</strong>
+                            <div class="task-block-text" style="margin-top: 2px;"><b>[${task.subject}]</b> ${task.content}</div>
+                            <div style="font-size: 11px; font-weight: bold; margin-top: 4px; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px; display: inline-block; width: fit-content;">⏱ ${h}:${m}:${s}</div>
                         </div>
                     `;
                 }
-            });
+            }
+
+            // 분리된 도화지에 각각 할당
+            simpleTasks.forEach(task => renderTask(task, simpleElement, timelineSimple));
+            timeTasks.forEach(task => renderTask(task, timeListElement, timelineTime));
         }
 
-        // 계획별 실시간 타이머 작동 로직
+        // --- 개별 실시간 타이머 로직 ---
         async function startTask(taskId, currentSeconds) {
             if (activeTaskId && activeTaskId !== taskId) {
                 alert("현재 다른 과목 공부가 가동 중입니다. 진행 중인 과목을 먼저 [일시정지] 혹은 [종료] 해주세요.");
@@ -308,46 +340,38 @@
             fetchTasks();
         }
 
-        // ★ 핵심: [■ 종료] 버튼을 눌렀을 때 시간을 역추산하여 부여하는 마법의 로직 ★
-        async function stopTask(taskId, currentSeconds, existingStartTime) {
-            if (!confirm("해당 계획을 마감하고 타이머를 종료할까요? 완료 체크박스가 활성화됩니다.")) return;
-            
+        // ★ 사후 스케줄링 (단순 할 일 마감 시 타임테이블로 복제) ★
+        async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
+            if (!confirm("해당 계획을 마감하고 타이머를 종료할까요?")) return;
             cancelAnimationFrame(taskAnimationFrameId);
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000);
             activeTaskId = null;
 
             let updatePayload = { study_seconds: finalSeconds, is_completed: true };
 
-            // 단순 할 일(시간이 없던 계획)이고, 단 1초라도 공부를 했다면 사후 스케줄링 발동!
-            if (!existingStartTime && finalSeconds > 0) {
+            // 단순 할 일이고 처음 종료하는 경우 (시간을 역추산하여 도장 찍기!)
+            if (taskMode === 'simple' && !existingStartTime && finalSeconds > 0) {
                 const currentMs = Date.now();
-                const startMs = currentMs - (finalSeconds * 1000); // 현재 시간에서 공부한 초만큼 빼기
+                const startMs = currentMs - (finalSeconds * 1000); 
                 
-                // 한국 시간(KST) 문자열 'HH:mm'을 안전하게 뽑아내는 함수
                 function getKstTimeStr(ms) {
                     const d = new Date(ms);
                     const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
                     const kst = new Date(utc + (9 * 60 * 60 * 1000));
-                    const hh = String(kst.getHours()).padStart(2, '0');
-                    const mm = String(kst.getMinutes()).padStart(2, '0');
-                    return `${hh}:${mm}`;
+                    return `${String(kst.getHours()).padStart(2, '0')}:${String(kst.getMinutes()).padStart(2, '0')}`;
                 }
-
                 updatePayload.start_time = getKstTimeStr(startMs);
                 updatePayload.end_time = getKstTimeStr(currentMs);
-                
-                alert(`공부하신 ${Math.floor(finalSeconds/60)}분 ${finalSeconds%60}초의 시간만큼 타임테이블에 [${updatePayload.start_time} ~ ${updatePayload.end_time}] 블록이 자동 생성되었습니다!`);
+                alert(`공부하신 시간만큼 타임테이블에 [${updatePayload.start_time} ~ ${updatePayload.end_time}] 실제 궤적이 추가되었습니다!`);
             } else {
-                alert("수고하셨습니다! 학습 시간 기록 및 마감이 완료되었습니다.");
+                alert("수고하셨습니다! 마감 처리되었습니다.");
             }
 
             await supabaseClient.from('planner_tasks').update(updatePayload).eq('task_id', taskId);
-            
-            // fetchTasks가 실행되면서 시간이 부여된 계획은 자연스럽게 "단순 리스트"를 졸업하고 "타임테이블"로 이동합니다.
             fetchTasks();
         }
 
-        // 기존 플래너 CRUD 기능들
+        // --- 공통 CRUD ---
         async function addTask() {
             let startVal = null, endVal = null;
             if (currentInputMode === 'time') {
@@ -366,7 +390,12 @@
             const contentValue = document.getElementById('contentInput').value;
             if (contentValue === "") return alert("할 일 내용을 입력해주세요!");
 
-            const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue };
+            // ★ 저장할 때 'task_mode' 꼬리표 붙여서 DB에 보내기 ★
+            const insertData = { 
+                seat_number: '105', task_date: today, 
+                subject: subjectValue, content: contentValue,
+                task_mode: currentInputMode 
+            };
             if (currentInputMode === 'time') {
                 insertData.start_time = startVal;
                 insertData.end_time = endVal;
@@ -389,7 +418,7 @@
 
         fetchTasks();
 
-        // 전역 메인 타이머 & 스톱워치 로직
+        // --- 전역 타이머 기능 (유지) ---
         let animationFrameId, endTime, targetMins, totalDurationMs;
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value);
