@@ -140,7 +140,6 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // KST 고정
         const now = new Date();
         const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
         const today = koreaTime.toISOString().split('T')[0];
@@ -162,20 +161,16 @@
             if (mode === 'simple') {
                 document.getElementById('btnSimpleList').style.display = 'block';
                 document.getElementById('btnTimeList').style.display = 'none';
-                
                 document.getElementById('timetableTitle').innerHTML = '🌱 나의 실제 공부 궤적 (사후 스케줄링)';
                 document.getElementById('timelineVisualsSimple').style.display = 'block';
                 document.getElementById('timelineVisualsTime').style.display = 'none';
-                
                 switchOutputView('simpleList');
             } else if (mode === 'time') {
                 document.getElementById('btnSimpleList').style.display = 'none';
                 document.getElementById('btnTimeList').style.display = 'block';
-                
                 document.getElementById('timetableTitle').innerHTML = '🏫 나의 계획된 시간표 (정규 스케줄링)';
                 document.getElementById('timelineVisualsSimple').style.display = 'none';
                 document.getElementById('timelineVisualsTime').style.display = 'block';
-                
                 switchOutputView('timeList');
             }
         }
@@ -220,8 +215,8 @@
                 timelineTime.innerHTML += gridHtml;
             }
 
-            const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time));
-            const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && task.start_time));
+            const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time && !task.end_time));
+            const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && (task.start_time || task.end_time)));
 
             if (simpleTasks.length === 0) simpleElement.innerHTML = '<li>아직 등록된 단순 할 일이 없습니다.</li>';
             if (timeTasks.length === 0) timeListElement.innerHTML = '<li>아직 등록된 시간표 일과가 없습니다.</li>';
@@ -236,7 +231,9 @@
                 const startStr = hasTime ? task.start_time.substring(0, 5) : "";
                 const endStr = hasTime ? task.end_time.substring(0, 5) : "";
                 
-                // ★ 해결 포인트: 가로 길이를 더 넉넉하게 키우고, 오른쪽 여백(margin-right)을 추가하여 띄워줍니다! ★
+                // 모드 강제 할당 (구버전 호환용)
+                const taskMode = task.task_mode || (!task.start_time && !task.end_time ? 'simple' : 'time');
+
                 const subjectSpan = `<span style="display:inline-block; min-width: 60px; margin-right: 8px; color: ${subjectColors[task.subject] || '#333'}; font-weight: bold;">[${task.subject}]</span>`;
                 const timeSpan = hasTime ? `<span style="display:inline-block; min-width: 115px; margin-right: 8px; font-weight: bold; color: #3498db;">[${startStr}~${endStr}]</span>` : '';
 
@@ -250,13 +247,14 @@
                 if (activeTaskId === task.task_id) {
                     actionButtonsHtml = `
                         <button class="p-btn" style="background-color: #f39c12;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
-                        <button class="p-btn" style="background-color: #e74c3c;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${task.task_mode}')">■ 종료</button>
+                        <button class="p-btn" style="background-color: #e74c3c;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 종료</button>
                     `;
                 } else {
                     const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
-                    actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db;" onclick="startTask('${task.task_id}', ${savedSec})">${btnText}</button>`;
+                    actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
                 }
 
+                // ★ 단순 리스트 요소가 시간이 생기더라도 제자리를 지킬 수 있게 listContainer를 재활용합니다 ★
                 listContainer.innerHTML += `
                     <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
                         <label style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center; flex-wrap: wrap;">
@@ -286,7 +284,7 @@
                         <div class="task-block" style="top: ${topPx}px; height: ${heightPx}px; background-color: ${bgColor}; opacity: ${opacity};">
                             <strong class="task-block-text" style="font-size: 11px;">${startStr} ~ ${endStr}</strong>
                             <div class="task-block-text" style="margin-top: 2px;"><b>[${task.subject}]</b> ${task.content}</div>
-                            <div style="font-size: 11px; font-weight: bold; margin-top: 4px; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px; display: inline-block; width: fit-content;">⏱ ${h}:${m}:${s}</div>
+                            <div style="font-size: 11px; font-weight: bold; margin-top: 4px; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px; display: inline-block; width: fit-content;">순공 ⏱ ${h}:${m}:${s}</div>
                         </div>
                     `;
                 }
@@ -296,7 +294,8 @@
             timeTasks.forEach(task => renderTask(task, timeListElement, timelineTime));
         }
 
-        async function startTask(taskId, currentSeconds) {
+        // --- ★ 시작할 때: 최초 1회에 한해 현재 시간(start_time) 기록하기 ★ ---
+        async function startTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (activeTaskId && activeTaskId !== taskId) {
                 alert("현재 다른 과목 공부가 가동 중입니다. 진행 중인 과목을 먼저 [일시정지] 혹은 [종료] 해주세요.");
                 return; 
@@ -304,6 +303,19 @@
             activeTaskId = taskId;
             taskStartTime = Date.now();
             taskAccumulatedMs = currentSeconds * 1000;
+
+            // 단순 할 일 모드이고, 난생처음 [시작] 버튼을 눌렀다면 지금 이 순간을 DB에 박제!
+            if (taskMode === 'simple' && !existingStartTime) {
+                function getKstTimeStr(ms) {
+                    const d = new Date(ms);
+                    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+                    const kst = new Date(utc + (9 * 60 * 60 * 1000));
+                    return `${String(kst.getHours()).padStart(2, '0')}:${String(kst.getMinutes()).padStart(2, '0')}`;
+                }
+                const startStr = getKstTimeStr(taskStartTime);
+                await supabaseClient.from('planner_tasks').update({ start_time: startStr }).eq('task_id', taskId);
+            }
+
             await fetchTasks();
             updateTaskTimerLoop();
         }
@@ -330,6 +342,7 @@
             fetchTasks();
         }
 
+        // --- ★ 종료할 때: 최종 시간(end_time)을 찍어 거대한 블록 완성하기 ★ ---
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (!confirm("해당 계획을 마감하고 타이머를 종료할까요?")) return;
             cancelAnimationFrame(taskAnimationFrameId);
@@ -338,19 +351,18 @@
 
             let updatePayload = { study_seconds: finalSeconds, is_completed: true };
 
-            if (taskMode === 'simple' && !existingStartTime && finalSeconds > 0) {
-                const currentMs = Date.now();
-                const startMs = currentMs - (finalSeconds * 1000); 
-                
+            if (taskMode === 'simple') {
                 function getKstTimeStr(ms) {
                     const d = new Date(ms);
                     const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
                     const kst = new Date(utc + (9 * 60 * 60 * 1000));
                     return `${String(kst.getHours()).padStart(2, '0')}:${String(kst.getMinutes()).padStart(2, '0')}`;
                 }
-                updatePayload.start_time = getKstTimeStr(startMs);
-                updatePayload.end_time = getKstTimeStr(currentMs);
-                alert(`공부하신 시간만큼 타임테이블에 [${updatePayload.start_time} ~ ${updatePayload.end_time}] 실제 궤적이 추가되었습니다!`);
+                
+                // 종료 시간은 현재 마감 버튼을 누른 KST 시간으로 무조건 덮어쓰기
+                updatePayload.end_time = getKstTimeStr(Date.now());
+                
+                alert(`최초 시작 시간부터 방금 종료한 시간까지의 거대한 범위 블록이 생성되었습니다! (내부 텍스트로 순수 집중 시간 표시됨)`);
             } else {
                 alert("수고하셨습니다! 마감 처리되었습니다.");
             }
