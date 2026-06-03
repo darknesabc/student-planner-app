@@ -133,7 +133,7 @@
     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 300px; background: #2c3e50; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
             <h3 style="margin-top: 0; color: #ecf0f1;">🔥 집중 모드 (역산)</h3>
-            <div style="margin-bottom: 20px;">목표: <input type="number" id="targetMinutes" value="120" style="width: 60px; padding: 5px; font-size: 16px; text-align: center;"> 분</div>
+            <div style="margin-bottom: 20px;">목표: <input type="number" id="targetMinutes" value="" style="width: 60px; padding: 5px; font-size: 16px; text-align: center;"> 분</div>
             <div id="timerDisplay" style="font-size: 50px; font-weight: bold; margin-bottom: 10px; font-family: monospace;">02:00:00</div>
             <div style="width: 100%; height: 8px; background-color: #1a252f; border-radius: 4px; margin-bottom: 25px; overflow: hidden;">
                 <div id="progressFill" style="width: 100%; height: 100%; background-color: #2ecc71; transition: width 0.1s linear, background-color 0.5s ease;"></div>
@@ -172,7 +172,6 @@
         let taskAccumulatedMs = 0;      
         let taskAnimationFrameId;       
         
-        // 수정 관련 상태 추적용 글로벌 변수
         let editTaskId = null;
 
         function switchInputMode(mode) {
@@ -314,10 +313,8 @@
                     actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db; margin-right: 15px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
                 }
 
-                // 문자열 깨짐 방지를 위한 이스케이프 처리
                 const escapedContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-                // ★ [수정 버튼 ✏️]을 추가하고 삭제 버튼과의 완충지대로 삼아 UX를 설계했습니다 ★
                 listContainer.innerHTML += `
                     <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
                         <button class="status-btn" onclick="toggleTaskStatus('${task.task_id}', '${currentStatus}')">
@@ -397,7 +394,6 @@
             updateCurrentTimeLine();
         }
 
-        // ★ 수정 모드 활성화 및 데이터 주입 함수 ★
         function prepareEditTask(taskId, subject, content, taskMode, startTime, endTime) {
             editTaskId = taskId;
             document.getElementById('subjectInput').value = subject;
@@ -413,20 +409,16 @@
                 switchInputMode('simple');
             }
             
-            // 등록 버튼 변경
             const mainBtn = document.getElementById('addBtn');
             mainBtn.innerText = "✏️ 계획 수정 완료하기";
             mainBtn.style.backgroundColor = "#3498db";
             
-            // 수정 취소 버튼 추가
             const cancelArea = document.getElementById('cancelEditArea');
             cancelArea.innerHTML = `<button id="cancelEditBtn" onclick="cancelEdit()" style="width: 100%; margin-top: 5px; padding: 10px; font-size: 14px; background-color: #7f8c8d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">수정 취소</button>`;
             
-            // 입력 필드로 스크롤 이동 및 포커싱
             document.getElementById('contentInput').focus();
         }
 
-        // ★ 수정 취소 및 원래 상태로 리셋하는 함수 ★
         function cancelEdit() {
             editTaskId = null;
             document.getElementById('contentInput').value = "";
@@ -471,14 +463,26 @@
             } catch (err) { console.error("Unknown Error:", err); alert("알 수 없는 오류가 발생했습니다."); }
         }
 
+        // ★ 동기화 마법 1: 과목 학습 시작 시 아래 순공 측정용 스톱워치 원클릭 자동 실행 ★
         async function startTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (activeTaskId && activeTaskId !== taskId) { alert("현재 다른 과목 공부가 가동 중입니다. 진행 중인 과목을 먼저 [일시정지] 혹은 [종료] 해주세요."); return; }
-            activeTaskId = taskId; taskStartTime = Date.now(); taskAccumulatedMs = currentSeconds * 1000;
+            
+            activeTaskId = taskId; 
+            taskStartTime = Date.now(); 
+            taskAccumulatedMs = currentSeconds * 1000;
+            
             if (taskMode === 'simple' && !existingStartTime) {
                 function getKstTimeStr(ms) { const d = new Date(ms); const utc = d.getTime() + (d.getTimezoneOffset() * 60000); const kst = new Date(utc + (9 * 60 * 60 * 1000)); return `${String(kst.getHours()).padStart(2, '0')}:${String(kst.getMinutes()).padStart(2, '0')}`; }
                 await supabaseClient.from('planner_tasks').update({ start_time: getKstTimeStr(taskStartTime) }).eq('task_id', taskId);
             }
-            await fetchTasks(); updateTaskTimerLoop();
+            
+            // 핵심: 총 순공 측정 스톱워치가 아직 켜져 있지 않다면 자동으로 실행시킵니다!
+            if (!isSwRunning) {
+                forceStartStopwatch();
+            }
+
+            await fetchTasks(); 
+            updateTaskTimerLoop();
         }
 
         function updateTaskTimerLoop() {
@@ -492,14 +496,33 @@
             taskAnimationFrameId = requestAnimationFrame(updateTaskTimerLoop);
         }
 
+        // ★ 동기화 마법 2: 과목 학습 일시정지 시 아래 총 순공 측정 스톱워치 자동 일시정지 ★
         async function pauseTask(taskId, currentSeconds) {
-            cancelAnimationFrame(taskAnimationFrameId); const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); activeTaskId = null;
-            await supabaseClient.from('planner_tasks').update({ study_seconds: finalSeconds }).eq('task_id', taskId); fetchTasks();
+            cancelAnimationFrame(taskAnimationFrameId); 
+            const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
+            activeTaskId = null;
+            
+            // 핵심: 총 순공 측정 스톱워치도 연동하여 자동 일시정지시킵니다!
+            if (isSwRunning) {
+                pauseStopwatch();
+            }
+
+            await supabaseClient.from('planner_tasks').update({ study_seconds: finalSeconds }).eq('task_id', taskId); 
+            fetchTasks();
         }
 
+        // ★ 동기화 마법 3: 과목 학습 최종 마감 종료 시 아래 총 순공 측정 스톱워치 자동 일시정지 ★
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (!confirm("해당 계획을 마감하고 타이머를 종료할까요?")) return;
-            cancelAnimationFrame(taskAnimationFrameId); const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); activeTaskId = null;
+            cancelAnimationFrame(taskAnimationFrameId); 
+            const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
+            activeTaskId = null;
+            
+            // 핵심: 하나의 학습이 종료되면 총 순공 측정도 일단 멈춤 상태(일시정지)로 대기시킵니다!
+            if (isSwRunning) {
+                pauseStopwatch();
+            }
+
             let updatePayload = { study_seconds: finalSeconds, completion_status: 'DONE', is_completed: true };
 
             if (taskMode === 'simple') {
@@ -513,7 +536,6 @@
             fetchTasks();
         }
 
-        // ★ 추가 기능과 수정 기능을 분기 처리하도록 업그레이드 ★
         async function addTask() {
             let startVal = null, endVal = null;
             if (currentInputMode === 'time') {
@@ -525,7 +547,6 @@
             if (contentValue === "") return alert("할 일 내용을 입력해주세요!");
 
             if (editTaskId) {
-                // 1. [수정 모드] 처리
                 let updateData = { subject: subjectValue, content: contentValue, task_mode: currentInputMode };
                 if (currentInputMode === 'time') { updateData.start_time = startVal; updateData.end_time = endVal; }
                 
@@ -533,7 +554,6 @@
                 if (error) { alert("계획 수정 실패: " + error.message); }
                 else { cancelEdit(); fetchTasks(); }
             } else {
-                // 2. [신규 추가 모드] 처리
                 const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode, completion_status: 'NONE' };
                 if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
                 
@@ -571,12 +591,33 @@
             if(status === 'SUCCESS') alert("목표 달성!"); await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
         }
 
+        // ★ 스톱워치 원격 제어 및 동기화 핵심 함수들 ★
         let swAnimationFrameId, swStartTime = 0, accumulatedMs = 0, isSwRunning = false;
+        
         function toggleStopwatch() {
-            if (!isSwRunning) { swStartTime = Date.now(); isSwRunning = true; document.getElementById('swStartBtn').style.display = 'none'; document.getElementById('swPauseBtn').style.display = 'inline-block'; document.getElementById('swStopBtn').style.display = 'inline-block'; updateStopwatchUI(); }
+            if (!isSwRunning) { forceStartStopwatch(); }
         }
+        
+        // 개별 리스트 연동용 강제 스톱워치 구동 함수
+        function forceStartStopwatch() {
+            swStartTime = Date.now(); 
+            isSwRunning = true;
+            document.getElementById('swStartBtn').style.display = 'none'; 
+            document.getElementById('swPauseBtn').style.display = 'inline-block'; 
+            document.getElementById('swStopBtn').style.display = 'inline-block'; 
+            updateStopwatchUI();
+        }
+
         function pauseStopwatch() {
-            if (isSwRunning) { accumulatedMs += (Date.now() - swStartTime); isSwRunning = false; cancelAnimationFrame(swAnimationFrameId); document.getElementById('swStartBtn').innerText = '이어서 하기'; document.getElementById('swStartBtn').style.display = 'inline-block'; document.getElementById('swStartBtn').style.backgroundColor = "#27ae60"; document.getElementById('swPauseBtn').style.display = 'none'; }
+            if (isSwRunning) {
+                accumulatedMs += (Date.now() - swStartTime); 
+                isSwRunning = false; 
+                cancelAnimationFrame(swAnimationFrameId); 
+                document.getElementById('swStartBtn').innerText = '이어서 하기'; 
+                document.getElementById('swStartBtn').style.display = 'inline-block';
+                document.getElementById('swStartBtn').style.backgroundColor = "#27ae60"; 
+                document.getElementById('swPauseBtn').style.display = 'none';
+            }
         }
         function updateStopwatchUI() {
             if (!isSwRunning) return; const elapsedSec = Math.floor((accumulatedMs + (Date.now() - swStartTime)) / 1000); const h = String(Math.floor(elapsedSec / 3600)).padStart(2, '0'); const m = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0'); const s = String(elapsedSec % 60).padStart(2, '0');
