@@ -6,15 +6,12 @@
     <title>학생 플래너 MVP</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* 세로 24시간 도화지 */
         .timeline-container { position: relative; height: 1440px; background: #fdfdfd; border-left: 2px solid #bdc3c7; margin-left: 50px; margin-top: 5px; border-radius: 0 0 5px 5px; }
         .time-label { position: absolute; left: -50px; font-size: 12px; color: #7f8c8d; font-weight: bold; transform: translateY(-50%); width: 50px; text-align: center; }
         .timeline-grid { position: absolute; width: 100%; height: 1px; background: #ecf0f1; z-index: 2; }
         
-        /* 10분 단위 세로 눈금선 */
         .vertical-grid-line { position: absolute; height: 100%; width: 1px; background: transparent; z-index: 1; border-left: 1px dashed #dfe6e9; }
         
-        /* ★ 텐미닛 조각 블록 디자인 (1번 이미지의 디테일 텍스트 형태 적용) ★ */
         .task-block { 
             position: absolute; border-radius: 4px; padding: 4px 8px; 
             color: white; box-sizing: border-box; overflow: hidden; 
@@ -34,7 +31,6 @@
         .mode-btn.inactive { background: transparent; color: #7f8c8d; }
         .p-btn { padding: 4px 8px; font-size: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; margin-left: 4px; }
         
-        /* 전체 화면을 관통하는 1D 형태의 현재 시간 레드 라인 */
         .current-time-line { position: absolute; width: 100%; height: 2px; background-color: #e74c3c; z-index: 50; pointer-events: none; transition: top 1s linear; }
         .current-time-line::before { content: '현재'; position: absolute; left: -42px; top: -8px; background-color: #e74c3c; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 4px; }
     </style>
@@ -111,7 +107,6 @@
             <div id="timeTableContainer" style="display: none;">
                 <h4 id="timetableTitle" style="text-align: center; color: #2c3e50; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px;">🌱 나의 실제 공부 궤적 (사후 스케줄링)</h4>
                 
-                <!-- 텐미닛 가로(분 단위) 헤더 -->
                 <div style="display: flex; margin-left: 50px; padding-right: 15px; color: #95a5a6; font-size: 11px; font-weight: bold; position: relative;">
                     <div style="width: 16.66%; text-align: left;">0분</div>
                     <div style="width: 16.66%; text-align: left;">10분</div>
@@ -130,7 +125,7 @@
         </div>
     </div>
 
-    <!-- 3. 타이머 & 스톱워치 영역 -->
+    <!-- 타이머 & 스톱워치 영역 -->
     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 300px; background: #2c3e50; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
             <h3 style="margin-top: 0; color: #ecf0f1;">🔥 집중 모드 (역산)</h3>
@@ -308,7 +303,7 @@
                     </li>
                 `;
 
-                // ★ 텐미닛 가로 분할 로직 + 1번 이미지 디테일 텍스트 구조 결합 ★
+                // ★ 스마트 텍스트 배치 로직이 추가된 텐미닛 가로 분할 ★
                 if (hasTime) {
                     const sParts = task.start_time.split(':');
                     const eParts = task.end_time.split(':');
@@ -322,35 +317,62 @@
                     const startHour = Math.floor(startMinsTotal / 60);
                     const endHour = Math.floor((endMinsTotal - 1) / 60); 
 
+                    // 1. 블록 조각(Segment)들을 먼저 계산하여 배열에 담습니다.
+                    let segments = [];
                     for(let hr = startHour; hr <= endHour; hr++) {
-                        const topPx = hr * 60; 
                         const segStart = Math.max(startMinsTotal, hr * 60);
                         const segEnd = Math.min(endMinsTotal, (hr + 1) * 60);
-                        
                         if (segStart < segEnd) {
-                            const leftPct = ((segStart % 60) / 60) * 100;
-                            const widthPct = ((segEnd - segStart) / 60) * 100;
-                            
-                            const tooltip = `[${task.subject}] ${startStr}~${endStr}\n${task.content}\n순공 ⏱ ${h}:${m}:${s}`;
-                            
-                            // 1번 이미지(디테일 정보)와 똑같이 맞춘 내부 HTML
+                            segments.push({ 
+                                hr: hr, 
+                                start: segStart, 
+                                end: segEnd, 
+                                widthPct: ((segEnd - segStart) / 60) * 100 
+                            });
+                        }
+                    }
+
+                    // 2. 글씨를 표시할 '메인 블록'을 찾습니다. (기본은 첫 번째 조각)
+                    // 만약 첫 번째 조각이 너무 작다면(예: 15% 미만), 다음 조각 중 충분히 큰 것을 찾습니다.
+                    let mainTextIndex = 0; 
+                    for(let i = 0; i < segments.length; i++) {
+                        if (segments[i].widthPct >= 15) {
+                            mainTextIndex = i;
+                            break;
+                        }
+                    }
+
+                    // 3. 조각들을 실제로 화면에 그립니다.
+                    segments.forEach((seg, index) => {
+                        const topPx = seg.hr * 60; 
+                        const leftPct = ((seg.start % 60) / 60) * 100;
+                        const tooltip = `[${task.subject}] ${startStr}~${endStr}\n${task.content}\n순공 ⏱ ${h}:${m}:${s}`;
+                        
+                        let finalInnerHtml = '';
+                        
+                        // 이 조각이 메인 텍스트를 표시해야 하는 조각이라면?
+                        if (index === mainTextIndex) {
                             const blockContentHtml = `
                                 <div class="task-block-text" style="font-size: 10px; color: rgba(255,255,255,0.9);">${startStr} ~ ${endStr}</div>
                                 <div class="task-block-text" style="margin-top: 2px; font-size: 12px;"><b>[${task.subject}]</b> ${task.content}</div>
                                 <div class="task-block-text" style="font-size: 10px; font-weight: bold; margin-top: 4px; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px; display: inline-block; width: fit-content;">순공 ⏱ ${h}:${m}:${s}</div>
                             `;
-
-                            // 만약 블록 넓이가 12% (약 7분) 이상이면 디테일 텍스트를 보여주고, 너무 좁으면 과목명만 작게 보여줌.
-                            const finalInnerHtml = widthPct > 12 ? blockContentHtml : `<div class="task-block-text" style="font-size: 11px;"><b>[${task.subject}]</b></div>`;
-
-                            timelineContainer.innerHTML += `
-                                <div class="task-block" title="${tooltip}" 
-                                     style="top: ${topPx + 4}px; height: 52px; left: ${leftPct}%; width: ${widthPct}%; background-color: ${bgColor}; opacity: ${opacity};">
-                                    ${finalInnerHtml}
-                                </div>
-                            `;
+                            
+                            // 넓이가 15% (약 9분) 이상이면 디테일 표시, 8% 이상이면 과목명만 작게 표시
+                            if (seg.widthPct >= 15) {
+                                finalInnerHtml = blockContentHtml;
+                            } else if (seg.widthPct >= 8) {
+                                finalInnerHtml = `<div class="task-block-text" style="font-size: 11px;"><b>[${task.subject}]</b></div>`;
+                            }
                         }
-                    }
+
+                        timelineContainer.innerHTML += `
+                            <div class="task-block" title="${tooltip}" 
+                                 style="top: ${topPx + 4}px; height: 52px; left: ${leftPct}%; width: ${seg.widthPct}%; background-color: ${bgColor}; opacity: ${opacity};">
+                                ${finalInnerHtml}
+                            </div>
+                        `;
+                    });
                 }
             }
 
@@ -360,7 +382,6 @@
             updateCurrentTimeLine();
         }
 
-        // 전체 화면 가로 100%를 관통하는 현재 시간 레드 라인
         function updateCurrentTimeLine() {
             const rawNow = new Date();
             const utc = rawNow.getTime() + (rawNow.getTimezoneOffset() * 60000);
