@@ -18,6 +18,7 @@
             margin: 0 auto;
         }
 
+        /* 반응형(Responsive) 레이아웃 시스템 */
         .header-container { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding: 0 4px; flex-wrap: wrap; gap: 16px; }
         .main-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
         .sticky-sidebar { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 20px; }
@@ -64,8 +65,14 @@
         .mode-btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s; }
         .mode-btn.active { background: white; color: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .mode-btn.inactive { background: transparent; color: #64748b; }
+        
         .p-btn { padding: 6px 12px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; background-color: #f8fafc; color: #3b82f6; margin-left: 6px; transition: all 0.2s; white-space: nowrap; }
         .p-btn:hover { background-color: #3b82f6; color: white; border-color: #3b82f6; transform: translateY(-1px); }
+        
+        /* 완료된 항목의 버튼을 시각적으로 비활성화(De-emphasized)하는 스타일 추가 */
+        .p-btn.disabled-style { background-color: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; cursor: not-allowed; }
+        .p-btn.disabled-style:hover { background-color: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; transform: none; }
+
         .task-item { margin-bottom: 14px; display: flex; align-items: center; background: #f8fafc; padding: 12px 18px; border-radius: 12px; border: 1px solid #f1f5f9; transition: all 0.2s; box-sizing: border-box; }
         .task-item:hover { background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-color: #e2e8f0; }
         .status-btn { background: none; border: none; cursor: pointer; padding: 0; margin-right: 14px; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; outline: none; flex-shrink: 0; }
@@ -146,7 +153,6 @@
                 <div id="cancelEditArea"></div>
             </div>
 
-            <!-- 달성률 컴포넌트 -->
             <div class="achievement-box">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span id="achievementText" style="font-size: 14px; font-weight: 700; color: #334155;">오늘의 목표 달성률 0% (0/0)</span>
@@ -344,22 +350,17 @@
                 .eq('seat_number', '105').eq('task_date', today).order('start_time', { ascending: true, nullsFirst: true });
             if (error) { console.error(error); return; }
 
-            // ★ 달성률 계산 엔진 수정 (가중치 적용: 완료=1.0, 세모=0.5) ★
             const totalCount = data.length;
             let achievedScore = 0;
             
             data.forEach(task => {
                 const status = task.completion_status || (task.is_completed ? 'DONE' : 'NONE');
-                if (status === 'DONE') {
-                    achievedScore += 1;
-                } else if (status === 'PARTIAL') {
-                    achievedScore += 0.5; // 세모는 50%의 점수를 부여!
-                }
+                if (status === 'DONE') achievedScore += 1;
+                else if (status === 'PARTIAL') achievedScore += 0.5;
             });
 
             const percentage = totalCount > 0 ? Math.round((achievedScore / totalCount) * 100) : 0;
             
-            // 소수점 처리 (예: 6.5 / 7)
             document.getElementById('achievementText').innerText = `오늘의 목표 달성률 ${percentage}% (${achievedScore}/${totalCount})`;
             document.getElementById('achievementFill').style.width = `${percentage}%`;
             
@@ -457,7 +458,9 @@
                     `;
                 } else {
                     const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
-                    actionButtonsHtml = `<button class="p-btn" style="margin-right: 12px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
+                    // ★ 디테일: 완료된 항목은 클래스명에 disabled-style을 추가하여 시각적으로 회색으로 죽여 놓습니다 ★
+                    const disabledClass = (currentStatus === 'DONE') ? 'disabled-style' : '';
+                    actionButtonsHtml = `<button class="p-btn ${disabledClass}" style="margin-right: 12px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}', '${currentStatus}')">${btnText}</button>`;
                 }
 
                 const escapedContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -615,7 +618,13 @@
             } catch (err) { console.error("Unknown Error:", err); alert("알 수 없는 오류가 발생했습니다."); }
         }
 
-        async function startTask(taskId, currentSeconds, existingStartTime, taskMode) {
+        /* ★ [대안 1 핵심 이식] 완료 항목의 학습 재개 원천 차단 기능 구현 ★ */
+        async function startTask(taskId, currentSeconds, existingStartTime, taskMode, currentStatus) {
+            if (currentStatus === 'DONE') {
+                alert("📢 이미 완료(✓) 도장이 찍힌 계획입니다!\n\n오전과 오후의 학습 세션은 각각 분리하여 기록하는 것이 타임테이블 궤적 관리에 정확합니다.\n\n해당 과목을 이어서 더 공부하고 싶다면, 리스트 왼쪽의 체크 서클을 클릭해 미완료 상태로 되돌리거나 상단 입력창에서 새 할 일을 추가해 주세요!");
+                return;
+            }
+            
             if (activeTaskId && activeTaskId !== taskId) { alert("현재 다른 과목 공부가 가동 중입니다. 진행 중인 과목을 먼저 [일시정지] 혹은 [종료] 해주세요."); return; }
             
             activeTaskId = taskId; 
