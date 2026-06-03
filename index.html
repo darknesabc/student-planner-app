@@ -6,7 +6,6 @@
     <title>학생 플래너 MVP</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* ★ 높이를 24시간(1440px)으로 확장했습니다! ★ */
         .timeline-container { position: relative; height: 1440px; background: #f8f9fa; border-left: 2px solid #bdc3c7; margin-left: 50px; margin-top: 20px; border-radius: 5px; }
         .time-label { position: absolute; left: -50px; font-size: 12px; color: #7f8c8d; font-weight: bold; transform: translateY(-50%); }
         .timeline-grid { position: absolute; width: 100%; height: 1px; background: #ecf0f1; }
@@ -33,7 +32,6 @@
         .mode-btn.inactive { background: transparent; color: #7f8c8d; }
         .p-btn { padding: 4px 8px; font-size: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; margin-left: 4px; }
         
-        /* ★ 현재 시간 지시선(레드 라인) 디자인 ★ */
         .current-time-line {
             position: absolute; width: 100%; height: 2px; background-color: #e74c3c; z-index: 50; pointer-events: none; transition: top 1s linear;
         }
@@ -122,6 +120,7 @@
         </div>
     </div>
 
+    <!-- 3. 타이머 & 스톱워치 영역 -->
     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 300px; background: #2c3e50; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
             <h3 style="margin-top: 0; color: #ecf0f1;">🔥 집중 모드 (역산)</h3>
@@ -197,17 +196,19 @@
             document.getElementById('timeListContainer').style.display = view === 'timeList' ? 'block' : 'none';
             document.getElementById('timeTableContainer').style.display = view === 'timeTable' ? 'block' : 'none';
 
-            // ★ 스마트 자동 스크롤 로직 ★
             if (view === 'timeTable') {
                 setTimeout(() => {
                     const wrapper = document.getElementById('timelineScrollWrapper');
                     if (wrapper) {
-                        const kstNow = new Date(new Date().getTime() + (9 * 60 * 60 * 1000));
+                        // ★ 버그 수정: 이중 덧셈을 제거하고 기기의 타임존 영향을 제거한 안전한 KST 계산법 ★
+                        const rawNow = new Date();
+                        const utc = rawNow.getTime() + (rawNow.getTimezoneOffset() * 60000);
+                        const kstNow = new Date(utc + (9 * 60 * 60 * 1000));
+                        
                         const currentMins = (kstNow.getHours() * 60) + kstNow.getMinutes();
-                        // 현재 시간 위치에서 약간 위(120px = 2시간)로 여유 공간을 두고 포커싱
                         wrapper.scrollTop = Math.max(0, currentMins - 120);
                     }
-                }, 50); // 화면이 켜지고 렌더링될 약간의 딜레이
+                }, 50); 
             }
         }
 
@@ -232,10 +233,9 @@
             timelineSimple.innerHTML = '';
             timelineTime.innerHTML = '';
 
-            // ★ 00시부터 24시까지 눈금선 그리기 ★
             for(let i = 0; i <= 24; i++) {
                 const hourStr = String(i).padStart(2, '0') + ':00';
-                const topPos = i * 60; // 0시가 0px이 되도록 수정!
+                const topPos = i * 60; 
                 const gridHtml = `<div class="time-label" style="top: ${topPos}px;">${hourStr}</div><div class="timeline-grid" style="top: ${topPos}px;"></div>`;
                 timelineSimple.innerHTML += gridHtml;
                 timelineTime.innerHTML += gridHtml;
@@ -296,7 +296,6 @@
                     let endMins = parseInt(eParts[0]) * 60 + parseInt(eParts[1]);
                     if(endMins < startMins) endMins += 24 * 60; 
 
-                    // ★ 블록 위치도 0시 기준으로 계산되도록 수정! ★
                     const topPx = startMins; 
                     let heightPx = endMins - startMins; 
                     if (heightPx < 15) heightPx = 15; 
@@ -317,13 +316,15 @@
             simpleTasks.forEach(task => renderTask(task, simpleElement, timelineSimple));
             timeTasks.forEach(task => renderTask(task, timeListElement, timelineTime));
             
-            // 데이터 렌더링이 끝난 후 현재 시간 레드 라인을 덧그려줍니다.
             updateCurrentTimeLine();
         }
 
-        // --- ★ 현재 시간 지시선(레드 라인) 업데이트 함수 ★ ---
+        // ★ 버그 수정: 이중 덧셈을 제거한 안전한 레드 라인 KST 계산 ★
         function updateCurrentTimeLine() {
-            const kstNow = new Date(new Date().getTime() + (9 * 60 * 60 * 1000));
+            const rawNow = new Date();
+            const utc = rawNow.getTime() + (rawNow.getTimezoneOffset() * 60000);
+            const kstNow = new Date(utc + (9 * 60 * 60 * 1000));
+            
             const topPx = (kstNow.getHours() * 60) + kstNow.getMinutes();
             
             ['Simple', 'Time'].forEach(mode => {
@@ -339,7 +340,6 @@
             });
         }
         
-        // 1분(60초)마다 빨간 선 위치 갱신
         setInterval(updateCurrentTimeLine, 60000);
 
         async function startTask(taskId, currentSeconds, existingStartTime, taskMode) {
