@@ -8,13 +8,11 @@
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
         
-        /* 전체 테마 및 폰트 일관성 (3번 항목) */
         body { 
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; 
             letter-spacing: -0.02em;
         }
         
-        /* 모서리 곡률(Border-radius)을 12px~16px로 일관성 있게 통일 (3번 항목) */
         .card-box {
             background: white; 
             padding: 28px; 
@@ -29,7 +27,6 @@
         .timeline-grid { position: absolute; width: 100%; height: 1px; background: #f1f5f9; z-index: 2; }
         .vertical-grid-line { position: absolute; height: 100%; width: 1px; background: transparent; z-index: 1; border-left: 1px dashed #f1f5f9; }
         
-        /* 타임테이블 블록 디자인 정밀화 */
         .task-block { 
             position: absolute; border-radius: 6px; padding: 6px 10px; 
             color: white; box-sizing: border-box; overflow: hidden; 
@@ -41,7 +38,6 @@
         .task-block:hover { transform: translateY(-2px) scale(1.02); z-index: 100; box-shadow: 0 8px 16px rgba(0,0,0,0.25); height: auto !important; min-height: 56px; }
         .task-block:hover .task-block-text { white-space: normal; }
 
-        /* 탭 및 버튼 UI 고도화 */
         .tab-btn { padding: 12px 20px; font-size: 14px; font-weight: 700; border: none; background: #f1f5f9; color: #64748b; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; margin-right: 2px; }
         .tab-btn.active { background: white; color: #1e293b; border-top: 3px solid #3b82f6; box-shadow: 0 -4px 10px rgba(0,0,0,0.02); }
         
@@ -49,17 +45,13 @@
         .mode-btn.active { background: white; color: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .mode-btn.inactive { background: transparent; color: #64748b; }
         
-        /* 2. 시각적 피로도를 대폭 낮춘 고스트 버튼 스타일링 (Hover 효과) */
         .p-btn { 
             padding: 6px 12px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; 
             background-color: #f8fafc; color: #3b82f6; margin-left: 6px; transition: all 0.2s;
         }
         .p-btn:hover { background-color: #3b82f6; color: white; border-color: #3b82f6; transform: translateY(-1px); }
         
-        /* 리스트 항목 간 여백 확보 및 모던화 (3번 항목) */
-        .task-item {
-            margin-bottom: 14px; display: flex; align-items: center; background: #f8fafc; padding: 12px 18px; border-radius: 12px; border: 1px solid #f1f5f9; transition: all 0.2s;
-        }
+        .task-item { margin-bottom: 14px; display: flex; align-items: center; background: #f8fafc; padding: 12px 18px; border-radius: 12px; border: 1px solid #f1f5f9; transition: all 0.2s; }
         .task-item:hover { background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-color: #e2e8f0; }
 
         .status-btn { background: none; border: none; cursor: pointer; padding: 0; margin-right: 14px; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; outline: none; }
@@ -201,19 +193,66 @@
         const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
         const today = koreaTime.toISOString().split('T')[0];
 
-        // 요일 및 날짜 자동 표기 (4번 항목 구현 스크립트)
         const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
         document.getElementById('todayDateStr').firstElementChild.innerText = `📅 ${koreaTime.getFullYear()}년 ${koreaTime.getMonth() + 1}월 ${koreaTime.getDate()}일 (${weekDays[koreaTime.getDay()]}요일)`;
 
         let currentInputMode = 'simple'; 
         let currentOutputView = 'simpleList'; 
 
+        // 타이머 상태 변수들
         let activeTaskId = null;        
         let taskStartTime = 0;         
         let taskAccumulatedMs = 0;      
         let taskAnimationFrameId;       
-        
         let editTaskId = null;
+
+        // ★ 좀비 타이머 엔진 (Auto-Recovery) ★
+        function restoreZombieState() {
+            // 1. 개별 학습 타이머 복구
+            const savedTaskId = localStorage.getItem('activeTaskId');
+            if (savedTaskId) {
+                activeTaskId = savedTaskId;
+                taskStartTime = parseInt(localStorage.getItem('taskStartTime'), 10);
+                taskAccumulatedMs = parseInt(localStorage.getItem('taskAccumulatedMs'), 10);
+                updateTaskTimerLoop(); // 애니메이션 궤도에 다시 진입
+            }
+
+            // 2. 총 순공 스톱워치 복구
+            const savedSwRunning = localStorage.getItem('isSwRunning') === 'true';
+            accumulatedMs = parseInt(localStorage.getItem('accumulatedMs'), 10) || 0;
+            
+            if (savedSwRunning) {
+                isSwRunning = true;
+                swStartTime = parseInt(localStorage.getItem('swStartTime'), 10);
+                document.getElementById('swStartBtn').style.display = 'none'; 
+                document.getElementById('swPauseBtn').style.display = 'inline-block'; 
+                document.getElementById('swStopBtn').style.display = 'inline-block'; 
+                updateStopwatchUI();
+            } else if (accumulatedMs > 0) {
+                document.getElementById('swStartBtn').innerText = '이어서 하기'; 
+                document.getElementById('swStartBtn').style.backgroundColor = "#10b981"; 
+                const elapsedSec = Math.floor(accumulatedMs / 1000); 
+                const h = String(Math.floor(elapsedSec / 3600)).padStart(2, '0'); 
+                const m = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0'); 
+                const s = String(elapsedSec % 60).padStart(2, '0');
+                document.getElementById('stopwatchDisplay').innerText = `${h}:${m}:${s}`; 
+            }
+
+            // 3. 집중 모드(역산) 타이머 복구
+            const savedFocusRunning = localStorage.getItem('isFocusRunning') === 'true';
+            if (savedFocusRunning) {
+                targetMins = parseInt(localStorage.getItem('focusTargetMins'), 10);
+                totalDurationMs = parseInt(localStorage.getItem('focusTotalDurationMs'), 10);
+                endTime = parseInt(localStorage.getItem('focusEndTime'), 10);
+                
+                document.getElementById('startBtn').style.display = 'none'; 
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('targetMinutes').disabled = true; 
+                document.getElementById('targetMinutes').value = targetMins;
+                document.getElementById('progressFill').style.backgroundColor = "#10b981"; 
+                updateTimerUI(); 
+            }
+        }
 
         function switchInputMode(mode) {
             currentInputMode = mode;
@@ -341,7 +380,17 @@
                 const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
                 const m = String(Math.floor((savedSec % 3600) / 60)).padStart(2, '0');
                 const s = String(savedSec % 60).padStart(2, '0');
-                const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 12px; font-family: monospace; font-weight: 700; font-size:13px; color: #059669; background: #ecfdf5; padding: 3px 8px; border-radius: 6px;">${h}:${m}:${s}</span>`;
+                
+                // 좀비 타이머가 살아있을 때 숫자를 이어서 보여주기 위함
+                let displayH = h, displayM = m, displayS = s;
+                if (activeTaskId === task.task_id) {
+                    const elapsedMs = taskAccumulatedMs + (Date.now() - taskStartTime); 
+                    const elapsedSec = Math.floor(elapsedMs / 1000);
+                    displayH = String(Math.floor(elapsedSec / 3600)).padStart(2, '0'); 
+                    displayM = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0'); 
+                    displayS = String(elapsedSec % 60).padStart(2, '0');
+                }
+                const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 12px; font-family: monospace; font-weight: 700; font-size:13px; color: #059669; background: #ecfdf5; padding: 3px 8px; border-radius: 6px;">${displayH}:${displayM}:${displayS}</span>`;
 
                 let actionButtonsHtml = '';
                 if (activeTaskId === task.task_id) {
@@ -356,7 +405,6 @@
 
                 const escapedContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-                // 2, 3번 패딩 및 완충 여백 리뉴얼 적용 (.task-item 구조)
                 listContainer.innerHTML += `
                     <li class="task-item">
                         <button class="status-btn" onclick="toggleTaskStatus('${task.task_id}', '${currentStatus}')">
@@ -515,14 +563,17 @@
             taskStartTime = Date.now(); 
             taskAccumulatedMs = currentSeconds * 1000;
             
+            // 좀비 타이머를 위한 영수증 발급
+            localStorage.setItem('activeTaskId', activeTaskId);
+            localStorage.setItem('taskStartTime', taskStartTime);
+            localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
+            
             if (taskMode === 'simple' && !existingStartTime) {
                 function getKstTimeStr(ms) { const d = new Date(ms); const utc = d.getTime() + (d.getTimezoneOffset() * 60000); const kst = new Date(utc + (9 * 60 * 60 * 1000)); return `${String(kst.getHours()).padStart(2, '0')}:${String(kst.getMinutes()).padStart(2, '0')}`; }
                 await supabaseClient.from('planner_tasks').update({ start_time: getKstTimeStr(taskStartTime) }).eq('task_id', taskId);
             }
             
-            if (!isSwRunning) {
-                forceStartStopwatch();
-            }
+            if (!isSwRunning) { forceStartStopwatch(); }
 
             await fetchTasks(); 
             updateTaskTimerLoop();
@@ -544,9 +595,12 @@
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
             activeTaskId = null;
             
-            if (isSwRunning) {
-                pauseStopwatch();
-            }
+            // 영수증 폐기
+            localStorage.removeItem('activeTaskId');
+            localStorage.removeItem('taskStartTime');
+            localStorage.removeItem('taskAccumulatedMs');
+            
+            if (isSwRunning) { pauseStopwatch(); }
 
             await supabaseClient.from('planner_tasks').update({ study_seconds: finalSeconds }).eq('task_id', taskId); 
             fetchTasks();
@@ -558,9 +612,12 @@
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
             activeTaskId = null;
             
-            if (isSwRunning) {
-                pauseStopwatch();
-            }
+            // 영수증 폐기
+            localStorage.removeItem('activeTaskId');
+            localStorage.removeItem('taskStartTime');
+            localStorage.removeItem('taskAccumulatedMs');
+            
+            if (isSwRunning) { pauseStopwatch(); }
 
             let updatePayload = { study_seconds: finalSeconds, completion_status: 'DONE', is_completed: true };
 
@@ -606,12 +663,17 @@
             if (!confirm("삭제할까요?")) return; const { error } = await supabaseClient.from('planner_tasks').delete().eq('task_id', taskId); if (!error) fetchTasks(); 
         }
 
-        fetchTasks();
-
         let animationFrameId, endTime, targetMins, totalDurationMs;
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
             totalDurationMs = targetMins * 60 * 1000; endTime = Date.now() + totalDurationMs; 
+            
+            // 좀비 타이머 영수증 발급
+            localStorage.setItem('isFocusRunning', 'true');
+            localStorage.setItem('focusTargetMins', targetMins);
+            localStorage.setItem('focusTotalDurationMs', totalDurationMs);
+            localStorage.setItem('focusEndTime', endTime);
+
             document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
             document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
         }
@@ -625,6 +687,13 @@
         function stopFocus() { if(confirm("정말 포기하시겠습니까?")) finishFocus('INTERRUPTED'); }
         async function finishFocus(status) {
             cancelAnimationFrame(animationFrameId); const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
+            
+            // 영수증 폐기
+            localStorage.removeItem('isFocusRunning');
+            localStorage.removeItem('focusTargetMins');
+            localStorage.removeItem('focusTotalDurationMs');
+            localStorage.removeItem('focusEndTime');
+
             document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
             if(status === 'SUCCESS') alert("목표 달성!"); await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
@@ -639,6 +708,12 @@
         function forceStartStopwatch() {
             swStartTime = Date.now(); 
             isSwRunning = true;
+            
+            // 좀비 타이머 영수증 발급
+            localStorage.setItem('isSwRunning', 'true');
+            localStorage.setItem('swStartTime', swStartTime);
+            localStorage.setItem('accumulatedMs', accumulatedMs);
+
             document.getElementById('swStartBtn').style.display = 'none'; 
             document.getElementById('swPauseBtn').style.display = 'inline-block'; 
             document.getElementById('swStopBtn').style.display = 'inline-block'; 
@@ -650,6 +725,11 @@
                 accumulatedMs += (Date.now() - swStartTime); 
                 isSwRunning = false; 
                 cancelAnimationFrame(swAnimationFrameId); 
+                
+                // 좀비 타이머 영수증 업데이트
+                localStorage.setItem('isSwRunning', 'false');
+                localStorage.setItem('accumulatedMs', accumulatedMs);
+
                 document.getElementById('swStartBtn').innerText = '이어서 하기'; 
                 document.getElementById('swStartBtn').style.display = 'inline-block';
                 document.getElementById('swStartBtn').style.backgroundColor = "#10b981"; 
@@ -662,9 +742,21 @@
         }
         async function stopStopwatch() {
             if(!confirm("순공 시간을 저장할까요?")) return; let finalElapsedMs = accumulatedMs; if (isSwRunning) finalElapsedMs += (Date.now() - swStartTime); isSwRunning = false; cancelAnimationFrame(swAnimationFrameId); const actualSeconds = Math.floor(finalElapsedMs / 1000); accumulatedMs = 0;
+            
+            // 영수증 폐기
+            localStorage.removeItem('isSwRunning');
+            localStorage.removeItem('swStartTime');
+            localStorage.removeItem('accumulatedMs');
+
             document.getElementById('swStartBtn').innerText = '공부 시작'; document.getElementById('swStartBtn').style.backgroundColor = "#3b82f6"; document.getElementById('swStartBtn').style.display = 'inline-block'; document.getElementById('swPauseBtn').style.display = 'none'; document.getElementById('swStopBtn').style.display = 'none'; document.getElementById('stopwatchDisplay').innerText = "00:00:00"; alert(`총 ${actualSeconds}초 공부 완료!`);
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
         }
+
+        // --- 앱 최초 진입점 ---
+        // 1. 브라우저가 강제종료되었었는지 확인하고 영수증(localStorage)을 통해 시간을 복구합니다.
+        restoreZombieState();
+        // 2. 복구된 시간을 바탕으로 서버에서 일정을 가져와 화면을 그립니다.
+        fetchTasks();
     </script>
 </body>
 </html>
