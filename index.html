@@ -6,62 +6,99 @@
     <title>학생 플래너 MVP</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .timeline-container { position: relative; height: 1440px; background: #fdfdfd; border-left: 2px solid #bdc3c7; margin-left: 50px; margin-top: 5px; border-radius: 0 0 5px 5px; }
-        .time-label { position: absolute; left: -50px; font-size: 12px; color: #7f8c8d; font-weight: bold; transform: translateY(-50%); width: 50px; text-align: center; }
-        .timeline-grid { position: absolute; width: 100%; height: 1px; background: #ecf0f1; z-index: 2; }
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
         
-        .vertical-grid-line { position: absolute; height: 100%; width: 1px; background: transparent; z-index: 1; border-left: 1px dashed #dfe6e9; }
-        
-        .task-block { 
-            position: absolute; border-radius: 4px; padding: 4px 8px; 
-            color: white; box-sizing: border-box; overflow: hidden; 
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2); 
-            transition: transform 0.1s ease, height 0.1s; 
-            display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; z-index: 10;
-            text-shadow: 0px 0px 2px rgba(0,0,0,0.3);
+        /* 전체 테마 및 폰트 일관성 (3번 항목) */
+        body { 
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; 
+            letter-spacing: -0.02em;
         }
-        .task-block-text { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; line-height: 1.2; }
-        .task-block:hover { transform: scale(1.02); z-index: 100; box-shadow: 0 4px 8px rgba(0,0,0,0.3); height: auto !important; min-height: 52px; }
+        
+        /* 모서리 곡률(Border-radius)을 12px~16px로 일관성 있게 통일 (3번 항목) */
+        .card-box {
+            background: white; 
+            padding: 28px; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04); 
+            margin-bottom: 24px;
+            border: 1px solid rgba(0,0,0,0.02);
+        }
+
+        .timeline-container { position: relative; height: 1440px; background: #fdfdfd; border-left: 2px solid #e2e8f0; margin-left: 50px; margin-top: 5px; border-radius: 0 0 8px 8px; }
+        .time-label { position: absolute; left: -50px; font-size: 11px; color: #94a3b8; font-weight: 600; transform: translateY(-50%); width: 50px; text-align: center; }
+        .timeline-grid { position: absolute; width: 100%; height: 1px; background: #f1f5f9; z-index: 2; }
+        .vertical-grid-line { position: absolute; height: 100%; width: 1px; background: transparent; z-index: 1; border-left: 1px dashed #f1f5f9; }
+        
+        /* 타임테이블 블록 디자인 정밀화 */
+        .task-block { 
+            position: absolute; border-radius: 6px; padding: 6px 10px; 
+            color: white; box-sizing: border-box; overflow: hidden; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.25); 
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), height 0.1s; 
+            display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; z-index: 10;
+        }
+        .task-block-text { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; line-height: 1.3; }
+        .task-block:hover { transform: translateY(-2px) scale(1.02); z-index: 100; box-shadow: 0 8px 16px rgba(0,0,0,0.25); height: auto !important; min-height: 56px; }
         .task-block:hover .task-block-text { white-space: normal; }
 
-        .tab-btn { padding: 10px 15px; font-size: 14px; font-weight: bold; border: none; background: #ecf0f1; color: #7f8c8d; cursor: pointer; border-radius: 5px 5px 0 0; transition: background 0.2s; }
-        .tab-btn.active { background: white; color: #2c3e50; border-top: 3px solid #3498db; }
-        .mode-btn { padding: 8px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
-        .mode-btn.active { background: white; color: #333; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .mode-btn.inactive { background: transparent; color: #7f8c8d; }
-        .p-btn { padding: 4px 8px; font-size: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; margin-left: 4px; }
+        /* 탭 및 버튼 UI 고도화 */
+        .tab-btn { padding: 12px 20px; font-size: 14px; font-weight: 700; border: none; background: #f1f5f9; color: #64748b; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; margin-right: 2px; }
+        .tab-btn.active { background: white; color: #1e293b; border-top: 3px solid #3b82f6; box-shadow: 0 -4px 10px rgba(0,0,0,0.02); }
         
-        .status-btn { background: none; border: none; cursor: pointer; padding: 0; margin-right: 12px; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; outline: none; }
-        .status-btn:active { transform: scale(0.8); }
+        .mode-btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+        .mode-btn.active { background: white; color: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .mode-btn.inactive { background: transparent; color: #64748b; }
+        
+        /* 2. 시각적 피로도를 대폭 낮춘 고스트 버튼 스타일링 (Hover 효과) */
+        .p-btn { 
+            padding: 6px 12px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; 
+            background-color: #f8fafc; color: #3b82f6; margin-left: 6px; transition: all 0.2s;
+        }
+        .p-btn:hover { background-color: #3b82f6; color: white; border-color: #3b82f6; transform: translateY(-1px); }
+        
+        /* 리스트 항목 간 여백 확보 및 모던화 (3번 항목) */
+        .task-item {
+            margin-bottom: 14px; display: flex; align-items: center; background: #f8fafc; padding: 12px 18px; border-radius: 12px; border: 1px solid #f1f5f9; transition: all 0.2s;
+        }
+        .task-item:hover { background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-color: #e2e8f0; }
 
-        .current-time-line { position: absolute; width: 100%; height: 2px; background-color: #e74c3c; z-index: 50; pointer-events: none; transition: top 1s linear; }
-        .current-time-line::before { content: '현재'; position: absolute; left: -42px; top: -8px; background-color: #e74c3c; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 4px; }
+        .status-btn { background: none; border: none; cursor: pointer; padding: 0; margin-right: 14px; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; outline: none; }
+        .status-btn:active { transform: scale(0.85); }
+
+        .current-time-line { position: absolute; width: 100%; height: 2px; background-color: #ef4444; z-index: 50; pointer-events: none; transition: top 1s linear; }
+        .current-time-line::before { content: '현재'; position: absolute; left: -42px; top: -8px; background-color: #ef4444; color: white; font-size: 10px; font-weight: 700; padding: 2px 4px; border-radius: 4px; }
     </style>
 </head>
-<body style="font-family: sans-serif; padding: 20px; background-color: #f3f4f6; max-width: 800px; margin: 0 auto;">
+<body style="padding: 30px 20px; background-color: #f8fafc; max-width: 800px; margin: 0 auto; color: #1e293b;">
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1 style="color: #333; margin: 0;">📝 나의 학습 플래너 (105번 김철수)</h1>
-        <a href="stats.html" style="padding: 10px 20px; background-color: #9b59b6; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">📊 나의 학습 통계</a>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding: 0 4px;">
+        <div>
+            <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.03em;">📝 나의 학습 플래너 <span style="font-size: 16px; font-weight: 600; color: #64748b; margin-left: 6px;">(105번 김철수)</span></h1>
+            <div id="todayDateStr" style="font-size: 14px; color: #64748b; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 6px;">
+                <span>⏳ 날짜 로딩 중...</span>
+                <span style="color: #3b82f6; font-weight: 700;">✨ 오늘도 너의 꿈을 향해 몰입하는 하루를 응원해!</span>
+            </div>
+        </div>
+        <a href="stats.html" style="padding: 12px 20px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(124,58,237,0.2); transition: all 0.2s;">📊 나의 학습 통계</a>
     </div>
     
-    <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
+    <div class="card-box">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #333;">📌 오늘 할 일 추가하기</h3>
-            <div style="display: flex; gap: 5px; background: #ecf0f1; padding: 4px; border-radius: 8px;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #334155;">📌 오늘 할 일 추가하기</h3>
+            <div style="display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
                 <button id="modeListBtn" class="mode-btn active" onclick="switchInputMode('simple')">📋 단순 할 일</button>
                 <button id="modeTimeBtn" class="mode-btn inactive" onclick="switchInputMode('time')">📊 시간표 추가</button>
             </div>
         </div>
 
-        <div id="timeSettingArea" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e0e0e0;">
-            <div style="margin-bottom: 10px; font-weight: bold; color: #2c3e50;">
-                <label style="margin-right: 15px; cursor: pointer;"><input type="radio" name="timeMode" value="period" checked onchange="toggleTimeInput()"> 🏫 정규 교시 선택</label>
+        <div id="timeSettingArea" style="display: none; background: #f8fafc; padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid #e2e8f0;">
+            <div style="margin-bottom: 12px; font-weight: 600; font-size: 13px; color: #475569;">
+                <label style="margin-right: 20px; cursor: pointer;"><input type="radio" name="timeMode" value="period" checked onchange="toggleTimeInput()"> 🏫 정규 교시 선택</label>
                 <label style="cursor: pointer;"><input type="radio" name="timeMode" value="custom" onchange="toggleTimeInput()"> ⏰ 시간 직접 입력</label>
             </div>
 
             <div id="periodSelectArea" style="display: flex; gap: 10px;">
-                <select id="periodInput" style="padding: 10px; font-size: 16px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
+                <select id="periodInput" style="padding: 10px 14px; font-size: 15px; border-radius: 8px; width: 100%; border: 1px solid #cbd5e1; outline: none; font-family: inherit;">
                     <option value="08:00|08:30">1교시 (08:00 ~ 08:30)</option>
                     <option value="08:50|10:10">2교시 (08:50 ~ 10:10)</option>
                     <option value="10:30|12:10">3교시 (10:30 ~ 12:10)</option>
@@ -76,43 +113,43 @@
             </div>
             
             <div id="customTimeArea" style="display: none; gap: 10px; align-items: center;">
-                <input type="time" id="startTimeInput" style="padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
-                <span>~</span>
-                <input type="time" id="endTimeInput" style="padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
+                <input type="time" id="startTimeInput" style="padding: 10px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit;">
+                <span style="color: #94a3b8;">~</span>
+                <input type="time" id="endTimeInput" style="padding: 10px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit;">
             </div>
         </div>
 
         <div style="display: flex; gap: 10px;">
-            <select id="subjectInput" style="padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
+            <select id="subjectInput" style="padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit; font-weight: 600;">
                 <option value="국어">국어</option>
                 <option value="수학">수학</option>
                 <option value="영어">영어</option>
                 <option value="탐구">탐구</option>
             </select>
-            <input type="text" id="contentInput" placeholder="✏️ " style="flex: 1; padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
+            <input type="text" id="contentInput" placeholder="✏️ 예: 뉴런 수1 3강 완강" style="flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit;">
         </div>
         
-        <button id="addBtn" onclick="addTask()" style="width: 100%; margin-top: 15px; padding: 15px; font-size: 16px; background-color: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background-color 0.2s;">
+        <button id="addBtn" onclick="addTask()" style="width: 100%; margin-top: 16px; padding: 16px; font-size: 15px; background-color: #10b981; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(16,185,129,0.15); transition: all 0.2s;">
             리스트에 추가하기
         </button>
         <div id="cancelEditArea"></div>
     </div>
 
-    <div style="margin-bottom: 20px;">
-        <div style="display: flex; gap: 5px; padding-left: 10px;">
+    <div style="margin-bottom: 24px;">
+        <div style="display: flex; gap: 2px; padding-left: 8px;">
             <button id="btnSimpleList" class="tab-btn active" onclick="switchOutputView('simpleList')">📋 단순 리스트 뷰</button>
             <button id="btnTimeList" class="tab-btn" style="display: none;" onclick="switchOutputView('timeList')">⏱️ 타임 리스트 뷰</button>
             <button id="btnTimeTable" class="tab-btn" onclick="switchOutputView('timeTable')">📊 타임테이블 뷰</button>
         </div>
         
-        <div style="background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-height: 300px;">
-            <ul id="simpleListContainer" style="font-size: 16px; line-height: 1.8; list-style: none; padding-left: 0; margin: 0;"></ul>
-            <ul id="timeListContainer" style="display: none; font-size: 16px; line-height: 1.8; list-style: none; padding-left: 0; margin: 0;"></ul>
+        <div style="background: white; padding: 24px; border-radius: 0 16px 16px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); min-height: 300px; border: 1px solid rgba(0,0,0,0.01);">
+            <ul id="simpleListContainer" style="font-size: 15px; list-style: none; padding-left: 0; margin: 0;"></ul>
+            <ul id="timeListContainer" style="display: none; font-size: 15px; list-style: none; padding-left: 0; margin: 0;"></ul>
             
             <div id="timeTableContainer" style="display: none;">
-                <h4 id="timetableTitle" style="text-align: center; color: #2c3e50; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px;">🌱 나의 실제 공부 궤적 (사후 스케줄링)</h4>
+                <h4 id="timetableTitle" style="text-align: center; color: #334155; font-size: 14px; font-weight: 700; margin-top: 0; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">🌱 나의 실제 공부 궤적 (사후 스케줄링)</h4>
                 
-                <div style="display: flex; margin-left: 50px; padding-right: 15px; color: #95a5a6; font-size: 11px; font-weight: bold; position: relative;">
+                <div style="display: flex; margin-left: 50px; padding-right: 15px; color: #94a3b8; font-size: 11px; font-weight: 700; position: relative; margin-bottom: 4px;">
                     <div style="width: 16.66%; text-align: left;">0분</div>
                     <div style="width: 16.66%; text-align: left;">10분</div>
                     <div style="width: 16.66%; text-align: left;">20분</div>
@@ -122,7 +159,7 @@
                     <div style="position: absolute; right: 15px;">60분</div>
                 </div>
 
-                <div id="timelineScrollWrapper" style="max-height: 600px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; border-radius: 5px; box-shadow: inset 0 0 5px rgba(0,0,0,0.05); background: #fdfdfd; position: relative;">
+                <div id="timelineScrollWrapper" style="max-height: 600px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; border-radius: 8px; box-shadow: inset 0 0 8px rgba(0,0,0,0.02); background: #fdfdfd; position: relative; border: 1px solid #f1f5f9;">
                     <div class="timeline-container" id="timelineVisualsSimple"></div>
                     <div class="timeline-container" id="timelineVisualsTime" style="display: none;"></div>
                 </div>
@@ -131,26 +168,26 @@
     </div>
 
     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 300px; background: #2c3e50; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
-            <h3 style="margin-top: 0; color: #ecf0f1;">🔥 집중 모드 (역산)</h3>
-            <div style="margin-bottom: 20px;">목표: <input type="number" id="targetMinutes" value="" style="width: 60px; padding: 5px; font-size: 16px; text-align: center;"> 분</div>
-            <div id="timerDisplay" style="font-size: 50px; font-weight: bold; margin-bottom: 10px; font-family: monospace;">00:00:00</div>
-            <div style="width: 100%; height: 8px; background-color: #1a252f; border-radius: 4px; margin-bottom: 25px; overflow: hidden;">
-                <div id="progressFill" style="width: 100%; height: 100%; background-color: #2ecc71; transition: width 0.1s linear, background-color 0.5s ease;"></div>
+        <div style="flex: 1; min-width: 300px; background: #0f172a; padding: 32px; border-radius: 16px; box-shadow: 0 10px 25px rgba(15,23,42,0.15); color: white; text-align: center;">
+            <h3 style="margin-top: 0; color: #94a3b8; font-size: 14px; font-weight: 700; letter-spacing: 0.05em;">🔥 집중 모드 (역산)</h3>
+            <div style="margin-bottom: 20px; font-size: 13px; color: #64748b;">목표: <input type="number" id="targetMinutes" value="120" style="width: 54px; padding: 4px; font-size: 14px; text-align: center; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700;"> 분</div>
+            <div id="timerDisplay" style="font-size: 54px; font-weight: 800; margin-bottom: 12px; font-family: monospace; color: #ffffff; letter-spacing: 0.02em;">02:00:00</div>
+            <div style="width: 100%; height: 6px; background-color: #1e293b; border-radius: 3px; margin-bottom: 28px; overflow: hidden;">
+                <div id="progressFill" style="width: 100%; height: 100%; background-color: #10b981; transition: width 0.1s linear, background-color 0.5s ease;"></div>
             </div>
             <div>
-                <button id="startBtn" onclick="startFocus()" style="padding: 12px 25px; font-size: 16px; background-color: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">시작</button>
-                <button id="stopBtn" onclick="stopFocus()" style="padding: 12px 25px; font-size: 16px; background-color: #95a5a6; color: white; border: none; border-radius: 5px; cursor: display: none;">포기</button>
+                <button id="startBtn" onclick="startFocus()" style="padding: 12px 28px; font-size: 14px; background-color: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(239,68,68,0.2);">시작</button>
+                <button id="stopBtn" onclick="stopFocus()" style="padding: 12px 28px; font-size: 14px; background-color: #475569; color: white; border: none; border-radius: 8px; cursor: pointer; display: none; font-weight: 700;">포기</button>
             </div>
         </div>
-        <div style="flex: 1; min-width: 300px; background: #34495e; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
-            <h3 style="margin-top: 0; color: #ecf0f1;">⏱️ 순공 측정 (스톱워치)</h3>
-            <div style="margin-bottom: 20px; color: #bdc3c7;">시간 제한 없이 쭉 달립니다!</div>
-            <div id="stopwatchDisplay" style="font-size: 50px; font-weight: bold; margin-bottom: 43px; font-family: monospace; color: #f1c40f;">00:00:00</div>
+        <div style="flex: 1; min-width: 300px; background: #1e293b; padding: 32px; border-radius: 16px; box-shadow: 0 10px 25px rgba(30,41,59,0.15); color: white; text-align: center;">
+            <h3 style="margin-top: 0; color: #94a3b8; font-size: 14px; font-weight: 700; letter-spacing: 0.05em;">⏱️ 순공 측정 (스톱워치)</h3>
+            <div style="margin-bottom: 24px; font-size: 13px; color: #64748b; font-weight: 500;">시간 제한 없이 쭉 달립니다!</div>
+            <div id="stopwatchDisplay" style="font-size: 54px; font-weight: 800; margin-bottom: 40px; font-family: monospace; color: #00f5d4; letter-spacing: 0.02em; text-shadow: 0 0 12px rgba(0,245,212,0.2);">00:00:00</div>
             <div style="display: flex; justify-content: center; gap: 10px;">
-                <button id="swStartBtn" onclick="toggleStopwatch()" style="padding: 12px 20px; font-size: 16px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">공부 시작</button>
-                <button id="swPauseBtn" onclick="pauseStopwatch()" style="padding: 12px 20px; font-size: 16px; background-color: #f39c12; color: white; border: none; border-radius: 5px; cursor: pointer; display: none;">일시 정지</button>
-                <button id="swStopBtn" onclick="stopStopwatch()" style="padding: 12px 20px; font-size: 16px; background-color: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; display: none;">종료/저장</button>
+                <button id="swStartBtn" onclick="toggleStopwatch()" style="padding: 12px 22px; font-size: 14px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(59,130,246,0.2);">공부 시작</button>
+                <button id="swPauseBtn" onclick="pauseStopwatch()" style="padding: 12px 22px; font-size: 14px; background-color: #f59e0b; color: white; border: none; border-radius: 8px; cursor: pointer; display: none; font-weight: 700;">일시 정지</button>
+                <button id="swStopBtn" onclick="stopStopwatch()" style="padding: 12px 22px; font-size: 14px; background-color: #ea580c; color: white; border: none; border-radius: 8px; cursor: pointer; display: none; font-weight: 700;">종료/저장</button>
             </div>
         </div>
     </div>
@@ -163,6 +200,10 @@
         const now = new Date();
         const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
         const today = koreaTime.toISOString().split('T')[0];
+
+        // 요일 및 날짜 자동 표기 (4번 항목 구현 스크립트)
+        const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+        document.getElementById('todayDateStr').firstElementChild.innerText = `📅 ${koreaTime.getFullYear()}년 ${koreaTime.getMonth() + 1}월 ${koreaTime.getDate()}일 (${weekDays[koreaTime.getDay()]}요일)`;
 
         let currentInputMode = 'simple'; 
         let currentOutputView = 'simpleList'; 
@@ -264,28 +305,28 @@
             const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time && !task.end_time));
             const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && (task.start_time || task.end_time)));
 
-            if (simpleTasks.length === 0) simpleElement.innerHTML = '<li>아직 등록된 단순 할 일이 없습니다.</li>';
-            if (timeTasks.length === 0) timeListElement.innerHTML = '<li>아직 등록된 시간표 일과가 없습니다.</li>';
+            if (simpleTasks.length === 0) simpleElement.innerHTML = '<li style="color:#94a3b8; font-size:14px; text-align:center; padding:20px 0;">아직 등록된 단순 할 일이 없습니다.</li>';
+            if (timeTasks.length === 0) timeListElement.innerHTML = '<li style="color:#94a3b8; font-size:14px; text-align:center; padding:20px 0;">아직 등록된 시간표 일과가 없습니다.</li>';
 
-            const subjectColors = { '국어': '#e74c3c', '수학': '#3498db', '영어': '#f1c40f', '탐구': '#9b59b6' };
+            const subjectColors = { '국어': '#ef4444', '수학': '#3b82f6', '영어': '#f59e0b', '탐구': '#8b5cf6' };
 
             function renderTask(task, listContainer, timelineContainer) {
                 const currentStatus = task.completion_status || (task.is_completed ? 'DONE' : 'NONE');
                 
                 let statusIconHtml = '';
-                let textStyle = "color: #333;"; 
+                let textStyle = "color: #334155;"; 
                 let blockOpacity = '0.9';
 
                 if (currentStatus === 'DONE') {
-                    statusIconHtml = '<div style="width: 22px; height: 22px; border: 2px solid #27ae60; background-color: #2ecc71; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: bold; box-sizing: border-box;">O</div>';
-                    textStyle = "text-decoration: line-through; color: #999;"; 
-                    blockOpacity = '0.5'; 
+                    statusIconHtml = '<div style="width: 22px; height: 22px; border: 2px solid #10b981; background-color: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-sizing: border-box;">✓</div>';
+                    textStyle = "text-decoration: line-through; color: #94a3b8;"; 
+                    blockOpacity = '0.45'; 
                 } else if (currentStatus === 'PARTIAL') {
-                    statusIconHtml = '<div style="width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 20px solid #f39c12; margin-top: -2px;"></div>';
-                    textStyle = "color: #d35400; font-weight: bold;"; 
+                    statusIconHtml = '<div style="width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 19px solid #f59e0b; margin-top: -2px;"></div>';
+                    textStyle = "color: #d97706; font-weight: 700;"; 
                     blockOpacity = '0.9'; 
                 } else {
-                    statusIconHtml = '<div style="width: 22px; height: 22px; border: 2px solid #bdc3c7; border-radius: 4px; background: white; box-sizing: border-box;"></div>';
+                    statusIconHtml = '<div style="width: 22px; height: 22px; border: 2px solid #cbd5e1; border-radius: 6px; background: white; box-sizing: border-box;"></div>';
                 }
                 
                 const hasTime = task.start_time && task.end_time;
@@ -293,40 +334,42 @@
                 const endStr = hasTime ? task.end_time.substring(0, 5) : "";
                 const taskMode = task.task_mode || (!task.start_time && !task.end_time ? 'simple' : 'time');
 
-                const subjectSpan = `<span style="display:inline-block; min-width: 60px; margin-right: 8px; color: ${subjectColors[task.subject] || '#333'}; font-weight: bold;">[${task.subject}]</span>`;
-                const timeSpan = hasTime ? `<span style="display:inline-block; min-width: 115px; margin-right: 8px; font-weight: bold; color: #3498db;">[${startStr}~${endStr}]</span>` : '';
+                const subjectSpan = `<span style="display:inline-block; min-width: 54px; margin-right: 4px; color: ${subjectColors[task.subject] || '#333'}; font-weight: 800;">[${task.subject}]</span>`;
+                const timeSpan = hasTime ? `<span style="display:inline-block; min-width: 105px; margin-right: 6px; font-weight: 700; color: #2563eb;">[${startStr}~${endStr}]</span>` : '';
 
                 const savedSec = task.study_seconds || 0;
                 const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
                 const m = String(Math.floor((savedSec % 3600) / 60)).padStart(2, '0');
                 const s = String(savedSec % 60).padStart(2, '0');
-                const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 15px; font-family: monospace; font-weight: bold; color: #27ae60; background: #e8f8f5; padding: 2px 6px; border-radius: 4px;">${h}:${m}:${s}</span>`;
+                const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 12px; font-family: monospace; font-weight: 700; font-size:13px; color: #059669; background: #ecfdf5; padding: 3px 8px; border-radius: 6px;">${h}:${m}:${s}</span>`;
 
                 let actionButtonsHtml = '';
                 if (activeTaskId === task.task_id) {
                     actionButtonsHtml = `
-                        <button class="p-btn" style="background-color: #f39c12;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
-                        <button class="p-btn" style="background-color: #e74c3c; margin-right: 15px;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 종료</button>
+                        <button class="p-btn" style="background-color: #fffbeb; color: #d97706; border-color: #fde68a;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
+                        <button class="p-btn" style="background-color: #fef2f2; color: #dc2626; border-color: #fca5a5; margin-right: 12px;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 종료</button>
                     `;
                 } else {
                     const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
-                    actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db; margin-right: 15px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
+                    actionButtonsHtml = `<button class="p-btn" style="margin-right: 12px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
                 }
 
                 const escapedContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
+                // 2, 3번 패딩 및 완충 여백 리뉴얼 적용 (.task-item 구조)
                 listContainer.innerHTML += `
-                    <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
+                    <li class="task-item">
                         <button class="status-btn" onclick="toggleTaskStatus('${task.task_id}', '${currentStatus}')">
                             ${statusIconHtml}
                         </button>
                         <div style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center; flex-wrap: wrap;" onclick="toggleTaskStatus('${task.task_id}', '${currentStatus}')">
-                            ${timeSpan} ${subjectSpan} <span style="font-weight: 500; margin-right: 10px;">${task.content}</span>
+                            ${timeSpan} ${subjectSpan} <span style="font-weight: 600; color:#334155; margin-right: 8px;">${task.content}</span>
                             ${timerHtml}
                         </div>
                         ${actionButtonsHtml}
-                        <button onclick="prepareEditTask('${task.task_id}', '${task.subject}', '${escapedContent}', '${taskMode}', '${task.start_time || ''}', '${task.end_time || ''}')" style="background: none; border: none; color: #3498db; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 14px;">✏️</button>
-                        <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; border-left: 1px solid #dfe6e9; color: #ff4d4d; font-weight: bold; cursor: pointer; padding: 0 0 0 15px; margin-left: 5px; font-size: 16px;">✕</button>
+                        <button onclick="prepareEditTask('${task.task_id}', '${task.subject}', '${escapedContent}', '${taskMode}', '${task.start_time || ''}', '${task.end_time || ''}')" style="background: none; border: none; color: #64748b; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 13px; transition: color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#64748b'">✏️</button>
+                        <span style="color:#e2e8f0; font-size:12px; margin-left: 2px;">|</span>
+                        <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #cbd5e1; font-weight: bold; cursor: pointer; padding: 0 0 0 12px; font-size: 15px; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">✕</button>
                     </li>
                 `;
 
@@ -337,7 +380,7 @@
                     let endMinsTotal = parseInt(eParts[0]) * 60 + parseInt(eParts[1]);
                     if(endMinsTotal <= startMinsTotal) endMinsTotal += 24 * 60; 
 
-                    const bgColor = subjectColors[task.subject] || '#34495e';
+                    const bgColor = subjectColors[task.subject] || '#475569';
                     const startHour = Math.floor(startMinsTotal / 60);
                     const endHour = Math.floor((endMinsTotal - 1) / 60); 
 
@@ -364,17 +407,17 @@
                         let finalInnerHtml = '';
                         
                         if (index === mainTextIndex) {
-                            const visualStatus = currentStatus === 'PARTIAL' ? '<span style="color:#f1c40f; text-shadow: 1px 1px 1px black;">🔺</span> ' : '';
+                            const visualStatus = currentStatus === 'PARTIAL' ? '<span style="color:#f59e0b; text-shadow: 1px 1px 1px black;">🔺</span> ' : '';
                             const blockContentHtml = `
-                                <div class="task-block-text" style="font-size: 10px; color: rgba(255,255,255,0.9);">${startStr} ~ ${endStr}</div>
-                                <div class="task-block-text" style="margin-top: 2px; font-size: 12px;"><b>${visualStatus}[${task.subject}]</b> ${task.content}</div>
-                                <div class="task-block-text" style="font-size: 10px; font-weight: bold; margin-top: 4px; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px; display: inline-block; width: fit-content;">순공 ⏱ ${h}:${m}:${s}</div>
+                                <div class="task-block-text" style="font-size: 10px; color: rgba(255,255,255,0.85); font-weight:600;">${startStr} ~ ${endStr}</div>
+                                <div class="task-block-text" style="margin-top: 1px; font-size: 12px; font-weight:700;"><b>${visualStatus}[${task.subject}]</b> ${task.content}</div>
+                                <div class="task-block-text" style="font-size: 10px; font-weight: bold; margin-top: 3px; background: rgba(0,0,0,0.18); padding: 1px 4px; border-radius: 4px; display: inline-block; width: fit-content;">⏱ ${h}:${m}:${s}</div>
                             `;
                             
                             if (seg.widthPct >= 15) {
                                 finalInnerHtml = blockContentHtml;
                             } else if (seg.widthPct >= 8) {
-                                finalInnerHtml = `<div class="task-block-text" style="font-size: 11px;"><b>${visualStatus}[${task.subject}]</b></div>`;
+                                finalInnerHtml = `<div class="task-block-text" style="font-size: 11px; font-weight:700;"><b>${visualStatus}[${task.subject}]</b></div>`;
                             }
                         }
 
@@ -411,10 +454,11 @@
             
             const mainBtn = document.getElementById('addBtn');
             mainBtn.innerText = "✏️ 계획 수정 완료하기";
-            mainBtn.style.backgroundColor = "#3498db";
+            mainBtn.style.backgroundColor = "#2563eb";
+            mainBtn.style.boxShadow = "0 4px 12px rgba(37,99,235,0.2)";
             
             const cancelArea = document.getElementById('cancelEditArea');
-            cancelArea.innerHTML = `<button id="cancelEditBtn" onclick="cancelEdit()" style="width: 100%; margin-top: 5px; padding: 10px; font-size: 14px; background-color: #7f8c8d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">수정 취소</button>`;
+            cancelArea.innerHTML = `<button id="cancelEditBtn" onclick="cancelEdit()" style="width: 100%; margin-top: 6px; padding: 12px; font-size: 14px; background-color: #64748b; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(100,116,139,0.15);">수정 취소</button>`;
             
             document.getElementById('contentInput').focus();
         }
@@ -427,7 +471,8 @@
             
             const mainBtn = document.getElementById('addBtn');
             mainBtn.innerText = "리스트에 추가하기";
-            mainBtn.style.backgroundColor = "#27ae60";
+            mainBtn.style.backgroundColor = "#10b981";
+            mainBtn.style.boxShadow = "0 4px 12px rgba(16,185,129,0.15)";
             
             document.getElementById('cancelEditArea').innerHTML = "";
         }
@@ -463,7 +508,6 @@
             } catch (err) { console.error("Unknown Error:", err); alert("알 수 없는 오류가 발생했습니다."); }
         }
 
-        // ★ 동기화 마법 1: 과목 학습 시작 시 아래 순공 측정용 스톱워치 원클릭 자동 실행 ★
         async function startTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (activeTaskId && activeTaskId !== taskId) { alert("현재 다른 과목 공부가 가동 중입니다. 진행 중인 과목을 먼저 [일시정지] 혹은 [종료] 해주세요."); return; }
             
@@ -476,7 +520,6 @@
                 await supabaseClient.from('planner_tasks').update({ start_time: getKstTimeStr(taskStartTime) }).eq('task_id', taskId);
             }
             
-            // 핵심: 총 순공 측정 스톱워치가 아직 켜져 있지 않다면 자동으로 실행시킵니다!
             if (!isSwRunning) {
                 forceStartStopwatch();
             }
@@ -496,13 +539,11 @@
             taskAnimationFrameId = requestAnimationFrame(updateTaskTimerLoop);
         }
 
-        // ★ 동기화 마법 2: 과목 학습 일시정지 시 아래 총 순공 측정 스톱워치 자동 일시정지 ★
         async function pauseTask(taskId, currentSeconds) {
             cancelAnimationFrame(taskAnimationFrameId); 
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
             activeTaskId = null;
             
-            // 핵심: 총 순공 측정 스톱워치도 연동하여 자동 일시정지시킵니다!
             if (isSwRunning) {
                 pauseStopwatch();
             }
@@ -511,14 +552,12 @@
             fetchTasks();
         }
 
-        // ★ 동기화 마법 3: 과목 학습 최종 마감 종료 시 아래 총 순공 측정 스톱워치 자동 일시정지 ★
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (!confirm("해당 계획을 마감하고 타이머를 종료할까요?")) return;
             cancelAnimationFrame(taskAnimationFrameId); 
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
             activeTaskId = null;
             
-            // 핵심: 하나의 학습이 종료되면 총 순공 측정도 일단 멈춤 상태(일시정지)로 대기시킵니다!
             if (isSwRunning) {
                 pauseStopwatch();
             }
@@ -574,31 +613,29 @@
             targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
             totalDurationMs = targetMins * 60 * 1000; endTime = Date.now() + totalDurationMs; 
             document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
-            document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#2ecc71"; updateTimerUI(); 
+            document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
         }
         function updateTimerUI() {
             const now = Date.now(); let remainingMs = endTime - now; 
             if (remainingMs <= 0) { remainingMs = 0; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "0%"; finishFocus('SUCCESS'); return; }
             const remainingSec = Math.floor(remainingMs / 1000); const h = String(Math.floor(remainingSec / 3600)).padStart(2, '0'); const m = String(Math.floor((remainingSec % 3600) / 60)).padStart(2, '0'); const s = String(remainingSec % 60).padStart(2, '0');
             document.getElementById('timerDisplay').innerText = `${h}:${m}:${s}`; const percent = (remainingMs / totalDurationMs) * 100; document.getElementById('progressFill').style.width = percent + "%";
-            if (remainingMs <= 60000) document.getElementById('progressFill').style.backgroundColor = "#e74c3c"; animationFrameId = requestAnimationFrame(updateTimerUI); 
+            if (remainingMs <= 60000) document.getElementById('progressFill').style.backgroundColor = "#ef4444"; animationFrameId = requestAnimationFrame(updateTimerUI); 
         }
         function stopFocus() { if(confirm("정말 포기하시겠습니까?")) finishFocus('INTERRUPTED'); }
         async function finishFocus(status) {
             cancelAnimationFrame(animationFrameId); const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
             document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
-            document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#2ecc71";
+            document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
             if(status === 'SUCCESS') alert("목표 달성!"); await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
         }
 
-        // ★ 스톱워치 원격 제어 및 동기화 핵심 함수들 ★
         let swAnimationFrameId, swStartTime = 0, accumulatedMs = 0, isSwRunning = false;
         
         function toggleStopwatch() {
             if (!isSwRunning) { forceStartStopwatch(); }
         }
         
-        // 개별 리스트 연동용 강제 스톱워치 구동 함수
         function forceStartStopwatch() {
             swStartTime = Date.now(); 
             isSwRunning = true;
@@ -615,7 +652,7 @@
                 cancelAnimationFrame(swAnimationFrameId); 
                 document.getElementById('swStartBtn').innerText = '이어서 하기'; 
                 document.getElementById('swStartBtn').style.display = 'inline-block';
-                document.getElementById('swStartBtn').style.backgroundColor = "#27ae60"; 
+                document.getElementById('swStartBtn').style.backgroundColor = "#10b981"; 
                 document.getElementById('swPauseBtn').style.display = 'none';
             }
         }
@@ -625,7 +662,7 @@
         }
         async function stopStopwatch() {
             if(!confirm("순공 시간을 저장할까요?")) return; let finalElapsedMs = accumulatedMs; if (isSwRunning) finalElapsedMs += (Date.now() - swStartTime); isSwRunning = false; cancelAnimationFrame(swAnimationFrameId); const actualSeconds = Math.floor(finalElapsedMs / 1000); accumulatedMs = 0;
-            document.getElementById('swStartBtn').innerText = '공부 시작'; document.getElementById('swStartBtn').style.backgroundColor = "#3498db"; document.getElementById('swStartBtn').style.display = 'inline-block'; document.getElementById('swPauseBtn').style.display = 'none'; document.getElementById('swStopBtn').style.display = 'none'; document.getElementById('stopwatchDisplay').innerText = "00:00:00"; alert(`총 ${actualSeconds}초 공부 완료!`);
+            document.getElementById('swStartBtn').innerText = '공부 시작'; document.getElementById('swStartBtn').style.backgroundColor = "#3b82f6"; document.getElementById('swStartBtn').style.display = 'inline-block'; document.getElementById('swPauseBtn').style.display = 'none'; document.getElementById('swStopBtn').style.display = 'none'; document.getElementById('stopwatchDisplay').innerText = "00:00:00"; alert(`총 ${actualSeconds}초 공부 완료!`);
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
         }
     </script>
