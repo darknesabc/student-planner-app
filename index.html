@@ -91,9 +91,11 @@
             </select>
             <input type="text" id="contentInput" placeholder="✏️ 예: 뉴런 수1 3강 완강" style="flex: 1; padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
         </div>
-        <button onclick="addTask()" style="width: 100%; margin-top: 15px; padding: 15px; font-size: 16px; background-color: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        
+        <button id="addBtn" onclick="addTask()" style="width: 100%; margin-top: 15px; padding: 15px; font-size: 16px; background-color: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background-color 0.2s;">
             리스트에 추가하기
         </button>
+        <div id="cancelEditArea"></div>
     </div>
 
     <div style="margin-bottom: 20px;">
@@ -169,6 +171,9 @@
         let taskStartTime = 0;         
         let taskAccumulatedMs = 0;      
         let taskAnimationFrameId;       
+        
+        // 수정 관련 상태 추적용 글로벌 변수
+        let editTaskId = null;
 
         function switchInputMode(mode) {
             currentInputMode = mode;
@@ -298,7 +303,6 @@
                 const s = String(savedSec % 60).padStart(2, '0');
                 const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 15px; font-family: monospace; font-weight: bold; color: #27ae60; background: #e8f8f5; padding: 2px 6px; border-radius: 4px;">${h}:${m}:${s}</span>`;
 
-                // ★ 이 곳이 변경되었습니다: 버튼 마진(margin-right) 추가 ★
                 let actionButtonsHtml = '';
                 if (activeTaskId === task.task_id) {
                     actionButtonsHtml = `
@@ -310,7 +314,10 @@
                     actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db; margin-right: 15px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
                 }
 
-                // ★ 이 곳이 변경되었습니다: X 버튼에 왼쪽 여백(margin-left)과 세로선(border-left) 추가 ★
+                // 문자열 깨짐 방지를 위한 이스케이프 처리
+                const escapedContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+                // ★ [수정 버튼 ✏️]을 추가하고 삭제 버튼과의 완충지대로 삼아 UX를 설계했습니다 ★
                 listContainer.innerHTML += `
                     <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
                         <button class="status-btn" onclick="toggleTaskStatus('${task.task_id}', '${currentStatus}')">
@@ -321,6 +328,7 @@
                             ${timerHtml}
                         </div>
                         ${actionButtonsHtml}
+                        <button onclick="prepareEditTask('${task.task_id}', '${task.subject}', '${escapedContent}', '${taskMode}', '${task.start_time || ''}', '${task.end_time || ''}')" style="background: none; border: none; color: #3498db; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 14px;">✏️</button>
                         <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; border-left: 1px solid #dfe6e9; color: #ff4d4d; font-weight: bold; cursor: pointer; padding: 0 0 0 15px; margin-left: 5px; font-size: 16px;">✕</button>
                     </li>
                 `;
@@ -387,6 +395,49 @@
             timeTasks.forEach(task => renderTask(task, timeListElement, timelineTime));
             
             updateCurrentTimeLine();
+        }
+
+        // ★ 수정 모드 활성화 및 데이터 주입 함수 ★
+        function prepareEditTask(taskId, subject, content, taskMode, startTime, endTime) {
+            editTaskId = taskId;
+            document.getElementById('subjectInput').value = subject;
+            document.getElementById('contentInput').value = content;
+            
+            if (taskMode === 'time') {
+                switchInputMode('time');
+                document.querySelector('input[name="timeMode"][value="custom"]').checked = true;
+                toggleTimeInput();
+                document.getElementById('startTimeInput').value = startTime ? startTime.substring(0, 5) : '';
+                document.getElementById('endTimeInput').value = endTime ? endTime.substring(0, 5) : '';
+            } else {
+                switchInputMode('simple');
+            }
+            
+            // 등록 버튼 변경
+            const mainBtn = document.getElementById('addBtn');
+            mainBtn.innerText = "✏️ 계획 수정 완료하기";
+            mainBtn.style.backgroundColor = "#3498db";
+            
+            // 수정 취소 버튼 추가
+            const cancelArea = document.getElementById('cancelEditArea');
+            cancelArea.innerHTML = `<button id="cancelEditBtn" onclick="cancelEdit()" style="width: 100%; margin-top: 5px; padding: 10px; font-size: 14px; background-color: #7f8c8d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">수정 취소</button>`;
+            
+            // 입력 필드로 스크롤 이동 및 포커싱
+            document.getElementById('contentInput').focus();
+        }
+
+        // ★ 수정 취소 및 원래 상태로 리셋하는 함수 ★
+        function cancelEdit() {
+            editTaskId = null;
+            document.getElementById('contentInput').value = "";
+            document.getElementById('startTimeInput').value = "";
+            document.getElementById('endTimeInput').value = "";
+            
+            const mainBtn = document.getElementById('addBtn');
+            mainBtn.innerText = "리스트에 추가하기";
+            mainBtn.style.backgroundColor = "#27ae60";
+            
+            document.getElementById('cancelEditArea').innerHTML = "";
         }
 
         function updateCurrentTimeLine() {
@@ -462,6 +513,7 @@
             fetchTasks();
         }
 
+        // ★ 추가 기능과 수정 기능을 분기 처리하도록 업그레이드 ★
         async function addTask() {
             let startVal = null, endVal = null;
             if (currentInputMode === 'time') {
@@ -472,12 +524,23 @@
             const subjectValue = document.getElementById('subjectInput').value; const contentValue = document.getElementById('contentInput').value;
             if (contentValue === "") return alert("할 일 내용을 입력해주세요!");
 
-            const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode, completion_status: 'NONE' };
-            if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
-            
-            const { error } = await supabaseClient.from('planner_tasks').insert([insertData]);
-            if (error) { alert("일정 추가 실패: Supabase DB 권한을 확인해주세요."); }
-            else { document.getElementById('contentInput').value = ""; fetchTasks(); }
+            if (editTaskId) {
+                // 1. [수정 모드] 처리
+                let updateData = { subject: subjectValue, content: contentValue, task_mode: currentInputMode };
+                if (currentInputMode === 'time') { updateData.start_time = startVal; updateData.end_time = endVal; }
+                
+                const { error } = await supabaseClient.from('planner_tasks').update(updateData).eq('task_id', editTaskId);
+                if (error) { alert("계획 수정 실패: " + error.message); }
+                else { cancelEdit(); fetchTasks(); }
+            } else {
+                // 2. [신규 추가 모드] 처리
+                const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode, completion_status: 'NONE' };
+                if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
+                
+                const { error } = await supabaseClient.from('planner_tasks').insert([insertData]);
+                if (error) { alert("일정 추가 실패: Supabase DB 권한을 확인해주세요."); }
+                else { document.getElementById('contentInput').value = ""; fetchTasks(); }
+            }
         }
 
         async function deleteTask(taskId) {
