@@ -6,6 +6,7 @@
     <title>학생 플래너 MVP</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* ★ 높이를 24시간(1440px)으로 확장했습니다! ★ */
         .timeline-container { position: relative; height: 1440px; background: #f8f9fa; border-left: 2px solid #bdc3c7; margin-left: 50px; margin-top: 20px; border-radius: 5px; }
         .time-label { position: absolute; left: -50px; font-size: 12px; color: #7f8c8d; font-weight: bold; transform: translateY(-50%); }
         .timeline-grid { position: absolute; width: 100%; height: 1px; background: #ecf0f1; }
@@ -31,6 +32,14 @@
         .mode-btn.active { background: white; color: #333; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .mode-btn.inactive { background: transparent; color: #7f8c8d; }
         .p-btn { padding: 4px 8px; font-size: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; margin-left: 4px; }
+        
+        /* ★ 현재 시간 지시선(레드 라인) 디자인 ★ */
+        .current-time-line {
+            position: absolute; width: 100%; height: 2px; background-color: #e74c3c; z-index: 50; pointer-events: none; transition: top 1s linear;
+        }
+        .current-time-line::before {
+            content: '현재'; position: absolute; left: -42px; top: -8px; background-color: #e74c3c; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 4px;
+        }
     </style>
 </head>
 <body style="font-family: sans-serif; padding: 20px; background-color: #f3f4f6; max-width: 800px; margin: 0 auto;">
@@ -104,8 +113,11 @@
             
             <div id="timeTableContainer" style="display: none;">
                 <h4 id="timetableTitle" style="text-align: center; color: #2c3e50; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px;">🌱 나의 실제 공부 궤적 (사후 스케줄링)</h4>
-                <div class="timeline-container" id="timelineVisualsSimple"></div>
-                <div class="timeline-container" id="timelineVisualsTime" style="display: none;"></div>
+                
+                <div id="timelineScrollWrapper" style="max-height: 600px; overflow-y: auto; overflow-x: hidden; padding-right: 10px; border-radius: 5px; box-shadow: inset 0 0 5px rgba(0,0,0,0.05); background: #fdfdfd;">
+                    <div class="timeline-container" id="timelineVisualsSimple"></div>
+                    <div class="timeline-container" id="timelineVisualsTime" style="display: none;"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -120,7 +132,7 @@
             </div>
             <div>
                 <button id="startBtn" onclick="startFocus()" style="padding: 12px 25px; font-size: 16px; background-color: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">시작</button>
-                <button id="stopBtn" onclick="stopFocus()" style="padding: 12px 25px; font-size: 16px; background-color: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; display: none;">포기</button>
+                <button id="stopBtn" onclick="stopFocus()" style="padding: 12px 25px; font-size: 16px; background-color: #95a5a6; color: white; border: none; border-radius: 5px; cursor: display: none;">포기</button>
             </div>
         </div>
         <div style="flex: 1; min-width: 300px; background: #34495e; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; text-align: center;">
@@ -184,6 +196,19 @@
             document.getElementById('simpleListContainer').style.display = view === 'simpleList' ? 'block' : 'none';
             document.getElementById('timeListContainer').style.display = view === 'timeList' ? 'block' : 'none';
             document.getElementById('timeTableContainer').style.display = view === 'timeTable' ? 'block' : 'none';
+
+            // ★ 스마트 자동 스크롤 로직 ★
+            if (view === 'timeTable') {
+                setTimeout(() => {
+                    const wrapper = document.getElementById('timelineScrollWrapper');
+                    if (wrapper) {
+                        const kstNow = new Date(new Date().getTime() + (9 * 60 * 60 * 1000));
+                        const currentMins = (kstNow.getHours() * 60) + kstNow.getMinutes();
+                        // 현재 시간 위치에서 약간 위(120px = 2시간)로 여유 공간을 두고 포커싱
+                        wrapper.scrollTop = Math.max(0, currentMins - 120);
+                    }
+                }, 50); // 화면이 켜지고 렌더링될 약간의 딜레이
+            }
         }
 
         function toggleTimeInput() {
@@ -207,13 +232,15 @@
             timelineSimple.innerHTML = '';
             timelineTime.innerHTML = '';
 
+            // ★ 00시부터 24시까지 눈금선 그리기 ★
             for(let i = 0; i <= 24; i++) {
-    const hourStr = String(i).padStart(2, '0') + ':00';
-    const topPos = i * 60; // 0시가 0px이 되도록 변경!
-    const gridHtml = `<div class="time-label" style="top: ${topPos}px;">${hourStr}</div><div class="timeline-grid" style="top: ${topPos}px;"></div>`;
-    timelineSimple.innerHTML += gridHtml;
-    timelineTime.innerHTML += gridHtml;
-}
+                const hourStr = String(i).padStart(2, '0') + ':00';
+                const topPos = i * 60; // 0시가 0px이 되도록 수정!
+                const gridHtml = `<div class="time-label" style="top: ${topPos}px;">${hourStr}</div><div class="timeline-grid" style="top: ${topPos}px;"></div>`;
+                timelineSimple.innerHTML += gridHtml;
+                timelineTime.innerHTML += gridHtml;
+            }
+
             const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time && !task.end_time));
             const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && (task.start_time || task.end_time)));
 
@@ -229,8 +256,6 @@
                 const hasTime = task.start_time && task.end_time;
                 const startStr = hasTime ? task.start_time.substring(0, 5) : "";
                 const endStr = hasTime ? task.end_time.substring(0, 5) : "";
-                
-                // 모드 강제 할당 (구버전 호환용)
                 const taskMode = task.task_mode || (!task.start_time && !task.end_time ? 'simple' : 'time');
 
                 const subjectSpan = `<span style="display:inline-block; min-width: 60px; margin-right: 8px; color: ${subjectColors[task.subject] || '#333'}; font-weight: bold;">[${task.subject}]</span>`;
@@ -253,7 +278,6 @@
                     actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
                 }
 
-                // ★ 단순 리스트 요소가 시간이 생기더라도 제자리를 지킬 수 있게 listContainer를 재활용합니다 ★
                 listContainer.innerHTML += `
                     <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
                         <label style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center; flex-wrap: wrap;">
@@ -272,6 +296,7 @@
                     let endMins = parseInt(eParts[0]) * 60 + parseInt(eParts[1]);
                     if(endMins < startMins) endMins += 24 * 60; 
 
+                    // ★ 블록 위치도 0시 기준으로 계산되도록 수정! ★
                     const topPx = startMins; 
                     let heightPx = endMins - startMins; 
                     if (heightPx < 15) heightPx = 15; 
@@ -291,9 +316,32 @@
 
             simpleTasks.forEach(task => renderTask(task, simpleElement, timelineSimple));
             timeTasks.forEach(task => renderTask(task, timeListElement, timelineTime));
+            
+            // 데이터 렌더링이 끝난 후 현재 시간 레드 라인을 덧그려줍니다.
+            updateCurrentTimeLine();
         }
 
-        // --- ★ 시작할 때: 최초 1회에 한해 현재 시간(start_time) 기록하기 ★ ---
+        // --- ★ 현재 시간 지시선(레드 라인) 업데이트 함수 ★ ---
+        function updateCurrentTimeLine() {
+            const kstNow = new Date(new Date().getTime() + (9 * 60 * 60 * 1000));
+            const topPx = (kstNow.getHours() * 60) + kstNow.getMinutes();
+            
+            ['Simple', 'Time'].forEach(mode => {
+                let line = document.getElementById(`currentTimeLine${mode}`);
+                if (!line) {
+                    const container = document.getElementById(`timelineVisuals${mode}`);
+                    if (container) {
+                        container.insertAdjacentHTML('beforeend', `<div id="currentTimeLine${mode}" class="current-time-line" style="top: ${topPx}px;"></div>`);
+                    }
+                } else {
+                    line.style.top = `${topPx}px`;
+                }
+            });
+        }
+        
+        // 1분(60초)마다 빨간 선 위치 갱신
+        setInterval(updateCurrentTimeLine, 60000);
+
         async function startTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (activeTaskId && activeTaskId !== taskId) {
                 alert("현재 다른 과목 공부가 가동 중입니다. 진행 중인 과목을 먼저 [일시정지] 혹은 [종료] 해주세요.");
@@ -303,7 +351,6 @@
             taskStartTime = Date.now();
             taskAccumulatedMs = currentSeconds * 1000;
 
-            // 단순 할 일 모드이고, 난생처음 [시작] 버튼을 눌렀다면 지금 이 순간을 DB에 박제!
             if (taskMode === 'simple' && !existingStartTime) {
                 function getKstTimeStr(ms) {
                     const d = new Date(ms);
@@ -341,7 +388,6 @@
             fetchTasks();
         }
 
-        // --- ★ 종료할 때: 최종 시간(end_time)을 찍어 거대한 블록 완성하기 ★ ---
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (!confirm("해당 계획을 마감하고 타이머를 종료할까요?")) return;
             cancelAnimationFrame(taskAnimationFrameId);
@@ -357,10 +403,7 @@
                     const kst = new Date(utc + (9 * 60 * 60 * 1000));
                     return `${String(kst.getHours()).padStart(2, '0')}:${String(kst.getMinutes()).padStart(2, '0')}`;
                 }
-                
-                // 종료 시간은 현재 마감 버튼을 누른 KST 시간으로 무조건 덮어쓰기
                 updatePayload.end_time = getKstTimeStr(Date.now());
-                
                 alert(`최초 시작 시간부터 방금 종료한 시간까지의 거대한 범위 블록이 생성되었습니다! (내부 텍스트로 순수 집중 시간 표시됨)`);
             } else {
                 alert("수고하셨습니다! 마감 처리되었습니다.");
