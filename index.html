@@ -31,7 +31,6 @@
         .mode-btn.inactive { background: transparent; color: #7f8c8d; }
         .p-btn { padding: 4px 8px; font-size: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; margin-left: 4px; }
         
-        /* 3단 토글 버튼 (이모지 대신 CSS 디자인으로 변경) */
         .status-btn { background: none; border: none; cursor: pointer; padding: 0; margin-right: 12px; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; outline: none; }
         .status-btn:active { transform: scale(0.8); }
 
@@ -267,14 +266,12 @@
             const subjectColors = { '국어': '#e74c3c', '수학': '#3498db', '영어': '#f1c40f', '탐구': '#9b59b6' };
 
             function renderTask(task, listContainer, timelineContainer) {
-                // DB에서 상태 가져오기 (없으면 과거 호환성을 위해 is_completed 참조)
                 const currentStatus = task.completion_status || (task.is_completed ? 'DONE' : 'NONE');
                 
                 let statusIconHtml = '';
                 let textStyle = "color: #333;"; 
                 let blockOpacity = '0.9';
 
-                // ★ 이모지 대신 순수 CSS 도형(Shape)으로 버튼 아이콘 생성! 기기 타지 않음 ★
                 if (currentStatus === 'DONE') {
                     statusIconHtml = '<div style="width: 22px; height: 22px; border: 2px solid #27ae60; background-color: #2ecc71; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: bold; box-sizing: border-box;">O</div>';
                     textStyle = "text-decoration: line-through; color: #999;"; 
@@ -301,17 +298,19 @@
                 const s = String(savedSec % 60).padStart(2, '0');
                 const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 15px; font-family: monospace; font-weight: bold; color: #27ae60; background: #e8f8f5; padding: 2px 6px; border-radius: 4px;">${h}:${m}:${s}</span>`;
 
+                // ★ 이 곳이 변경되었습니다: 버튼 마진(margin-right) 추가 ★
                 let actionButtonsHtml = '';
                 if (activeTaskId === task.task_id) {
                     actionButtonsHtml = `
                         <button class="p-btn" style="background-color: #f39c12;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
-                        <button class="p-btn" style="background-color: #e74c3c;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 종료</button>
+                        <button class="p-btn" style="background-color: #e74c3c; margin-right: 15px;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 종료</button>
                     `;
                 } else {
                     const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
-                    actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
+                    actionButtonsHtml = `<button class="p-btn" style="background-color: #3498db; margin-right: 15px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">${btnText}</button>`;
                 }
 
+                // ★ 이 곳이 변경되었습니다: X 버튼에 왼쪽 여백(margin-left)과 세로선(border-left) 추가 ★
                 listContainer.innerHTML += `
                     <li style="margin-bottom: 12px; display: flex; align-items: center; border-bottom: 1px dashed #ecf0f1; padding-bottom: 5px;">
                         <button class="status-btn" onclick="toggleTaskStatus('${task.task_id}', '${currentStatus}')">
@@ -322,7 +321,7 @@
                             ${timerHtml}
                         </div>
                         ${actionButtonsHtml}
-                        <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #ff4d4d; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 16px;">✕</button>
+                        <button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; border-left: 1px solid #dfe6e9; color: #ff4d4d; font-weight: bold; cursor: pointer; padding: 0 0 0 15px; margin-left: 5px; font-size: 16px;">✕</button>
                     </li>
                 `;
 
@@ -406,38 +405,19 @@
         }
         setInterval(updateCurrentTimeLine, 60000);
 
-        // ★ 강력한 에러 알림이 포함된 3단 토글 스위치 로직 ★
         async function toggleTaskStatus(taskId, currentStatus) {
             let nextStatus = 'NONE';
             let isCompletedCompat = false;
 
-            if (currentStatus === 'NONE') {
-                nextStatus = 'DONE';
-                isCompletedCompat = true;
-            } else if (currentStatus === 'DONE') {
-                nextStatus = 'PARTIAL';
-                isCompletedCompat = false; 
-            } else {
-                nextStatus = 'NONE';
-                isCompletedCompat = false;
-            }
+            if (currentStatus === 'NONE') { nextStatus = 'DONE'; isCompletedCompat = true; } 
+            else if (currentStatus === 'DONE') { nextStatus = 'PARTIAL'; isCompletedCompat = false; } 
+            else { nextStatus = 'NONE'; isCompletedCompat = false; }
 
             try {
-                const { error } = await supabaseClient.from('planner_tasks').update({ 
-                    completion_status: nextStatus,
-                    is_completed: isCompletedCompat 
-                }).eq('task_id', taskId);
-                
-                if (error) {
-                    console.error("DB Update Error:", error);
-                    alert("상태 변경 실패!\n사유: " + error.message + "\n\n(Supabase SQL Editor에서 completion_status 컬럼이 정상적으로 추가되었는지 다시 한번 확인해주세요!)");
-                } else {
-                    fetchTasks(); 
-                }
-            } catch (err) {
-                console.error("Unknown Error:", err);
-                alert("알 수 없는 오류가 발생했습니다. 개발자 도구를 확인해주세요.");
-            }
+                const { error } = await supabaseClient.from('planner_tasks').update({ completion_status: nextStatus, is_completed: isCompletedCompat }).eq('task_id', taskId);
+                if (error) { console.error("DB Update Error:", error); alert("상태 변경 실패!\n사유: " + error.message); } 
+                else { fetchTasks(); }
+            } catch (err) { console.error("Unknown Error:", err); alert("알 수 없는 오류가 발생했습니다."); }
         }
 
         async function startTask(taskId, currentSeconds, existingStartTime, taskMode) {
@@ -469,8 +449,6 @@
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
             if (!confirm("해당 계획을 마감하고 타이머를 종료할까요?")) return;
             cancelAnimationFrame(taskAnimationFrameId); const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); activeTaskId = null;
-            
-            // 종료 버튼을 누르면 자동으로 'DONE(완료)' 처리
             let updatePayload = { study_seconds: finalSeconds, completion_status: 'DONE', is_completed: true };
 
             if (taskMode === 'simple') {
@@ -480,7 +458,7 @@
             } else { alert("수고하셨습니다! 마감 처리되었습니다."); }
             
             const { error } = await supabaseClient.from('planner_tasks').update(updatePayload).eq('task_id', taskId); 
-            if(error) alert("상태 저장 실패: Supabase DB에 'completion_status' 컬럼이 있는지 확인해주세요.");
+            if(error) alert("상태 저장 실패: Supabase DB 권한을 확인해주세요.");
             fetchTasks();
         }
 
@@ -494,17 +472,12 @@
             const subjectValue = document.getElementById('subjectInput').value; const contentValue = document.getElementById('contentInput').value;
             if (contentValue === "") return alert("할 일 내용을 입력해주세요!");
 
-            // 새 일정을 추가할 때 초기값은 'NONE'
             const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode, completion_status: 'NONE' };
             if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
             
             const { error } = await supabaseClient.from('planner_tasks').insert([insertData]);
-            if (error) { alert("일정 추가 실패: Supabase DB에 'completion_status' 컬럼을 추가해주세요!"); }
+            if (error) { alert("일정 추가 실패: Supabase DB 권한을 확인해주세요."); }
             else { document.getElementById('contentInput').value = ""; fetchTasks(); }
-        }
-
-        async function toggleTask(taskId, currentStatus) {
-            // 이 함수는 기존의 is_completed 용도이므로 toggleTaskStatus로 통합되어 더 이상 메인 클릭에서 불리지 않습니다.
         }
 
         async function deleteTask(taskId) {
