@@ -230,7 +230,6 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // ★ [버그 수정 완료] UTC 오차를 완벽하게 차단하는 절대 시간 계산 엔진 ★
         const now = new Date();
         const kstEpoch = now.getTime() + (9 * 60 * 60 * 1000); 
         const kstDateObj = new Date(kstEpoch); 
@@ -238,7 +237,6 @@
         const logicalEpoch = kstEpoch - (3 * 60 * 60 * 1000);
         const logicalDateObj = new Date(logicalEpoch);
         
-        // 날짜 변환 시 무조건 UTC 메서드를 사용하여 타임존 간섭을 원천 차단합니다.
         const yyyy = logicalDateObj.getUTCFullYear();
         const mm = String(logicalDateObj.getUTCMonth() + 1).padStart(2, '0');
         const dd = String(logicalDateObj.getUTCDate()).padStart(2, '0');
@@ -519,9 +517,14 @@
                 const timeSpan = hasTime ? `<span style="display:inline-block; min-width: 105px; margin-right: 6px; font-weight: 700; color: #2563eb;">[${startStr}~${endStr}]</span>` : '';
 
                 const savedSec = task.study_seconds || 0;
-                const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
-                const m = String(Math.floor((savedSec % 3600) / 60)).padStart(2, '0');
-                const s = String(savedSec % 60).padStart(2, '0');
+                
+                // ★ 은닉(Visual Hide) 마법 도입 ★
+                // 빈칸(NONE) 상태이면서, 현재 타이머가 돌아가고 있는 상태가 아니라면 화면에 0초로 렌더링합니다!
+                const displaySec = (currentStatus === 'NONE' && activeTaskId !== task.task_id) ? 0 : savedSec;
+
+                const h = String(Math.floor(displaySec / 3600)).padStart(2, '0');
+                const m = String(Math.floor((displaySec % 3600) / 60)).padStart(2, '0');
+                const s = String(displaySec % 60).padStart(2, '0');
                 
                 let displayH = h, displayM = m, displayS = s;
                 if (activeTaskId === task.task_id) {
@@ -531,7 +534,12 @@
                     displayM = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0'); 
                     displayS = String(elapsedSec % 60).padStart(2, '0');
                 }
-                const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 12px; font-family: monospace; font-weight: 700; font-size:13px; color: #059669; background: #ecfdf5; padding: 3px 8px; border-radius: 6px; white-space: nowrap;">${displayH}:${displayM}:${displayS}</span>`;
+                
+                // 타이머 글씨체 배경색도 0초일때와 아닐때를 다르게 하여 디테일을 살립니다.
+                const timerBg = (displayH === '00' && displayM === '00' && displayS === '00') ? '#f1f5f9' : '#ecfdf5';
+                const timerColor = (displayH === '00' && displayM === '00' && displayS === '00') ? '#94a3b8' : '#059669';
+                
+                const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 12px; font-family: monospace; font-weight: 700; font-size:13px; color: ${timerColor}; background: ${timerBg}; padding: 3px 8px; border-radius: 6px; white-space: nowrap;">${displayH}:${displayM}:${displayS}</span>`;
 
                 let actionButtonsHtml = '';
                 if (activeTaskId === task.task_id) {
