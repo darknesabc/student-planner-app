@@ -20,7 +20,7 @@
 
         .header-container { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding: 0 4px; flex-wrap: wrap; gap: 16px; }
         .main-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
-        .sticky-sidebar { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 20px; }
+        .sticky-sidebar { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 20px; z-index: 100; }
         .input-group { display: flex; gap: 10px; width: 100%; }
         
         @media (max-width: 1024px) {
@@ -79,9 +79,35 @@
         .current-time-line { position: absolute; width: 100%; height: 2px; background-color: #ef4444; z-index: 50; pointer-events: none; transition: top 1s linear; }
         .current-time-line::before { content: '현재'; position: absolute; left: -42px; top: -8px; background-color: #ef4444; color: white; font-size: 10px; font-weight: 700; padding: 2px 4px; border-radius: 4px; }
         input, select { box-sizing: border-box; }
+
+        /* 팝업 모달의 스크롤바 예쁘게 */
+        #taskSelectContainer::-webkit-scrollbar { width: 6px; }
+        #taskSelectContainer::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
 <body>
+
+    <!-- ★ 스마트 팝업 레이어 (과목 원격 제어 선택창) ★ -->
+    <div id="taskSelectModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+        <div style="background: white; padding: 32px; border-radius: 20px; width: 90%; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+            <h3 style="margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: space-between;">
+                🚀 어떤 공부를 시작할까요?
+                <button onclick="closeTaskSelectModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">&times;</button>
+            </h3>
+            <p style="color: #64748b; font-size: 13px; margin-bottom: 24px; font-weight: 500;">계획을 선택하면 개별 타이머와 총 순공 스톱워치가 <b>동시에 가동</b>됩니다.</p>
+            
+            <div id="taskSelectContainer" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 4px;">
+                <!-- JavaScript가 리스트를 여기로 불러옵니다 -->
+            </div>
+            
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed #e2e8f0;">
+                <button onclick="startPureStopwatch()" style="width: 100%; padding: 14px; font-size: 14px; background-color: #f8fafc; color: #475569; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer; font-weight: 700; transition: all 0.2s;" onmouseover="this.style.backgroundColor='#f1f5f9'" onmouseout="this.style.backgroundColor='#f8fafc'">
+                    ⏱️ 과목 지정 없이 순공만 측정하기
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- 팝업 끝 -->
 
     <div class="header-container">
         <div>
@@ -215,7 +241,8 @@
                 <div style="margin-bottom: 20px; font-size: 12px; color: #64748b; font-weight: 500;">시간 제한 없이 쭉 달립니다!</div>
                 <div id="stopwatchDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 32px; font-family: monospace; color: #00f5d4; letter-spacing: 0.01em; text-shadow: 0 0 12px rgba(0,245,212,0.15); white-space: nowrap;">00:00:00</div>
                 <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
-                    <button id="swStartBtn" onclick="toggleStopwatch()" style="padding: 10px 20px; font-size: 13px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(59,130,246,0.2);">공부 시작</button>
+                    <!-- ★ 함수 연결 변경: toggleStopwatch 대신 handleSwStartClick 호출 ★ -->
+                    <button id="swStartBtn" onclick="handleSwStartClick()" style="padding: 10px 20px; font-size: 13px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(59,130,246,0.2);">공부 시작</button>
                     <button id="swPauseBtn" onclick="pauseStopwatch()" style="padding: 10px 20px; font-size: 13px; background-color: #f59e0b; color: white; border: none; border-radius: 8px; cursor: pointer; display: none; font-weight: 700;">일시 정지</button>
                     <button id="swStopBtn" onclick="stopStopwatch()" style="padding: 10px 20px; font-size: 13px; background-color: #ea580c; color: white; border: none; border-radius: 8px; cursor: pointer; display: none; font-weight: 700;">종료/저장</button>
                 </div>
@@ -252,6 +279,9 @@
             dateHtml += ` <span style="font-size:11px; color:#f59e0b; background:#fef3c7; padding:2px 6px; border-radius:4px; margin-left:4px; font-weight:800;">🦉 새벽 연장 모드</span>`;
         }
         document.getElementById('todayDateStr').firstElementChild.innerHTML = dateHtml;
+
+        // 전역 배열: 모달창에 띄우기 위해 데이터를 보관합니다.
+        window.currentTasks = [];
 
         let currentInputMode = 'simple'; 
         let currentOutputView = 'simpleList'; 
@@ -431,6 +461,9 @@
                 .eq('seat_number', '105').eq('task_date', today).order('start_time', { ascending: true, nullsFirst: true });
             if (error) { console.error(error); return; }
 
+            // 가져온 데이터를 팝업 모달에서 쓸 수 있도록 전역 저장
+            window.currentTasks = data;
+
             const totalCount = data.length;
             let achievedScore = 0;
             
@@ -518,8 +551,6 @@
 
                 const savedSec = task.study_seconds || 0;
                 
-                // ★ 은닉(Visual Hide) 마법 도입 ★
-                // 빈칸(NONE) 상태이면서, 현재 타이머가 돌아가고 있는 상태가 아니라면 화면에 0초로 렌더링합니다!
                 const displaySec = (currentStatus === 'NONE' && activeTaskId !== task.task_id) ? 0 : savedSec;
 
                 const h = String(Math.floor(displaySec / 3600)).padStart(2, '0');
@@ -535,7 +566,6 @@
                     displayS = String(elapsedSec % 60).padStart(2, '0');
                 }
                 
-                // 타이머 글씨체 배경색도 0초일때와 아닐때를 다르게 하여 디테일을 살립니다.
                 const timerBg = (displayH === '00' && displayM === '00' && displayS === '00') ? '#f1f5f9' : '#ecfdf5';
                 const timerColor = (displayH === '00' && displayM === '00' && displayS === '00') ? '#94a3b8' : '#059669';
                 
@@ -761,7 +791,9 @@
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
             
-            if (isSwRunning) { pauseStopwatch(); }
+            // 만약 개별 과목을 멈췄는데 스톱워치만 돌아가고 있다면, 의도적으로 냅둘 수도 있지만
+            // 완벽한 동기화를 원하시면 여기서 pauseStopwatch()를 불러도 됩니다. (현재는 개별 동작 허용)
+            // if (isSwRunning) { pauseStopwatch(); }
 
             await supabaseClient.from('planner_tasks').update({ study_seconds: finalSeconds }).eq('task_id', taskId); 
             fetchTasks();
@@ -777,6 +809,7 @@
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
             
+            // 과목 마감 시 하단 스톱워치도 자동 일시정지 (휴식 유도)
             if (isSwRunning) { pauseStopwatch(); }
 
             let updatePayload = { study_seconds: finalSeconds, completion_status: 'DONE', is_completed: true };
@@ -857,10 +890,89 @@
             if(status === 'SUCCESS') alert("목표 달성!"); await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
         }
 
+        /* ==========================================
+           ★ [NEW] 양방향 원격 제어 & 모달 팝업 로직 ★
+           ========================================== */
+        
         let swAnimationFrameId, swStartTime = 0, accumulatedMs = 0, isSwRunning = false;
         
-        function toggleStopwatch() {
-            if (!isSwRunning) { forceStartStopwatch(); }
+        // 1. 스톱워치 버튼을 눌렀을 때 바로 시작하지 않고 팝업을 엽니다.
+        function handleSwStartClick() {
+            if (!isSwRunning) {
+                openTaskSelectModal();
+            }
+        }
+
+        // 2. 미완료 계획 리스트를 뽑아서 화면 중앙 팝업으로 띄워줍니다.
+        function openTaskSelectModal() {
+            const container = document.getElementById('taskSelectContainer');
+            container.innerHTML = ''; // 기존 목록 초기화
+            
+            // 완료(DONE)나 세모(PARTIAL)가 아닌 항목만 필터링
+            const availableTasks = (window.currentTasks || []).filter(t => {
+                const status = t.completion_status || (t.is_completed ? 'DONE' : 'NONE');
+                return status === 'NONE'; 
+            });
+
+            if (availableTasks.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 30px 0; background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <span style="font-size: 24px;">📝</span><br>
+                        <span style="color: #64748b; font-size: 13px; font-weight: 600; display: inline-block; margin-top: 8px;">
+                            현재 진행 가능한 계획이 없습니다.<br>오늘 할 일을 먼저 추가해 주세요!
+                        </span>
+                    </div>`;
+            } else {
+                // 선택 가능한 과목을 예쁜 버튼 형태로 생성
+                availableTasks.forEach(task => {
+                    const savedSec = task.study_seconds || 0;
+                    const taskMode = task.task_mode || (!task.start_time && !task.end_time ? 'simple' : 'time');
+                    const status = task.completion_status || 'NONE';
+
+                    const safeSubject = task.subject;
+                    const safeContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    
+                    const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
+                    const m = String(Math.floor((savedSec % 3600) / 60)).padStart(2, '0');
+                    const s = String(savedSec % 60).padStart(2, '0');
+                    const timeStr = savedSec > 0 ? `(누적 ${h}:${m}:${s})` : '';
+
+                    const btn = document.createElement('button');
+                    btn.style.cssText = 'padding: 16px; background: white; border: 1px solid #cbd5e1; border-radius: 12px; text-align: left; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);';
+                    btn.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <div>
+                                <span style="color: #3b82f6; font-weight: 800; font-size: 14px;">[${safeSubject}]</span>
+                                <span style="font-weight: 700; color: #1e293b; font-size: 14px; margin-left: 4px;">${safeContent}</span>
+                            </div>
+                        </div>
+                        <div style="color: #94a3b8; font-size: 12px; font-weight: 600;">${savedSec > 0 ? `▶ 이어서 하기 ${timeStr}` : '▶ 새로 시작하기'}</div>
+                    `;
+
+                    // 리스트에서 클릭 시 모달창을 닫고 개별 과목의 시작(startTask) 로직 호출
+                    btn.onclick = () => {
+                        closeTaskSelectModal();
+                        startTask(task.task_id, savedSec, task.start_time || '', taskMode, status);
+                    };
+
+                    btn.onmouseover = () => { btn.style.borderColor = '#3b82f6'; btn.style.boxShadow = '0 4px 12px rgba(59,130,246,0.1)'; btn.style.transform = 'translateY(-1px)'; };
+                    btn.onmouseout = () => { btn.style.borderColor = '#cbd5e1'; btn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)'; btn.style.transform = 'none'; };
+
+                    container.appendChild(btn);
+                });
+            }
+
+            document.getElementById('taskSelectModal').style.display = 'flex';
+        }
+
+        function closeTaskSelectModal() {
+            document.getElementById('taskSelectModal').style.display = 'none';
+        }
+
+        // 모달창 아래에 있는 "과목 지정 없이 순공만 측정" 버튼 전용 함수
+        function startPureStopwatch() {
+            closeTaskSelectModal();
+            forceStartStopwatch();
         }
         
         function forceStartStopwatch() {
@@ -891,12 +1003,24 @@
                 document.getElementById('swStartBtn').style.display = 'inline-block';
                 document.getElementById('swStartBtn').style.backgroundColor = "#10b981"; 
                 document.getElementById('swPauseBtn').style.display = 'none';
+
+                // ★ 역방향 동기화: 스톱워치를 멈추면 개별 과목도 자동으로 멈춤! ★
+                if (activeTaskId) {
+                    let currentTaskSec = 0;
+                    if (window.currentTasks) {
+                        const t = window.currentTasks.find(x => x.task_id === activeTaskId);
+                        if (t) currentTaskSec = t.study_seconds || 0;
+                    }
+                    pauseTask(activeTaskId, currentTaskSec);
+                }
             }
         }
+        
         function updateStopwatchUI() {
             if (!isSwRunning) return; const elapsedSec = Math.floor((accumulatedMs + (Date.now() - swStartTime)) / 1000); const h = String(Math.floor(elapsedSec / 3600)).padStart(2, '0'); const m = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0'); const s = String(elapsedSec % 60).padStart(2, '0');
             document.getElementById('stopwatchDisplay').innerText = `${h}:${m}:${s}`; swAnimationFrameId = requestAnimationFrame(updateStopwatchUI); 
         }
+        
         async function stopStopwatch() {
             if(!confirm("순공 시간을 저장할까요?")) return; let finalElapsedMs = accumulatedMs; if (isSwRunning) finalElapsedMs += (Date.now() - swStartTime); isSwRunning = false; cancelAnimationFrame(swAnimationFrameId); const actualSeconds = Math.floor(finalElapsedMs / 1000); accumulatedMs = 0;
             
@@ -905,6 +1029,17 @@
             localStorage.removeItem('accumulatedMs');
 
             document.getElementById('swStartBtn').innerText = '공부 시작'; document.getElementById('swStartBtn').style.backgroundColor = "#3b82f6"; document.getElementById('swStartBtn').style.display = 'inline-block'; document.getElementById('swPauseBtn').style.display = 'none'; document.getElementById('swStopBtn').style.display = 'none'; document.getElementById('stopwatchDisplay').innerText = "00:00:00"; alert(`총 ${actualSeconds}초 공부 완료!`);
+            
+            // ★ 역방향 동기화: 스톱워치를 종료하면 개별 과목은 일단 일시정지 상태로 대기시킴 (학생이 마감 여부를 선택하게 끔) ★
+            if (activeTaskId) {
+                let currentTaskSec = 0;
+                if (window.currentTasks) {
+                    const t = window.currentTasks.find(x => x.task_id === activeTaskId);
+                    if (t) currentTaskSec = t.study_seconds || 0;
+                }
+                pauseTask(activeTaskId, currentTaskSec);
+            }
+
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
         }
 
