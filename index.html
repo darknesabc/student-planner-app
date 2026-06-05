@@ -46,7 +46,6 @@
             .task-item > div { width: 100%; margin-top: 8px; margin-bottom: 8px; } 
         }
 
-        /* 가로 모드(PC)에서는 우측에 상시 관제탑이 있으므로 하단 바 강제 숨김 */
         @media (min-width: 1025px) {
             #floatingTaskBar { display: none !important; }
             body { padding-bottom: 30px !important; } 
@@ -117,7 +116,6 @@
             #floatingTaskTimer { font-size: 16px; }
         }
 
-        /* 몰입형 풀스크린 오버레이 디자인 */
         #fullscreenOverlay {
             display: none;
             position: fixed;
@@ -432,7 +430,7 @@
                 
                 if (swAcc > 0) {
                     let finalSwSec = Math.floor(swAcc / 1000);
-                    supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: finalSwSec, status: 'STOPWATCH' }]);
+                    supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: finalSwSec, status: 'STOPWATCH' }]).then(() => {});
                 }
 
                 const savedFocusRunning = localStorage.getItem('isFocusRunning') === 'true';
@@ -446,7 +444,7 @@
                     let finalFocusSec = Math.floor(Math.max(0, focusDuration) / 1000);
                     let status = (fEnd <= cutoffTime) ? 'SUCCESS' : 'INTERRUPTED';
                     
-                    supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: fTarget, actual_seconds: finalFocusSec, status: status }]);
+                    supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: fTarget, actual_seconds: finalFocusSec, status: status }]).then(() => {});
                 }
 
                 alert("😴 새벽 3시가 지나 어제의 학습이 마감되었습니다.\n\n앱을 켜두고 잠드신 것으로 판단되어, 시작 시간부터 새벽 3시(마감 기준선)까지만 계산하여 어제의 노력으로 안전하게 자동 저장했습니다.\n\n새로운 하루를 힘차게 시작해 보세요!");
@@ -507,6 +505,14 @@
                 document.getElementById('targetMinutes').value = targetMins;
                 document.getElementById('progressFill').style.backgroundColor = "#10b981"; 
                 updateTimerUI(); 
+            }
+        }
+
+        function showFloatingBarForActiveTask() {
+            if (!activeTaskId || !window.currentTasks) return;
+            const task = window.currentTasks.find(t => t.task_id === activeTaskId);
+            if (task) {
+                showFloatingBar(task);
             }
         }
 
@@ -987,12 +993,10 @@
                 if (error) { alert("계획 수정 실패: " + error.message); }
                 else { cancelEdit(); fetchTasks(); }
             } else {
-                // ★ 권한 충돌 우려가 있는 completion_status 필드를 전송 목록에서 생략하고 순수 필드만 인서트 ★
                 const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode };
                 if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
                 
                 const { error } = await supabaseClient.from('planner_tasks').insert([insertData]);
-                // ★ 하드코딩 문구를 버리고 데이터베이스 오류 메시지를 직접 투사하여 투명한 디버깅 지원 ★
                 if (error) { alert("일정 추가 실패 원인: " + error.message); }
                 else { document.getElementById('contentInput').value = ""; fetchTasks(); }
             }
@@ -1003,6 +1007,8 @@
         }
 
         let animationFrameId, endTime, targetMins, totalDurationMs;
+        
+        // ★ 집중 시작 시 순공 스톱워치 자동 가동 로직 추가 ★
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
             totalDurationMs = targetMins * 60 * 1000; endTime = Date.now() + totalDurationMs; 
@@ -1015,7 +1021,13 @@
 
             document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
             document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
+            
+            // 순공 스톱워치가 꺼져있다면 팝업 없이 즉시 동시 가동
+            if (!isSwRunning) {
+                forceStartStopwatch();
+            }
         }
+        
         function updateTimerUI() {
             const now = Date.now(); let remainingMs = endTime - now; 
             if (remainingMs <= 0) { remainingMs = 0; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "0%"; finishFocus('SUCCESS'); return; }
@@ -1023,7 +1035,10 @@
             document.getElementById('timerDisplay').innerText = `${h}:${m}:${s}`; const percent = (remainingMs / totalDurationMs) * 100; document.getElementById('progressFill').style.width = percent + "%";
             if (remainingMs <= 60000) document.getElementById('progressFill').style.backgroundColor = "#ef4444"; animationFrameId = requestAnimationFrame(updateTimerUI); 
         }
+        
         function stopFocus() { if(confirm("정말 포기하시겠습니까?")) finishFocus('INTERRUPTED'); }
+        
+        // ★ 집중 종료 시 순공 스톱워치 자동 일시정지 로직 추가 ★
         async function finishFocus(status) {
             cancelAnimationFrame(animationFrameId); const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
             
@@ -1034,7 +1049,13 @@
 
             document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
-            if(status === 'SUCCESS') alert("목표 달성!"); await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
+            if(status === 'SUCCESS') alert("목표 달성!"); 
+            await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
+            
+            // 순공 스톱워치가 돌아가고 있다면 동시 일시정지 처리
+            if (isSwRunning) {
+                pauseStopwatch();
+            }
         }
         
         function showFloatingBar(task, isPaused = false) {
