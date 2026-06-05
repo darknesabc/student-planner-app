@@ -432,7 +432,7 @@
                 
                 if (swAcc > 0) {
                     let finalSwSec = Math.floor(swAcc / 1000);
-                    supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: finalSwSec, status: 'STOPWATCH' }]).then(() => {});
+                    supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: finalSwSec, status: 'STOPWATCH' }]);
                 }
 
                 const savedFocusRunning = localStorage.getItem('isFocusRunning') === 'true';
@@ -446,7 +446,7 @@
                     let finalFocusSec = Math.floor(Math.max(0, focusDuration) / 1000);
                     let status = (fEnd <= cutoffTime) ? 'SUCCESS' : 'INTERRUPTED';
                     
-                    supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: fTarget, actual_seconds: finalFocusSec, status: status }]).then(() => {});
+                    supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: fTarget, actual_seconds: finalFocusSec, status: status }]);
                 }
 
                 alert("😴 새벽 3시가 지나 어제의 학습이 마감되었습니다.\n\n앱을 켜두고 잠드신 것으로 판단되어, 시작 시간부터 새벽 3시(마감 기준선)까지만 계산하여 어제의 노력으로 안전하게 자동 저장했습니다.\n\n새로운 하루를 힘차게 시작해 보세요!");
@@ -507,14 +507,6 @@
                 document.getElementById('targetMinutes').value = targetMins;
                 document.getElementById('progressFill').style.backgroundColor = "#10b981"; 
                 updateTimerUI(); 
-            }
-        }
-
-        function showFloatingBarForActiveTask() {
-            if (!activeTaskId || !window.currentTasks) return;
-            const task = window.currentTasks.find(t => t.task_id === activeTaskId);
-            if (task) {
-                showFloatingBar(task);
             }
         }
 
@@ -995,11 +987,13 @@
                 if (error) { alert("계획 수정 실패: " + error.message); }
                 else { cancelEdit(); fetchTasks(); }
             } else {
-                const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode, completion_status: 'NONE' };
+                // ★ 권한 충돌 우려가 있는 completion_status 필드를 전송 목록에서 생략하고 순수 필드만 인서트 ★
+                const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode };
                 if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
                 
                 const { error } = await supabaseClient.from('planner_tasks').insert([insertData]);
-                if (error) { alert("일정 추가 실패: Supabase DB 권한을 확인해주세요."); }
+                // ★ 하드코딩 문구를 버리고 데이터베이스 오류 메시지를 직접 투사하여 투명한 디버깅 지원 ★
+                if (error) { alert("일정 추가 실패 원인: " + error.message); }
                 else { document.getElementById('contentInput').value = ""; fetchTasks(); }
             }
         }
@@ -1226,9 +1220,6 @@
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
         }
 
-        /* ==========================================
-           ★ [버그 수정 완료] 풀스크린 오버레이 및 팝업 Z-index 해결 ★
-           ========================================== */
         let fsMode = null; 
         let fsAnimationFrameId;
 
@@ -1252,7 +1243,6 @@
                 document.getElementById('fsSwControls').style.display = 'flex';
             }
 
-            // ★ 수정된 핵심 로직: overlay 레이어가 아닌, 브라우저 화면(문서) 전체를 전체화면으로 만듭니다! ★
             const elem = document.documentElement;
             if (elem.requestFullscreen) { 
                 elem.requestFullscreen().catch(()=>{}); 
