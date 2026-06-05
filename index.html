@@ -46,7 +46,6 @@
             .task-item > div { width: 100%; margin-top: 8px; margin-bottom: 8px; } 
         }
 
-        /* 가로 모드(PC)에서는 우측에 상시 관제탑이 있으므로 하단 바 강제 숨김 */
         @media (min-width: 1025px) {
             #floatingTaskBar { display: none !important; }
             body { padding-bottom: 30px !important; } 
@@ -116,10 +115,47 @@
             #floatingTaskBar { padding: 12px 15px; }
             #floatingTaskTimer { font-size: 16px; }
         }
+
+        /* ★ [NEW] 몰입형 풀스크린 오버레이 디자인 ★ */
+        #fullscreenOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: #050505; /* 눈이 편안한 딥 블랙 */
+            z-index: 20000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            user-select: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        #fullscreenOverlay.active { opacity: 1; }
     </style>
 </head>
 <body>
 
+    <!-- ★ [NEW] 몰입형 전체화면(풀스크린) 오버레이 ★ -->
+    <div id="fullscreenOverlay" ondblclick="closeFullscreen()">
+        <!-- 우측 상단 닫기 버튼 -->
+        <button onclick="closeFullscreen()" style="position: absolute; top: 30px; right: 30px; background: rgba(255,255,255,0.1); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&times;</button>
+        
+        <!-- 현재 진행 중인 과목명 (가동 중일 때만 보임) -->
+        <div id="fsTaskInfo" style="font-size: clamp(16px, 3vw, 24px); font-weight: 700; color: #3b82f6; margin-bottom: 24px; text-shadow: 0 0 15px rgba(59,130,246,0.4); display: none; padding: 8px 20px; background: rgba(59,130,246,0.1); border-radius: 20px; border: 1px solid rgba(59,130,246,0.2);"></div>
+        
+        <!-- 거대 타이머 디스플레이 -->
+        <div id="fsTimerDisplay" style="font-size: clamp(70px, 15vw, 220px); font-weight: 800; font-family: monospace; letter-spacing: 0.02em; line-height: 1;">00:00:00</div>
+        
+        <!-- 현재 모드 라벨 -->
+        <div id="fsModeLabel" style="font-size: 16px; font-weight: 600; color: #64748b; margin-top: 40px; letter-spacing: 0.2em; text-transform: uppercase;">MODE</div>
+        
+        <!-- 하단 안내 텍스트 -->
+        <div style="position: absolute; bottom: 40px; font-size: 13px; color: #334155; font-weight: 600; letter-spacing: 0.05em;">화면을 더블 터치하여 원래 화면으로 복귀</div>
+    </div>
+
+    <!-- 하단 고정 플로팅 바 (모바일 특화 컴포넌트) -->
     <div id="floatingTaskBar">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
             <div style="flex: 1; min-width: 0;">
@@ -134,6 +170,7 @@
         </div>
     </div>
 
+    <!-- 팝업 모달 -->
     <div id="taskSelectModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
         <div style="background: white; padding: 32px; border-radius: 20px; width: 90%; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
             <h3 style="margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: space-between;">
@@ -265,7 +302,12 @@
         <div class="sticky-sidebar">
             
             <div style="background: #0f172a; padding: 28px; border-radius: 16px; box-shadow: 0 10px 25px rgba(15,23,42,0.15); color: white; text-align: center; border: 1px solid #1e293b; box-sizing: border-box;">
-                <h3 style="margin-top: 0; color: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 14px;">🔥 집중 모드 (역산)</h3>
+                <!-- ★ [NEW] 집중 모드 최대화(풀스크린) 아이콘 삽입 ★ -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                    <h3 style="margin: 0; color: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: 0.05em;">🔥 집중 모드 (역산)</h3>
+                    <button onclick="openFullscreen('focus')" style="background: none; border: none; color: #64748b; font-size: 16px; cursor: pointer; padding: 0; transition: color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#64748b'" title="전체화면(최대화)">⛶</button>
+                </div>
+                
                 <div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">목표: <input type="number" id="targetMinutes" value="120" style="width: 52px; padding: 4px; font-size: 13px; text-align: center; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700;"> 분</div>
                 <div id="timerDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 12px; font-family: monospace; color: #ffffff; letter-spacing: 0.01em; white-space: nowrap;">02:00:00</div>
                 <div style="width: 100%; height: 6px; background-color: #1e293b; border-radius: 3px; margin-bottom: 24px; overflow: hidden;">
@@ -278,7 +320,12 @@
             </div>
             
             <div style="background: #1e293b; padding: 28px; border-radius: 16px; box-shadow: 0 10px 25px rgba(30,41,59,0.15); color: white; text-align: center; border: 1px solid #334155; box-sizing: border-box;">
-                <h3 style="margin-top: 0; color: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 16px;">⏱️ 순공 측정 (스톱워치)</h3>
+                <!-- ★ [NEW] 순공 측정 최대화(풀스크린) 아이콘 삽입 ★ -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; color: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: 0.05em;">⏱️ 순공 측정 (스톱워치)</h3>
+                    <button onclick="openFullscreen('stopwatch')" style="background: none; border: none; color: #64748b; font-size: 16px; cursor: pointer; padding: 0; transition: color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#64748b'" title="전체화면(최대화)">⛶</button>
+                </div>
+                
                 <div style="margin-bottom: 20px; font-size: 12px; color: #64748b; font-weight: 500;">시간 제한 없이 쭉 달립니다!</div>
                 <div id="stopwatchDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 32px; font-family: monospace; color: #00f5d4; letter-spacing: 0.01em; text-shadow: 0 0 12px rgba(0,245,212,0.15); white-space: nowrap;">00:00:00</div>
                 <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
@@ -818,7 +865,7 @@
             if (window.currentTasks) {
                 const task = window.currentTasks.find(t => t.task_id === taskId);
                 if (task) {
-                    showFloatingBar(task, false); // 주행 모드로 하단 바 출력
+                    showFloatingBar(task, false); 
                 }
             }
 
@@ -858,12 +905,11 @@
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
             
-            // ★ [버그 차단 고도화] 하단 바를 숨기지 않고 '일시정지 상태'로 UI 디자인 전환 ★
             if (window.currentTasks) {
                 const task = window.currentTasks.find(t => t.task_id === taskId);
                 if (task) {
-                    task.study_seconds = finalSeconds; // 리셋 전 최신 누적 초 반영
-                    showFloatingBar(task, true); // true 인자를 넘겨 일시정지 테마 가동
+                    task.study_seconds = finalSeconds; 
+                    showFloatingBar(task, true); 
                 }
             }
 
@@ -893,7 +939,6 @@
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
             
-            // 마감(종료) 버튼을 눌렀을 때만 하단 컨트롤러 완전 파기
             hideFloatingBar();
 
             if (isSwRunning) { pauseStopwatch(); }
@@ -976,10 +1021,6 @@
             if(status === 'SUCCESS') alert("목표 달성!"); await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
         }
         
-        /* =======================================================
-           ★ [기획 고도화] 하단 고정 바 스테이트풀 엔지니어링 링킹 ★
-           ======================================================= */
-        
         function showFloatingBar(task, isPaused = false) {
             const bar = document.getElementById('floatingTaskBar');
             const savedSec = task.study_seconds || 0;
@@ -987,7 +1028,6 @@
             const currentStatus = task.completion_status || (task.is_completed ? 'DONE' : 'NONE');
 
             document.getElementById('floatingTaskSubject').innerText = `[${task.subject}]`;
-            // 일시정지 상태에 따른 감성 디스플레이 배지 텍스트 결합 분기
             document.getElementById('floatingTaskContent').innerText = task.content + (isPaused ? ' (일시정지됨)' : '');
             
             const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
@@ -997,20 +1037,17 @@
 
             const pauseBtn = document.getElementById('floatingPauseBtn');
             
-            // ★ 하단 바 내부 일시정지 상태 토글 인터랙션 설계 ★
             if (isPaused) {
                 pauseBtn.innerText = "▶ 이어서 하기";
                 pauseBtn.style.backgroundColor = "#e6f4ea";
                 pauseBtn.style.color = "#137333";
                 pauseBtn.style.borderColor = "#ceead6";
-                // 일시정지 상태에서 누르면 다시 주행(startTask) 코드를 실행시킵니다.
                 pauseBtn.onclick = () => startTask(task.task_id, savedSec, task.start_time || '', taskMode, currentStatus);
             } else {
                 pauseBtn.innerText = "⏸ 일시정지";
                 pauseBtn.style.backgroundColor = "#fffbeb";
                 pauseBtn.style.color = "#d97706";
                 pauseBtn.style.borderColor = "#fde68a";
-                // 주행 중일 때 누르면 일시정지(pauseTask) 로직 가동
                 pauseBtn.onclick = () => pauseTask(task.task_id, savedSec);
             }
 
@@ -1167,6 +1204,83 @@
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
         }
 
+        /* ==========================================
+           ★ [NEW] 풀스크린 오버레이 엔진 로직 ★
+           ========================================== */
+        let fsMode = null; 
+        let fsAnimationFrameId;
+
+        function openFullscreen(mode) {
+            fsMode = mode;
+            const overlay = document.getElementById('fullscreenOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.classList.add('active'), 10);
+            
+            // 모드별 디자인 테마 스위칭
+            document.getElementById('fsModeLabel').innerText = mode === 'focus' ? '🔥 집중 모드' : '⏱️ 순공 측정';
+            if (mode === 'focus') {
+                document.getElementById('fsTimerDisplay').style.color = '#ffffff';
+                document.getElementById('fsTimerDisplay').style.textShadow = '0 0 30px rgba(255,255,255,0.2)';
+            } else {
+                document.getElementById('fsTimerDisplay').style.color = '#00f5d4';
+                document.getElementById('fsTimerDisplay').style.textShadow = '0 0 30px rgba(0,245,212,0.2)';
+            }
+
+            // 브라우저 네이티브 전체화면 API 호출 (상태표시줄 가리기)
+            if (overlay.requestFullscreen) { 
+                overlay.requestFullscreen().catch(()=>{}); 
+            } else if (overlay.webkitRequestFullscreen) { 
+                overlay.webkitRequestFullscreen(); 
+            }
+
+            cancelAnimationFrame(fsAnimationFrameId);
+            fsLoop();
+        }
+
+        function closeFullscreen() {
+            fsMode = null;
+            const overlay = document.getElementById('fullscreenOverlay');
+            overlay.classList.remove('active');
+            setTimeout(() => overlay.style.display = 'none', 400); // 페이드아웃 후 숨김
+            cancelAnimationFrame(fsAnimationFrameId);
+            
+            // 브라우저 전체화면 빠져나오기
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(()=>{});
+            } else if (document.webkitFullscreenElement) {
+                document.webkitExitFullscreen();
+            }
+        }
+
+        // 전체화면 전용 초고속 실시간 동기화 루프
+        function fsLoop() {
+            if (!fsMode) return;
+
+            // 메인 시계 데이터 복사
+            if (fsMode === 'focus') {
+                document.getElementById('fsTimerDisplay').innerText = document.getElementById('timerDisplay').innerText;
+            } else {
+                document.getElementById('fsTimerDisplay').innerText = document.getElementById('stopwatchDisplay').innerText;
+            }
+
+            // 개별 과목 연동 시 과목 텍스트 띄우기
+            const fsTaskInfo = document.getElementById('fsTaskInfo');
+            if (activeTaskId && window.currentTasks) {
+                const task = window.currentTasks.find(t => t.task_id === activeTaskId);
+                if (task) {
+                    fsTaskInfo.style.display = 'block';
+                    fsTaskInfo.innerText = `🔥 [${task.subject}] ${task.content} 진행 중`;
+                } else {
+                    fsTaskInfo.style.display = 'none';
+                }
+            } else {
+                fsTaskInfo.style.display = 'none';
+            }
+            
+            fsAnimationFrameId = requestAnimationFrame(fsLoop);
+        }
+
+        // 초기 시작
         restoreZombieState();
         fetchTasks();
     </script>
