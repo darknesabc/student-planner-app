@@ -237,7 +237,6 @@
         <div>
             <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.03em;">📝 나의 학습 플래너 <span style="font-size: 16px; font-weight: 600; color: #64748b; margin-left: 6px;">(105번 김철수)</span></h1>
             
-            <!-- ★ [NEW] 날짜 이동 내비게이션 컨트롤러 ★ -->
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
                 <button onclick="changeDate(-1)" class="date-nav-btn">◀ 어제</button>
                 <div id="todayDateStr" style="font-size: 15px; color: #334155; font-weight: 700; display: flex; align-items: center;">
@@ -399,7 +398,6 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // ★ [NEW] 캘린더 기준 시간 (오늘 vs 사용자가 보는 날짜) 변수 분리 ★
         const now = new Date();
         const kstEpoch = now.getTime() + (9 * 60 * 60 * 1000); 
         const kstDateObj = new Date(kstEpoch); 
@@ -412,12 +410,10 @@
         const actDd = String(actualTodayObj.getUTCDate()).padStart(2, '0');
         const actualTodayStr = `${actYyyy}-${actMm}-${actDd}`;
         
-        // 현재 화면에서 조회 중인 날짜 상태 변수
         let currentViewDateObj = new Date(logicalEpoch);
         let currentViewDateStr = actualTodayStr;
         const currentKstHour = kstDateObj.getUTCHours();
 
-        // 날짜 UI 업데이트 및 DB 재호출 함수
         function updateDateUI() {
             const yyyy = currentViewDateObj.getUTCFullYear();
             const mm = String(currentViewDateObj.getUTCMonth() + 1).padStart(2, '0');
@@ -429,20 +425,17 @@
             
             let dateHtml = `📅 ${yyyy}년 ${mm}월 ${dd}일 (${weekDays[dayIndex]}요일)`;
             
-            // 오늘이면서 새벽인 경우
             if (currentViewDateStr === actualTodayStr && currentKstHour < 3) {
                 dateHtml += ` <span style="font-size:11px; color:#f59e0b; background:#fef3c7; padding:2px 6px; border-radius:4px; margin-left:4px; font-weight:800;">🦉 새벽 연장 모드</span>`;
             } 
-            // 오늘이 아닌 과거나 미래를 보고 있는 경우
             else if (currentViewDateStr !== actualTodayStr) {
                 dateHtml += ` <span style="font-size:11px; color:#ef4444; background:#fef2f2; padding:2px 6px; border-radius:4px; margin-left:4px; font-weight:800;">기록 열람 모드</span>`;
             }
 
             document.getElementById('todayDateStr').innerHTML = dateHtml;
-            fetchTasks(); // 날짜가 바뀌면 해당 날짜의 데이터를 다시 불러옵니다!
+            fetchTasks(); 
         }
 
-        // 날짜 이동 컨트롤러
         function changeDate(offset) {
             currentViewDateObj.setUTCDate(currentViewDateObj.getUTCDate() + offset);
             updateDateUI();
@@ -531,7 +524,6 @@
         function restoreZombieState() {
             const savedLogicalDate = localStorage.getItem('logicalDate');
             
-            // 좀비 정리는 무조건 '실제 현실의 오늘(actualTodayStr)'을 기준으로 검사합니다.
             if (savedLogicalDate && savedLogicalDate !== actualTodayStr) {
                 let [yyyy, mm, dd] = savedLogicalDate.split('-');
                 let cutoffKst = new Date(Date.UTC(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), 18, 0, 0));
@@ -733,7 +725,6 @@
         }
 
         async function fetchTasks() {
-            // ★ 수정: 데이터베이스에서 조회할 때 오늘(actualTodayStr)이 아닌 현재 뷰어의 날짜(currentViewDateStr)를 사용합니다 ★
             const { data, error } = await supabaseClient.from('planner_tasks').select('*')
                 .eq('seat_number', '105').eq('task_date', currentViewDateStr).order('start_time', { ascending: true, nullsFirst: true });
             if (error) { console.error(error); return; }
@@ -858,7 +849,6 @@
 
                 let actionButtonsHtml = '';
                 
-                // ★ [NEW] 데이터 보호 로직: 오늘(실제 현실)이 아닌 날짜에서는 타이머 버튼을 숨깁니다 ★
                 if (currentViewDateStr === actualTodayStr) {
                     if (activeTaskId === task.task_id) {
                         actionButtonsHtml = `
@@ -906,7 +896,13 @@
                     const eParts = task.end_time.split(':');
                     const startMinsTotal = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
                     let endMinsTotal = parseInt(eParts[0]) * 60 + parseInt(eParts[1]);
-                    if(endMinsTotal <= startMinsTotal) endMinsTotal += 24 * 60; 
+                    
+                    // ★ [FIX] 시작하자마자 종료한(0분) 블록의 밤샘 무한증식 계산 버그 완벽 수정 ★
+                    if(endMinsTotal < startMinsTotal) {
+                        endMinsTotal += 24 * 60; 
+                    } else if (endMinsTotal === startMinsTotal) {
+                        endMinsTotal += 1; 
+                    }
 
                     const bgColor = subjectColors[task.subject] || '#475569';
                     const startHour = Math.floor(startMinsTotal / 60);
@@ -1014,7 +1010,6 @@
             ['Simple', 'Time'].forEach(mode => {
                 let line = document.getElementById(`currentTimeLine${mode}`);
                 
-                // ★ 수정: 오늘 날짜가 아니면 붉은색 '현재 시간' 선을 완전히 숨김 처리 ★
                 if (currentViewDateStr !== actualTodayStr) {
                     if (line) line.style.display = 'none';
                     return;
@@ -1075,7 +1070,7 @@
             localStorage.setItem('activeTaskId', activeTaskId);
             localStorage.setItem('taskStartTime', taskStartTime);
             localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
-            localStorage.setItem('logicalDate', actualTodayStr); // 저장 기준일은 항상 '진짜 오늘'
+            localStorage.setItem('logicalDate', actualTodayStr); 
             
             if (taskMode === 'simple' && !existingStartTime) {
                 await supabaseClient.from('planner_tasks').update({ start_time: getKstTimeStr(taskStartTime) }).eq('task_id', taskId);
@@ -1198,7 +1193,6 @@
                 if (error) { alert("계획 수정 실패: " + error.message); }
                 else { cancelEdit(); fetchTasks(); }
             } else {
-                // ★ 수정: 삽입 날짜를 '실제 오늘'이 아니라 '현재 조회 중인 날짜(currentViewDateStr)'로 연동 ★
                 const insertData = { seat_number: '105', task_date: currentViewDateStr, subject: subjectValue, content: contentValue, task_mode: currentInputMode };
                 if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
                 
@@ -1586,7 +1580,6 @@
             stopTask(task.task_id, savedSec, task.start_time || '', taskMode);
         }
 
-        // 초기 시작 로직
         updateDateUI();
         restoreZombieState();
     </script>
