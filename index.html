@@ -147,15 +147,19 @@
         .fs-btn:hover { transform: translateY(-2px); filter: brightness(1.2); }
         .fs-btn:active { transform: scale(0.95); }
 
-        /* ★ [NEW] 목표 달성 시네마틱 애니메이션 효과 ★ */
         @keyframes successFlash {
             0% { background-color: #050505; }
             50% { background-color: #064e3b; box-shadow: inset 0 0 100px rgba(16, 185, 129, 0.3); }
             100% { background-color: #050505; }
         }
         .flash-animation {
-            animation: successFlash 1s ease-in-out 3; /* 1초씩 3번 깜빡임 */
+            animation: successFlash 1s ease-in-out 3; 
         }
+        
+        .date-nav-btn {
+            background: #f1f5f9; color: #64748b; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; font-family: inherit;
+        }
+        .date-nav-btn:hover { background: #e2e8f0; color: #334155; }
     </style>
 </head>
 <body>
@@ -232,10 +236,17 @@
     <div class="header-container">
         <div>
             <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.03em;">📝 나의 학습 플래너 <span style="font-size: 16px; font-weight: 600; color: #64748b; margin-left: 6px;">(105번 김철수)</span></h1>
-            <div id="todayDateStr" style="font-size: 14px; color: #64748b; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                <span>⏳ 날짜 로딩 중...</span>
-                <span style="color: #3b82f6; font-weight: 700;">✨ 오늘도 너의 꿈을 향해 몰입하는 하루를 응원해!</span>
+            
+            <!-- ★ [NEW] 날짜 이동 내비게이션 컨트롤러 ★ -->
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                <button onclick="changeDate(-1)" class="date-nav-btn">◀ 어제</button>
+                <div id="todayDateStr" style="font-size: 15px; color: #334155; font-weight: 700; display: flex; align-items: center;">
+                    ⏳ 날짜 로딩 중...
+                </div>
+                <button onclick="changeDate(1)" class="date-nav-btn">내일 ▶</button>
+                <button onclick="goToToday()" class="date-nav-btn" style="background: white; border: 1px solid #e2e8f0; margin-left: 4px;">오늘로 복귀</button>
             </div>
+
         </div>
         <a href="stats.html" style="padding: 12px 20px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(124,58,237,0.2); transition: all 0.2s; white-space: nowrap;">📊 나의 학습 통계</a>
     </div>
@@ -246,7 +257,7 @@
             
             <div class="card-box">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #334155;">📌 오늘 할 일 추가하기</h3>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #334155;">📌 선택한 날짜에 할 일 추가</h3>
                     <div style="display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
                         <button id="modeListBtn" class="mode-btn active" onclick="switchInputMode('simple')">📋 단순 할 일</button>
                         <button id="modeTimeBtn" class="mode-btn inactive" onclick="switchInputMode('time')">📊 시간표 추가</button>
@@ -303,7 +314,7 @@
 
             <div class="achievement-box">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span id="achievementText" style="font-size: 14px; font-weight: 700; color: #334155;">오늘의 목표 달성률 0% (0/0)</span>
+                    <span id="achievementText" style="font-size: 14px; font-weight: 700; color: #334155;">해당 날짜의 목표 달성률 0% (0/0)</span>
                     <span id="achievementEmoji" style="font-size: 16px;">🌱</span>
                 </div>
                 <div class="progress-container">
@@ -388,28 +399,59 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
+        // ★ [NEW] 캘린더 기준 시간 (오늘 vs 사용자가 보는 날짜) 변수 분리 ★
         const now = new Date();
         const kstEpoch = now.getTime() + (9 * 60 * 60 * 1000); 
         const kstDateObj = new Date(kstEpoch); 
         
         const logicalEpoch = kstEpoch - (3 * 60 * 60 * 1000);
-        const logicalDateObj = new Date(logicalEpoch);
+        const actualTodayObj = new Date(logicalEpoch);
         
-        const yyyy = logicalDateObj.getUTCFullYear();
-        const mm = String(logicalDateObj.getUTCMonth() + 1).padStart(2, '0');
-        const dd = String(logicalDateObj.getUTCDate()).padStart(2, '0');
-        const today = `${yyyy}-${mm}-${dd}`;
+        const actYyyy = actualTodayObj.getUTCFullYear();
+        const actMm = String(actualTodayObj.getUTCMonth() + 1).padStart(2, '0');
+        const actDd = String(actualTodayObj.getUTCDate()).padStart(2, '0');
+        const actualTodayStr = `${actYyyy}-${actMm}-${actDd}`;
         
-        const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
-        const logicalDayIndex = logicalDateObj.getUTCDay();
-        
-        let dateHtml = `📅 ${yyyy}년 ${logicalDateObj.getUTCMonth() + 1}월 ${logicalDateObj.getUTCDate()}일 (${weekDays[logicalDayIndex]}요일)`;
-        
+        // 현재 화면에서 조회 중인 날짜 상태 변수
+        let currentViewDateObj = new Date(logicalEpoch);
+        let currentViewDateStr = actualTodayStr;
         const currentKstHour = kstDateObj.getUTCHours();
-        if (currentKstHour < 3) {
-            dateHtml += ` <span style="font-size:11px; color:#f59e0b; background:#fef3c7; padding:2px 6px; border-radius:4px; margin-left:4px; font-weight:800;">🦉 새벽 연장 모드</span>`;
+
+        // 날짜 UI 업데이트 및 DB 재호출 함수
+        function updateDateUI() {
+            const yyyy = currentViewDateObj.getUTCFullYear();
+            const mm = String(currentViewDateObj.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(currentViewDateObj.getUTCDate()).padStart(2, '0');
+            currentViewDateStr = `${yyyy}-${mm}-${dd}`;
+            
+            const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+            const dayIndex = currentViewDateObj.getUTCDay();
+            
+            let dateHtml = `📅 ${yyyy}년 ${mm}월 ${dd}일 (${weekDays[dayIndex]}요일)`;
+            
+            // 오늘이면서 새벽인 경우
+            if (currentViewDateStr === actualTodayStr && currentKstHour < 3) {
+                dateHtml += ` <span style="font-size:11px; color:#f59e0b; background:#fef3c7; padding:2px 6px; border-radius:4px; margin-left:4px; font-weight:800;">🦉 새벽 연장 모드</span>`;
+            } 
+            // 오늘이 아닌 과거나 미래를 보고 있는 경우
+            else if (currentViewDateStr !== actualTodayStr) {
+                dateHtml += ` <span style="font-size:11px; color:#ef4444; background:#fef2f2; padding:2px 6px; border-radius:4px; margin-left:4px; font-weight:800;">기록 열람 모드</span>`;
+            }
+
+            document.getElementById('todayDateStr').innerHTML = dateHtml;
+            fetchTasks(); // 날짜가 바뀌면 해당 날짜의 데이터를 다시 불러옵니다!
         }
-        document.getElementById('todayDateStr').firstElementChild.innerHTML = dateHtml;
+
+        // 날짜 이동 컨트롤러
+        function changeDate(offset) {
+            currentViewDateObj.setUTCDate(currentViewDateObj.getUTCDate() + offset);
+            updateDateUI();
+        }
+
+        function goToToday() {
+            currentViewDateObj = new Date(logicalEpoch);
+            updateDateUI();
+        }
 
         let wakeLock = null;
 
@@ -449,7 +491,6 @@
             }
         });
 
-        // ★ [NEW] 목표 달성 시 Web Audio API로 맑은 종소리(띠로링) 재생 ★
         function playSuccessSound() {
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -461,21 +502,20 @@
                     osc.connect(gainNode);
                     gainNode.connect(ctx.destination);
                     
-                    osc.type = 'sine'; // 부드럽고 맑은 파형
+                    osc.type = 'sine'; 
                     osc.frequency.setValueAtTime(frequency, ctx.currentTime + startTime);
                     
                     gainNode.gain.setValueAtTime(0, ctx.currentTime + startTime);
-                    gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + startTime + 0.05); // 페이드 인
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration); // 페이드 아웃
+                    gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + startTime + 0.05); 
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration); 
                     
                     osc.start(ctx.currentTime + startTime);
                     osc.stop(ctx.currentTime + startTime + duration);
                 }
                 
-                // 맑고 경쾌한 성취 알림음 (도-미-솔 C Major 화음)
-                playNote(523.25, 0, 0.6); // C5
-                playNote(659.25, 0.15, 0.6); // E5
-                playNote(783.99, 0.3, 1.5); // G5
+                playNote(523.25, 0, 0.6); 
+                playNote(659.25, 0.15, 0.6); 
+                playNote(783.99, 0.3, 1.5); 
             } catch(e) { console.log("Audio not supported"); }
         }
 
@@ -491,7 +531,8 @@
         function restoreZombieState() {
             const savedLogicalDate = localStorage.getItem('logicalDate');
             
-            if (savedLogicalDate && savedLogicalDate !== today) {
+            // 좀비 정리는 무조건 '실제 현실의 오늘(actualTodayStr)'을 기준으로 검사합니다.
+            if (savedLogicalDate && savedLogicalDate !== actualTodayStr) {
                 let [yyyy, mm, dd] = savedLogicalDate.split('-');
                 let cutoffKst = new Date(Date.UTC(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), 18, 0, 0));
                 let cutoffTime = cutoffKst.getTime();
@@ -692,8 +733,9 @@
         }
 
         async function fetchTasks() {
+            // ★ 수정: 데이터베이스에서 조회할 때 오늘(actualTodayStr)이 아닌 현재 뷰어의 날짜(currentViewDateStr)를 사용합니다 ★
             const { data, error } = await supabaseClient.from('planner_tasks').select('*')
-                .eq('seat_number', '105').eq('task_date', today).order('start_time', { ascending: true, nullsFirst: true });
+                .eq('seat_number', '105').eq('task_date', currentViewDateStr).order('start_time', { ascending: true, nullsFirst: true });
             if (error) { console.error(error); return; }
 
             window.currentTasks = data;
@@ -713,7 +755,7 @@
 
             const percentage = totalCount > 0 ? Math.round((achievedScore / totalCount) * 100) : 0;
             
-            document.getElementById('achievementText').innerText = `오늘의 목표 달성률 ${percentage}% (${achievedScore}/${totalCount})`;
+            document.getElementById('achievementText').innerText = `해당 날짜의 목표 달성률 ${percentage}% (${achievedScore}/${totalCount})`;
             document.getElementById('achievementFill').style.width = `${percentage}%`;
             
             let emoji = '🌱';
@@ -815,15 +857,21 @@
                 const timerHtml = `<span id="task-timer-${task.task_id}" style="margin-left: 12px; font-family: monospace; font-weight: 700; font-size:13px; color: ${timerColor}; background: ${timerBg}; padding: 3px 8px; border-radius: 6px; white-space: nowrap;">${displayH}:${displayM}:${displayS}</span>`;
 
                 let actionButtonsHtml = '';
-                if (activeTaskId === task.task_id) {
-                    actionButtonsHtml = `
-                        <button class="p-btn" style="background-color: #fffbeb; color: #d97706; border-color: #fde68a;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
-                        <button class="p-btn" style="background-color: #fef2f2; color: #dc2626; border-color: #fca5a5; margin-right: 12px;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 종료</button>
-                    `;
+                
+                // ★ [NEW] 데이터 보호 로직: 오늘(실제 현실)이 아닌 날짜에서는 타이머 버튼을 숨깁니다 ★
+                if (currentViewDateStr === actualTodayStr) {
+                    if (activeTaskId === task.task_id) {
+                        actionButtonsHtml = `
+                            <button class="p-btn" style="background-color: #fffbeb; color: #d97706; border-color: #fde68a;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
+                            <button class="p-btn" style="background-color: #fef2f2; color: #dc2626; border-color: #fca5a5; margin-right: 12px;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 종료</button>
+                        `;
+                    } else {
+                        const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
+                        const disabledClass = (currentStatus === 'DONE' || currentStatus === 'PARTIAL') ? 'disabled-style' : '';
+                        actionButtonsHtml = `<button class="p-btn ${disabledClass}" style="margin-right: 12px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}', '${currentStatus}')">${btnText}</button>`;
+                    }
                 } else {
-                    const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
-                    const disabledClass = (currentStatus === 'DONE' || currentStatus === 'PARTIAL') ? 'disabled-style' : '';
-                    actionButtonsHtml = `<button class="p-btn ${disabledClass}" style="margin-right: 12px;" onclick="startTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}', '${currentStatus}')">${btnText}</button>`;
+                    actionButtonsHtml = `<span style="font-size: 11px; color: #cbd5e1; font-weight: 600; margin-right: 12px; letter-spacing: -0.05em;">타이머는 오늘만 가능</span>`;
                 }
 
                 const escapedContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -832,7 +880,7 @@
                 if (savedSec > 0) {
                     deleteBtnHtml = `<span style="font-size: 14px; margin-left: 12px; cursor: not-allowed; opacity: 0.5;" title="공부 기록이 있어 삭제할 수 없습니다. 수정(✏️)을 이용해주세요.">🔒</span>`;
                 } else {
-                    deleteBtnHtml = `<button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #cbd5e1; font-weight: bold; cursor: pointer; padding: 0 0 0 12px; font-size: 15px; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">✕</button>`;
+                    deleteBtnHtml = `<button onclick="deleteTask('${task.task_id}', ${savedSec})" style="background: none; border: none; color: #cbd5e1; font-weight: bold; cursor: pointer; padding: 0 0 0 12px; font-size: 15px; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">✕</button>`;
                 }
 
                 listContainer.innerHTML += `
@@ -965,10 +1013,20 @@
             
             ['Simple', 'Time'].forEach(mode => {
                 let line = document.getElementById(`currentTimeLine${mode}`);
+                
+                // ★ 수정: 오늘 날짜가 아니면 붉은색 '현재 시간' 선을 완전히 숨김 처리 ★
+                if (currentViewDateStr !== actualTodayStr) {
+                    if (line) line.style.display = 'none';
+                    return;
+                }
+                
                 if (!line) {
                     const container = document.getElementById(`timelineVisuals${mode}`);
                     if (container) container.insertAdjacentHTML('beforeend', `<div id="currentTimeLine${mode}" class="current-time-line" style="top: ${topPx}px;"></div>`);
-                } else { line.style.top = `${topPx}px`; }
+                } else { 
+                    line.style.display = 'block'; 
+                    line.style.top = `${topPx}px`; 
+                }
             });
         }
         setInterval(updateCurrentTimeLine, 60000);
@@ -1017,7 +1075,7 @@
             localStorage.setItem('activeTaskId', activeTaskId);
             localStorage.setItem('taskStartTime', taskStartTime);
             localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
-            localStorage.setItem('logicalDate', today); 
+            localStorage.setItem('logicalDate', actualTodayStr); // 저장 기준일은 항상 '진짜 오늘'
             
             if (taskMode === 'simple' && !existingStartTime) {
                 await supabaseClient.from('planner_tasks').update({ start_time: getKstTimeStr(taskStartTime) }).eq('task_id', taskId);
@@ -1140,7 +1198,8 @@
                 if (error) { alert("계획 수정 실패: " + error.message); }
                 else { cancelEdit(); fetchTasks(); }
             } else {
-                const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode };
+                // ★ 수정: 삽입 날짜를 '실제 오늘'이 아니라 '현재 조회 중인 날짜(currentViewDateStr)'로 연동 ★
+                const insertData = { seat_number: '105', task_date: currentViewDateStr, subject: subjectValue, content: contentValue, task_mode: currentInputMode };
                 if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
                 
                 const { error } = await supabaseClient.from('planner_tasks').insert([insertData]);
@@ -1177,7 +1236,7 @@
             localStorage.setItem('focusTargetMins', targetMins);
             localStorage.setItem('focusTotalDurationMs', totalDurationMs);
             localStorage.setItem('focusEndTime', endTime);
-            localStorage.setItem('logicalDate', today);
+            localStorage.setItem('logicalDate', actualTodayStr);
 
             document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
             document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
@@ -1205,7 +1264,6 @@
         
         function stopFocus() { if(confirm("정말 포기하시겠습니까?")) finishFocus('INTERRUPTED'); }
         
-        // ★ [NEW] 완료 시 시청각 피드백 발동 로직 ★
         async function finishFocus(status) {
             cancelAnimationFrame(animationFrameId); const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
             
@@ -1217,23 +1275,19 @@
             document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
             
-            // 시청각 보상 발동
             if(status === 'SUCCESS') {
-                playSuccessSound(); // 오프라인 맑은 종소리 연주
+                playSuccessSound(); 
                 
                 const overlay = document.getElementById('fullscreenOverlay');
                 if (overlay.classList.contains('active')) {
-                    // 풀스크린 상태면 에메랄드 그린 빛 심호흡 애니메이션 발동
                     overlay.classList.add('flash-animation');
                     setTimeout(() => overlay.classList.remove('flash-animation'), 3000);
                 } else {
-                    // 일반 화면이면 배경을 은은하게 플래시
                     document.body.style.transition = 'background-color 0.5s';
                     document.body.style.backgroundColor = '#d1fae5'; 
                     setTimeout(() => { document.body.style.backgroundColor = '#f8fafc'; }, 1000);
                 }
                 
-                // 시각/청각 효과가 눈치채질 시간을 살짝 준 뒤 팝업
                 setTimeout(() => { alert("🎉 집중 목표 달성! 정말 수고하셨습니다."); }, 300);
             }
             
@@ -1369,7 +1423,7 @@
             localStorage.setItem('isSwRunning', 'true');
             localStorage.setItem('swStartTime', swStartTime);
             localStorage.setItem('accumulatedMs', accumulatedMs);
-            localStorage.setItem('logicalDate', today);
+            localStorage.setItem('logicalDate', actualTodayStr);
 
             document.getElementById('swStartBtn').style.display = 'none'; 
             document.getElementById('swPauseBtn').style.display = 'inline-block'; 
@@ -1532,8 +1586,9 @@
             stopTask(task.task_id, savedSec, task.start_time || '', taskMode);
         }
 
+        // 초기 시작 로직
+        updateDateUI();
         restoreZombieState();
-        fetchTasks();
     </script>
 </body>
 </html>
