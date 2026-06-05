@@ -753,10 +753,13 @@
 
                 const escapedContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-                // ★ [NEW] 데이터 오염 방지 삭제 잠금 버튼 (UI 적용) ★
-                const deleteBtnOpacity = savedSec > 0 ? '0.2' : '1';
-                const deleteBtnCursor = savedSec > 0 ? 'not-allowed' : 'pointer';
-                const hoverEffect = savedSec > 0 ? '' : `onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'"`;
+                // ★ [NEW] 데이터 보호: 기록이 있으면 삭제 버튼 대신 자물쇠 표시 ★
+                let deleteBtnHtml = '';
+                if (savedSec > 0) {
+                    deleteBtnHtml = `<span style="font-size: 14px; margin-left: 12px; cursor: not-allowed; opacity: 0.5;" title="공부 기록이 있어 삭제할 수 없습니다. 수정(✏️)을 이용해주세요.">🔒</span>`;
+                } else {
+                    deleteBtnHtml = `<button onclick="deleteTask('${task.task_id}')" style="background: none; border: none; color: #cbd5e1; font-weight: bold; cursor: pointer; padding: 0 0 0 12px; font-size: 15px; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">✕</button>`;
+                }
 
                 listContainer.innerHTML += `
                     <li class="task-item">
@@ -771,7 +774,7 @@
                             ${actionButtonsHtml}
                             <button onclick="prepareEditTask('${task.task_id}', '${task.subject}', '${escapedContent}', '${taskMode}', '${task.start_time || ''}', '${task.end_time || ''}')" style="background: none; border: none; color: #64748b; font-weight: bold; cursor: pointer; padding: 0 10px; font-size: 13px; transition: color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#64748b'">✏️</button>
                             <span style="color:#e2e8f0; font-size:12px; margin-left: 2px;">|</span>
-                            <button onclick="deleteTask('${task.task_id}', ${savedSec})" style="background: none; border: none; color: #cbd5e1; font-weight: bold; cursor: ${deleteBtnCursor}; opacity: ${deleteBtnOpacity}; padding: 0 0 0 12px; font-size: 15px; transition: color 0.2s;" ${hoverEffect}>✕</button>
+                            ${deleteBtnHtml}
                         </div>
                     </li>
                 `;
@@ -896,7 +899,7 @@
         }
         setInterval(updateCurrentTimeLine, 60000);
 
-        // ★ [NEW] 팝업창 없는 세련된 상태 잠금 로직 ★
+        // ★ [NEW] 팝업창 없는 조용한 상태 잠금 ★
         async function toggleTaskStatus(taskId, currentStatus, savedSec = 0) {
             let nextStatus = 'NONE';
             let isCompletedCompat = false;
@@ -907,7 +910,7 @@
                 nextStatus = 'PARTIAL'; isCompletedCompat = false; 
             } else { 
                 if (savedSec > 0) {
-                    // 타이머 기록이 있으면 NONE으로 가지 않고 강제로 DONE으로 순환
+                    // 타이머 기록이 있으면 NONE으로 가지 않고 강제로 DONE으로 자연스럽게 순환
                     nextStatus = 'DONE'; isCompletedCompat = true;
                 } else {
                     nextStatus = 'NONE'; isCompletedCompat = false; 
@@ -1074,17 +1077,16 @@
             }
         }
 
-        // ★ [NEW] 삭제 잠금 방어 로직 ★
-        async function deleteTask(taskId, savedSec = 0) {
-            if (savedSec > 0) {
-                alert("🔒 이미 공부 기록(타이머)이 담긴 계획은 삭제할 수 없습니다!\n\n데이터 오염을 막기 위해 삭제가 제한됩니다. 과목이나 내용을 잘못 적었다면 수정(✏️) 버튼을 이용해 주세요.");
-                return;
-            }
-            
+        // ★ [NEW] 에러 시 정확한 사유를 뱉어내는 삭제 로직 ★
+        async function deleteTask(taskId) {
             if (!confirm("이 계획을 정말 삭제할까요?")) return; 
             
             const { error } = await supabaseClient.from('planner_tasks').delete().eq('task_id', taskId); 
-            if (!error) fetchTasks(); 
+            if (error) {
+                alert("❌ 삭제 실패!\nSupabase 데이터베이스의 정책(RLS Policy) 설정에서 'Delete' 권한이 허용되어 있는지 확인해 주세요.\n\n에러 내용: " + error.message);
+            } else {
+                fetchTasks(); 
+            }
         }
 
         let animationFrameId, endTime, targetMins, totalDurationMs;
