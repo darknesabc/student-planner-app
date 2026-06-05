@@ -159,9 +159,22 @@
         
         <div id="fsModeLabel" style="font-size: 16px; font-weight: 600; color: #64748b; margin-top: 40px; letter-spacing: 0.2em; text-transform: uppercase;">MODE</div>
         
-        <div id="fsFocusControls" style="display: none; gap: 16px; margin-top: 30px;">
-            <button id="fsFocusStartBtn" onclick="startFocus()" class="fs-btn" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239,68,68,0.3);">▶ 집중 시작</button>
-            <button id="fsFocusStopBtn" onclick="stopFocus()" class="fs-btn" style="display:none; background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border-color: rgba(100,116,139,0.3);">■ 포기 (종료)</button>
+        <!-- 집중 모드 조종석 -->
+        <div id="fsFocusControls" style="display: none; flex-direction: column; align-items: center; gap: 24px; margin-top: 30px;">
+            
+            <!-- ★ [NEW] 풀스크린 전용 시간 컨트롤러 영역 -->
+            <div id="fsFocusSettingArea" style="display: flex; align-items: center; gap: 16px;">
+                <button onclick="adjustTargetTime(-10)" style="background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 8px; padding: 10px 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">- 10분</button>
+                <div style="font-size: 18px; font-weight: 600; color: #94a3b8; display: flex; align-items: center; gap: 8px;">
+                    목표 <input type="number" id="fsTargetMinutes" value="120" onchange="syncTargetTime('fs')" style="width: 70px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 8px; font-size: 20px; font-weight: 800; text-align: center; padding: 6px; outline: none; font-family: monospace;"> 분
+                </div>
+                <button onclick="adjustTargetTime(10)" style="background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 8px; padding: 10px 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">+ 10분</button>
+            </div>
+
+            <div style="display: flex; gap: 16px;">
+                <button id="fsFocusStartBtn" onclick="startFocus()" class="fs-btn" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239,68,68,0.3);">▶ 집중 시작</button>
+                <button id="fsFocusStopBtn" onclick="stopFocus()" class="fs-btn" style="display:none; background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border-color: rgba(100,116,139,0.3);">■ 포기 (종료)</button>
+            </div>
         </div>
 
         <div id="fsSwControls" style="display: none; gap: 16px; margin-top: 30px;">
@@ -333,7 +346,8 @@
                     <button onclick="openFullscreen('focus')" style="background: none; border: none; color: #64748b; font-size: 16px; cursor: pointer; padding: 0; transition: color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#64748b'" title="전체화면(최대화)">⛶</button>
                 </div>
                 
-                <div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">목표: <input type="number" id="targetMinutes" value="120" style="width: 52px; padding: 4px; font-size: 13px; text-align: center; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700;"> 분</div>
+                <!-- ★ [NEW] 본체 입력창 연동 로직 추가 -->
+                <div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">목표: <input type="number" id="targetMinutes" value="120" onchange="syncTargetTime('main')" style="width: 52px; padding: 4px; font-size: 13px; text-align: center; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700; outline: none;"> 분</div>
                 <div id="timerDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 12px; font-family: monospace; color: #ffffff; letter-spacing: 0.01em; white-space: nowrap;">02:00:00</div>
                 <div style="width: 100%; height: 6px; background-color: #1e293b; border-radius: 3px; margin-bottom: 24px; overflow: hidden;">
                     <div id="progressFill" style="width: 100%; height: 100%; background-color: #10b981; transition: width 0.1s linear, background-color 0.5s ease;"></div>
@@ -552,6 +566,37 @@
             updateWakeLockState(); 
         }
 
+        // ★ [NEW] 목표 시간 동기화 함수 ★
+        function adjustTargetTime(delta) {
+            const mainInput = document.getElementById('targetMinutes');
+            let currentVal = parseInt(mainInput.value) || 0;
+            let newVal = Math.max(1, currentVal + delta); // 최소 1분 제한
+            mainInput.value = newVal;
+            syncTargetTime('main');
+        }
+
+        function syncTargetTime(source) {
+            const mainInput = document.getElementById('targetMinutes');
+            const fsInput = document.getElementById('fsTargetMinutes');
+            
+            let val = parseInt(source === 'fs' ? fsInput.value : mainInput.value);
+            if (isNaN(val) || val <= 0) val = 1; // 비정상 값 방지
+            
+            // 양방향 값 업데이트
+            mainInput.value = val;
+            fsInput.value = val;
+            
+            // 타이머가 가동 중이 아닐 때만 디스플레이(02:00:00 부분) 실시간 업데이트
+            if (document.getElementById('startBtn').style.display !== 'none') {
+                const h = String(Math.floor(val * 60 / 3600)).padStart(2, '0'); 
+                const m = String(Math.floor((val * 60 % 3600) / 60)).padStart(2, '0'); 
+                document.getElementById('timerDisplay').innerText = `${h}:${m}:00`;
+                if (fsMode === 'focus') {
+                    document.getElementById('fsTimerDisplay').innerText = `${h}:${m}:00`;
+                }
+            }
+        }
+
         function showFloatingBarForActiveTask() {
             if (!activeTaskId || !window.currentTasks) return;
             const task = window.currentTasks.find(t => t.task_id === activeTaskId);
@@ -677,9 +722,6 @@
             const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time && !task.end_time));
             const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && (task.start_time || task.end_time)));
 
-            if (simpleTasks.length === 0) simpleElement.innerHTML = '<li style="color:#94a3b8; font-size:14px; text-align:center; padding:20px 0;">아직 등록된 단순 할 일이 없습니다.</li>';
-            if (timeTasks.length === 0) timeListElement.innerHTML = '<li style="color:#94a3b8; font-size:14px; text-align:center; padding:20px 0;">아직 등록된 시간표 일과가 없습니다.</li>';
-
             const subjectColors = { 
                 '국어': '#ef4444', 
                 '수학': '#3b82f6', 
@@ -753,7 +795,6 @@
 
                 const escapedContent = task.content.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-                // ★ [NEW] 데이터 보호: 기록이 있으면 삭제 버튼 대신 자물쇠 표시 ★
                 let deleteBtnHtml = '';
                 if (savedSec > 0) {
                     deleteBtnHtml = `<span style="font-size: 14px; margin-left: 12px; cursor: not-allowed; opacity: 0.5;" title="공부 기록이 있어 삭제할 수 없습니다. 수정(✏️)을 이용해주세요.">🔒</span>`;
@@ -899,7 +940,6 @@
         }
         setInterval(updateCurrentTimeLine, 60000);
 
-        // ★ [NEW] 팝업창 없는 조용한 상태 잠금 ★
         async function toggleTaskStatus(taskId, currentStatus, savedSec = 0) {
             let nextStatus = 'NONE';
             let isCompletedCompat = false;
@@ -910,7 +950,6 @@
                 nextStatus = 'PARTIAL'; isCompletedCompat = false; 
             } else { 
                 if (savedSec > 0) {
-                    // 타이머 기록이 있으면 NONE으로 가지 않고 강제로 DONE으로 자연스럽게 순환
                     nextStatus = 'DONE'; isCompletedCompat = true;
                 } else {
                     nextStatus = 'NONE'; isCompletedCompat = false; 
@@ -1077,7 +1116,6 @@
             }
         }
 
-        // ★ [NEW] 에러 시 정확한 사유를 뱉어내는 삭제 로직 ★
         async function deleteTask(taskId) {
             if (!confirm("이 계획을 정말 삭제할까요?")) return; 
             
@@ -1390,6 +1428,12 @@
                 const isFocusActive = document.getElementById('startBtn').style.display === 'none';
                 document.getElementById('fsFocusStartBtn').style.display = isFocusActive ? 'none' : 'block';
                 document.getElementById('fsFocusStopBtn').style.display = isFocusActive ? 'block' : 'none';
+                
+                // 집중 모드 가동 중엔 시간 설정기 숨기기
+                const fsFocusSettingArea = document.getElementById('fsFocusSettingArea');
+                if (fsFocusSettingArea) {
+                    fsFocusSettingArea.style.display = isFocusActive ? 'none' : 'flex';
+                }
             } else {
                 document.getElementById('fsTimerDisplay').innerText = document.getElementById('stopwatchDisplay').innerText;
                 document.getElementById('fsSwStartBtn').style.display = document.getElementById('swStartBtn').style.display;
