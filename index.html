@@ -123,15 +123,21 @@
             width: 100%; height: 100%;
             background-color: #050505; 
             z-index: 20000;
-            flex-direction: column;
+            flex-direction: row; /* 좌측 타이머 컨트롤러 / 우측 모의고사 퀵패널 분리를 위해 가로 배치 */
             justify-content: center;
             align-items: center;
             color: white;
             user-select: none;
             opacity: 0;
             transition: opacity 0.4s ease;
+            gap: 60px;
         }
         #fullscreenOverlay.active { opacity: 1; }
+
+        @media (max-width: 900px) {
+            #fullscreenOverlay { flex-direction: column; gap: 30px; padding: 20px; }
+            #fsMockPanel { width: 100% !important; max-width: 340px; }
+        }
 
         .fs-btn {
             padding: 14px 28px;
@@ -160,47 +166,87 @@
             background: #f1f5f9; color: #64748b; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; font-family: inherit;
         }
         .date-nav-btn:hover { background: #e2e8f0; color: #334155; }
+
+        /* 퀵 버튼 디자인 */
+        .mock-quick-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 10px;
+            text-align: left;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .mock-quick-btn:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: #3b82f6;
+            transform: translateX(4px);
+        }
+        .mock-quick-btn span.badge {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 800;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
 
     <div id="fullscreenOverlay" ondblclick="closeFullscreen()">
-        <button onclick="closeFullscreen()" style="position: absolute; top: 30px; right: 30px; background: rgba(255,255,255,0.1); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&times;</button>
+        <button onclick="closeFullscreen()" style="position: absolute; top: 30px; right: 30px; background: rgba(255,255,255,0.1); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 100; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&times;</button>
         
-        <div id="fsTaskInfo" style="font-size: clamp(16px, 3vw, 24px); font-weight: 700; color: #3b82f6; margin-bottom: 24px; text-shadow: 0 0 15px rgba(59,130,246,0.4); display: none; padding: 8px 20px; background: rgba(59,130,246,0.1); border-radius: 20px; border: 1px solid rgba(59,130,246,0.2);"></div>
-        
-        <div id="fsTimerDisplay" style="font-size: clamp(70px, 15vw, 220px); font-weight: 800; font-family: monospace; letter-spacing: 0.02em; line-height: 1;">00:00:00</div>
-        
-        <div id="fsModeLabel" style="font-size: 16px; font-weight: 600; color: #64748b; margin-top: 40px; letter-spacing: 0.2em; text-transform: uppercase;">MODE</div>
-        
-        <div id="fsFocusControls" style="display: none; flex-direction: column; align-items: center; gap: 24px; margin-top: 30px;">
-            <div id="fsFocusSettingArea" style="display: flex; align-items: center; gap: 16px;">
-                <button onclick="adjustTargetTime(-10)" style="background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 8px; padding: 10px 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">- 10분</button>
-                <div style="font-size: 18px; font-weight: 600; color: #94a3b8; display: flex; align-items: center; gap: 8px;">
-                    목표 <input type="number" id="fsTargetMinutes" value="120" onchange="syncTargetTime('fs')" style="width: 70px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 8px; font-size: 20px; font-weight: 800; text-align: center; padding: 6px; outline: none; font-family: monospace;"> 분
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div id="fsTaskInfo" style="font-size: clamp(16px, 3vw, 24px); font-weight: 700; color: #3b82f6; margin-bottom: 24px; text-shadow: 0 0 15px rgba(59,130,246,0.4); display: none; padding: 8px 20px; background: rgba(59,130,246,0.1); border-radius: 20px; border: 1px solid rgba(59,130,246,0.2);"></div>
+            
+            <div id="fsTimerDisplay" style="font-size: clamp(70px, 12vw, 180px); font-weight: 800; font-family: monospace; letter-spacing: 0.02em; line-height: 1;">00:00:00</div>
+            
+            <div id="fsModeLabel" style="font-size: 16px; font-weight: 600; color: #64748b; margin-top: 30px; letter-spacing: 0.2em; text-transform: uppercase;">MODE</div>
+            
+            <div id="fsFocusControls" style="display: none; flex-direction: column; align-items: center; gap: 24px; margin-top: 24px;">
+                <div id="fsFocusSettingArea" style="display: flex; align-items: center; gap: 16px;">
+                    <button onclick="adjustTargetTime(-10)" style="background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 8px; padding: 10px 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">- 10분</button>
+                    <div style="font-size: 18px; font-weight: 600; color: #94a3b8; display: flex; align-items: center; gap: 8px;">
+                        목표 <input type="number" id="fsTargetMinutes" value="120" onchange="syncTargetTime('fs')" style="width: 70px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 8px; font-size: 20px; font-weight: 800; text-align: center; padding: 6px; outline: none; font-family: monospace;"> 분
+                    </div>
+                    <button onclick="adjustTargetTime(10)" style="background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 8px; padding: 10px 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">+ 10분</button>
                 </div>
-                <button onclick="adjustTargetTime(10)" style="background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 8px; padding: 10px 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">+ 10분</button>
+
+                <div style="display: flex; gap: 16px;">
+                    <button id="fsFocusStartBtn" onclick="startFocus()" class="fs-btn" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239,68,68,0.3);">▶ 집중 시작</button>
+                    <button id="fsFocusStopBtn" onclick="stopFocus()" class="fs-btn" style="display:none; background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border-color: rgba(100,116,139,0.3);">■ 포기 (종료)</button>
+                </div>
             </div>
 
-            <div style="display: flex; gap: 16px;">
-                <button id="fsFocusStartBtn" onclick="startFocus()" class="fs-btn" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239,68,68,0.3);">▶ 집중 시작</button>
-                <button id="fsFocusStopBtn" onclick="stopFocus()" class="fs-btn" style="display:none; background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border-color: rgba(100,116,139,0.3);">■ 포기 (종료)</button>
+            <div id="fsSwControls" style="display: none; gap: 16px; margin-top: 24px;">
+                <button id="fsSwStartBtn" onclick="handleSwStartClick()" class="fs-btn" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; border-color: rgba(59,130,246,0.3);">▶ 공부 시작</button>
+                <button id="fsSwPauseBtn" onclick="pauseStopwatch()" class="fs-btn" style="display:none; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border-color: rgba(245,158,11,0.3);">⏸ 일시 정지</button>
+                <button id="fsSwStopBtn" onclick="stopStopwatch()" class="fs-btn" style="display:none; background: rgba(234, 88, 12, 0.2); color: #ea580c; border-color: rgba(234,88,12,0.3);">■ 종료/저장</button>
+            </div>
+
+            <div id="fsTaskControls" style="display: none; margin-top: 20px;">
+                <button onclick="handleFsTaskStop()" class="fs-btn" style="background: rgba(220, 38, 38, 0.2); color: #ef4444; border-color: rgba(220, 38, 38, 0.4); box-shadow: 0 0 20px rgba(239,68,68,0.1);">
+                    ■ 현재 계획 마감하기
+                </button>
             </div>
         </div>
 
-        <div id="fsSwControls" style="display: none; gap: 16px; margin-top: 30px;">
-            <button id="fsSwStartBtn" onclick="handleSwStartClick()" class="fs-btn" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; border-color: rgba(59,130,246,0.3);">▶ 공부 시작</button>
-            <button id="fsSwPauseBtn" onclick="pauseStopwatch()" class="fs-btn" style="display:none; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border-color: rgba(245,158,11,0.3);">⏸ 일시 정지</button>
-            <button id="fsSwStopBtn" onclick="stopStopwatch()" class="fs-btn" style="display:none; background: rgba(234, 88, 12, 0.2); color: #ea580c; border-color: rgba(234,88,12,0.3);">■ 종료/저장</button>
+        <div id="fsMockPanel" style="display: none; width: 300px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; flex-direction: column; gap: 12px; backdrop-filter: blur(10px);">
+            <h4 style="margin: 0 0 8px 0; font-size: 15px; color: #a855f7; font-weight: 800; letter-spacing: 0.05em; text-align: center; text-transform: uppercase;">⚡ 실전 모의고사 훈련소</h4>
+            <button onclick="startInstantMockExam(80, '국어')" class="mock-quick-btn"><span>📝 국어 모의고사</span> <span class="badge">80분</span></button>
+            <button onclick="startInstantMockExam(100, '수학')" class="mock-quick-btn"><span>📐 수학 모의고사</span> <span class="badge">100분</span></button>
+            <button onclick="startInstantMockExam(70, '영어(듣기포함)')" class="mock-quick-btn"><span>🎧 영어 (듣기포함)</span> <span class="badge">70분</span></button>
+            <button onclick="startInstantMockExam(50, '영어(듣기제외)')" class="mock-quick-btn"><span>📖 영어 (듣기제외)</span> <span class="badge">50분</span></button>
+            <button onclick="startInstantMockExam(30, '탐구')" class="mock-quick-btn"><span>🧬 탐구 모의고사</span> <span class="badge">30분</span></button>
         </div>
-
-        <div id="fsTaskControls" style="display: none; margin-top: 20px;">
-            <button onclick="handleFsTaskStop()" class="fs-btn" style="background: rgba(220, 38, 38, 0.2); color: #ef4444; border-color: rgba(220, 38, 38, 0.4); box-shadow: 0 0 20px rgba(239,68,68,0.1);">
-                ■ 현재 계획 마감하기
-            </button>
-        </div>
-
-        <div style="position: absolute; bottom: 40px; font-size: 13px; color: #334155; font-weight: 600; letter-spacing: 0.05em;">화면을 더블 터치하여 원래 화면으로 복귀</div>
     </div>
 
     <div id="floatingTaskBar">
@@ -245,7 +291,6 @@
                 <button onclick="changeDate(1)" class="date-nav-btn">내일 ▶</button>
                 <button onclick="goToToday()" class="date-nav-btn" style="background: white; border: 1px solid #e2e8f0; margin-left: 4px;">오늘로 복귀</button>
             </div>
-
         </div>
         <a href="stats.html" style="padding: 12px 20px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(124,58,237,0.2); transition: all 0.2s; white-space: nowrap;">📊 나의 학습 통계</a>
     </div>
@@ -897,7 +942,6 @@
                     const startMinsTotal = parseInt(sParts[0]) * 60 + parseInt(sParts[1]);
                     let endMinsTotal = parseInt(eParts[0]) * 60 + parseInt(eParts[1]);
                     
-                    // ★ [FIX] 시작하자마자 종료한(0분) 블록의 밤샘 무한증식 계산 버그 완벽 수정 ★
                     if(endMinsTotal < startMinsTotal) {
                         endMinsTotal += 24 * 60; 
                     } else if (endMinsTotal === startMinsTotal) {
@@ -1241,6 +1285,56 @@
             updateWakeLockState(); 
         }
         
+        // ★ [NEW] 풀스크린 원터치 실전 모의고사 퀵스타트 엔진 함수 ★
+        async function startInstantMockExam(mins, subjectName) {
+            if (activeTaskId) {
+                alert("📢 현재 다른 과목 공부가 가동 중입니다. 마감이나 종료를 먼저 완료해 주세요!");
+                return;
+            }
+            
+            // 1. Supabase DB에 실전 모의고사 계획 가동 인서트
+            const exactStartTimeStr = getKstTimeStr(Date.now());
+            const insertData = { 
+                seat_number: '105', 
+                task_date: actualTodayStr, // 무조건 당일 실전 시험만 허용
+                subject: '모의고사', 
+                content: `${subjectName} 모의고사 (${mins}분 실전)`, 
+                task_mode: 'simple',
+                start_time: exactStartTimeStr
+            };
+            
+            const { data, error } = await supabaseClient.from('planner_tasks').insert([insertData]).select();
+            if (error) {
+                alert("모의고사 추가 실패: " + error.message);
+                return;
+            }
+            
+            // 2. 시간 세팅 동기화 및 바인딩
+            document.getElementById('targetMinutes').value = mins;
+            syncTargetTime('main');
+            
+            // 3. 백그라운드 리스트 갱신
+            await fetchTasks();
+            
+            // 4. 생성된 신규 태스크 ID를 가져와 다이렉트 바인딩 구동
+            const newTaskId = data[0].task_id;
+            activeTaskId = newTaskId;
+            taskStartTime = Date.now();
+            taskAccumulatedMs = 0;
+            
+            localStorage.setItem('activeTaskId', activeTaskId);
+            localStorage.setItem('taskStartTime', taskStartTime);
+            localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
+            localStorage.setItem('logicalDate', actualTodayStr);
+            
+            // 스톱워치 및 하단 플로팅바 가동
+            if (!isSwRunning) { forceStartStopwatch(taskStartTime); }
+            showFloatingBar(data[0], false);
+            
+            // 5. 집중 모드 카운트다운 출발!
+            startFocus();
+        }
+
         function updateTimerUI() {
             const now = Date.now(); let remainingMs = endTime - now; 
             if (remainingMs <= 0) { remainingMs = 0; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "0%"; finishFocus('SUCCESS'); return; }
@@ -1269,6 +1363,21 @@
             document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
             
+            // ★ [UX 고도화] 모의고사 실전 훈련이 타임아웃으로 성공 종료 시, 해당 과목도 자동 DONE 마감처리 완료 ★
+            if (status === 'SUCCESS' && activeTaskId) {
+                const finalSeconds = Math.floor((Date.now() - taskStartTime) / 1000);
+                await supabaseClient.from('planner_tasks').update({
+                    study_seconds: finalSeconds,
+                    completion_status: 'DONE',
+                    is_completed: true,
+                    end_time: getKstTimeStr(Date.now())
+                }).eq('task_id', activeTaskId);
+                
+                activeTaskId = null;
+                localStorage.removeItem('activeTaskId');
+                hideFloatingBar();
+            }
+
             if(status === 'SUCCESS') {
                 playSuccessSound(); 
                 
@@ -1282,7 +1391,7 @@
                     setTimeout(() => { document.body.style.backgroundColor = '#f8fafc'; }, 1000);
                 }
                 
-                setTimeout(() => { alert("🎉 집중 목표 달성! 정말 수고하셨습니다."); }, 300);
+                setTimeout(() => { alert("🎉 실전 모의고사 제한시간 종료! 시험지를 덮고 오답노트 작성을 준비하세요."); fetchTasks(); }, 300);
             }
             
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
@@ -1495,11 +1604,16 @@
                 document.getElementById('fsTimerDisplay').style.textShadow = '0 0 30px rgba(255,255,255,0.2)';
                 document.getElementById('fsFocusControls').style.display = 'flex';
                 document.getElementById('fsSwControls').style.display = 'none';
+                
+                // ★ 집중 모드 대기 상태일 때만 우측 모의고사 패널을 노출시킵니다 ★
+                const isFocusActive = document.getElementById('startBtn').style.display === 'none';
+                document.getElementById('fsMockPanel').style.display = isFocusActive ? 'none' : 'flex';
             } else {
                 document.getElementById('fsTimerDisplay').style.color = '#00f5d4';
                 document.getElementById('fsTimerDisplay').style.textShadow = '0 0 30px rgba(0,245,212,0.2)';
                 document.getElementById('fsFocusControls').style.display = 'none';
                 document.getElementById('fsSwControls').style.display = 'flex';
+                document.getElementById('fsMockPanel').style.display = 'none';
             }
 
             const elem = document.documentElement;
@@ -1540,6 +1654,9 @@
                 if (fsFocusSettingArea) {
                     fsFocusSettingArea.style.display = isFocusActive ? 'none' : 'flex';
                 }
+                
+                // 집중 모드가 가동되면 시험 도중의 방해를 차단하기 위해 우측 모의고사 퀵패널을 숨김 처리합니다.
+                document.getElementById('fsMockPanel').style.display = isFocusActive ? 'none' : 'flex';
             } else {
                 document.getElementById('fsTimerDisplay').innerText = document.getElementById('stopwatchDisplay').innerText;
                 document.getElementById('fsSwStartBtn').style.display = document.getElementById('swStartBtn').style.display;
