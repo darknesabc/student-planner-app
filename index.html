@@ -262,7 +262,6 @@
                 </div>
 
                 <div class="input-group">
-                    <!-- ★ [NEW] 과목 선택 목록 확장 (한국사, 논술, 면접, 모의고사 추가) ★ -->
                     <select id="subjectInput" style="padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit; font-weight: 600; min-width: 100px;">
                         <option value="국어">국어</option>
                         <option value="수학">수학</option>
@@ -392,6 +391,47 @@
         }
         document.getElementById('todayDateStr').firstElementChild.innerHTML = dateHtml;
 
+        // ★ [NEW] 화면 꺼짐 방지(Wake Lock) 관리 엔진 ★
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator && !wakeLock) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('💡 화면 꺼짐 방지 켜짐 (Wake Lock Active)');
+                }
+            } catch (err) {
+                console.log('Wake Lock Error:', err);
+            }
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock !== null) {
+                await wakeLock.release();
+                wakeLock = null;
+                console.log('🔋 화면 꺼짐 방지 해제 (Wake Lock Released)');
+            }
+        }
+
+        async function updateWakeLockState() {
+            const focus = localStorage.getItem('isFocusRunning') === 'true';
+            const sw = isSwRunning; 
+            // 공부 타이머(스톱워치)나 집중 모드가 돌아가고 있다면 무조건 화면을 켭니다.
+            if (focus || sw) { 
+                await requestWakeLock();
+            } else {
+                await releaseWakeLock();
+            }
+        }
+
+        // 사용자가 다른 탭/앱에 갔다가 돌아오면 브라우저가 화면 켜짐 권한을 날려버리므로, 다시 잡아옵니다.
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                wakeLock = null; 
+                await updateWakeLockState();
+            }
+        });
+
         window.currentTasks = [];
         let currentInputMode = 'simple'; 
         let currentOutputView = 'simpleList'; 
@@ -511,6 +551,8 @@
                 document.getElementById('progressFill').style.backgroundColor = "#10b981"; 
                 updateTimerUI(); 
             }
+            
+            updateWakeLockState(); // 초기 상태 반영
         }
 
         function showFloatingBarForActiveTask() {
@@ -641,7 +683,6 @@
             if (simpleTasks.length === 0) simpleElement.innerHTML = '<li style="color:#94a3b8; font-size:14px; text-align:center; padding:20px 0;">아직 등록된 단순 할 일이 없습니다.</li>';
             if (timeTasks.length === 0) timeListElement.innerHTML = '<li style="color:#94a3b8; font-size:14px; text-align:center; padding:20px 0;">아직 등록된 시간표 일과가 없습니다.</li>';
 
-            // ★ [NEW] 확장된 과목 색상 매핑 업데이트 ★
             const subjectColors = { 
                 '국어': '#ef4444', 
                 '수학': '#3b82f6', 
@@ -906,6 +947,7 @@
 
             await fetchTasks(); 
             updateTaskTimerLoop();
+            updateWakeLockState(); // 가동 시 화면 켜짐 유지
         }
 
         function updateTaskTimerLoop() {
@@ -952,6 +994,7 @@
 
             await supabaseClient.from('planner_tasks').update({ study_seconds: finalSeconds }).eq('task_id', taskId); 
             fetchTasks();
+            updateWakeLockState(); // 일시정지 시 필요없으면 해제
         }
 
         function forcePauseTaskLocally() {
@@ -962,6 +1005,7 @@
             localStorage.removeItem('taskAccumulatedMs');
             hideFloatingBar();
             if (isSwRunning) { pauseStopwatch(); }
+            updateWakeLockState();
         }
 
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
@@ -988,6 +1032,7 @@
             const { error } = await supabaseClient.from('planner_tasks').update(updatePayload).eq('task_id', taskId); 
             if(error) alert("상태 저장 실패: Supabase DB 권한을 확인해주세요.");
             fetchTasks();
+            updateWakeLockState(); // 종료 시 화면 유지 해제
         }
 
         async function addTask() {
@@ -1041,6 +1086,7 @@
             if (!isSwRunning) {
                 forceStartStopwatch(exactNow);
             }
+            updateWakeLockState(); // 화면 켜짐 유지
         }
         
         function updateTimerUI() {
@@ -1076,6 +1122,7 @@
             if (isSwRunning) {
                 pauseStopwatch();
             }
+            updateWakeLockState(); // 종료 시 해제
         }
         
         function showFloatingBar(task, isPaused = false) {
@@ -1208,6 +1255,7 @@
             document.getElementById('swPauseBtn').style.display = 'inline-block'; 
             document.getElementById('swStopBtn').style.display = 'inline-block'; 
             updateStopwatchUI();
+            updateWakeLockState(); // 화면 켜짐 유지
         }
 
         function pauseStopwatch() {
@@ -1232,6 +1280,7 @@
                     }
                     pauseTask(activeTaskId, currentTaskSec);
                 }
+                updateWakeLockState(); // 해제
             }
         }
         
@@ -1259,6 +1308,7 @@
             }
 
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
+            updateWakeLockState(); // 완전히 종료되므로 해제
         }
 
         let fsMode = null; 
