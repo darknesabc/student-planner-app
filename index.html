@@ -16,6 +16,8 @@
             padding: 30px 20px;
             max-width: 1200px;
             margin: 0 auto;
+            /* 하단 플로팅 바가 떴을 때 내용을 가리지 않도록 공간 확보 */
+            padding-bottom: 120px; 
         }
 
         .header-container { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding: 0 4px; flex-wrap: wrap; gap: 16px; }
@@ -34,7 +36,7 @@
         }
         
         @media (max-width: 650px) {
-            body { padding: 15px 10px; }
+            body { padding: 15px 10px; padding-bottom: 110px; } /* 모바일용 하단 여백 */
             .sticky-sidebar { flex-direction: column; } 
             .input-group { flex-direction: column; } 
             .header-container { flex-direction: column; gap: 12px; }
@@ -45,7 +47,7 @@
             .task-item > div { width: 100%; margin-top: 8px; margin-bottom: 8px; } 
         }
 
-        .card-box { background: white; padding: 28px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid rgba(0,0,0,0.01); box-sizing: border-box; }
+        .card-box { background: white; padding: 28px; border-radius: 166px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid rgba(0,0,0,0.01); box-sizing: border-box; }
         .achievement-box { background: linear-gradient(135deg, #ffffff, #f8fafc); border: 1px solid #e2e8f0; padding: 20px; border-radius: 16px; margin-bottom: 24px; }
         .progress-container { width: 100%; height: 10px; background-color: #e2e8f0; border-radius: 5px; overflow: hidden; margin-top: 10px; }
         .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 5px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -82,10 +84,61 @@
 
         #taskSelectContainer::-webkit-scrollbar { width: 6px; }
         #taskSelectContainer::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+
+        /* ★ 하단 고정 플로팅 바 (Melon/Spotify 스타일) ★ */
+        #floatingTaskBar {
+            display: none; /* 스크립트가 display: flex로 바꿉니다 */
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid #e2e8f0;
+            z-index: 999; /* 관제탑 팝업(9999)보다는 낮고, 사이드바(100)보다는 높게 */
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
+            border-radius: 20px 20px 0 0;
+            box-sizing: border-box;
+            padding: 16px 20px;
+            flex-direction: column;
+            gap: 12px;
+            
+            /* 애니메이션 효과 */
+            transition: transform 0.3s ease-out;
+            transform: translateY(100%); /* 처음에 밑에 숨어있음 */
+        }
+        
+        /* 바가 활성화되었을 때 위로 스르륵 올라오는 클래스 */
+        #floatingTaskBar.active {
+            transform: translateY(0);
+        }
+
+        /* 스마트폰용 하단 플레이어 스타일 조정 */
+        @media (max-width: 650px) {
+            #floatingTaskBar {
+                padding: 12px 15px;
+            }
+            #floatingTaskTimer {
+                font-size: 16px;
+            }
+        }
     </style>
 </head>
 <body>
 
+    <div id="floatingTaskBar">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div style="flex: 1; min-width: 0;">
+                <span id="floatingTaskSubject" style="font-weight: 800; font-size: 14px; color: #3b82f6;">[과목]</span>
+                <span id="floatingTaskContent" style="font-weight: 600; color: #1e293b; font-size: 14px; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-top: 1px;">할 일 내용</span>
+            </div>
+            <div id="floatingTaskTimer" style="font-family: monospace; font-weight: 800; font-size: 18px; color: #059669; min-width: 75px; text-align: right;">00:00:00</div>
+        </div>
+        <div style="display: flex; justify-content: space-between; gap: 8px;">
+            <button id="floatingPauseBtn" class="p-btn" style="flex: 1; padding: 12px; background-color: #fffbeb; color: #d97706; border-color: #fde68a;">⏸ 일시정지</button>
+            <button id="floatingStopBtn" class="p-btn" style="flex: 1; padding: 12px; background-color: #fef2f2; color: #dc2626; border-color: #fca5a5;">■ 마감하기</button>
+        </div>
+    </div>
     <div id="taskSelectModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
         <div style="background: white; padding: 32px; border-radius: 20px; width: 90%; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
             <h3 style="margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: space-between;">
@@ -356,6 +409,8 @@
                 activeTaskId = savedTaskId;
                 taskStartTime = parseInt(localStorage.getItem('taskStartTime'), 10);
                 taskAccumulatedMs = parseInt(localStorage.getItem('taskAccumulatedMs'), 10);
+                // 좀비 상태 복원 시에도 플로팅 바를 띄워줍니다.
+                setTimeout(() => showFloatingBarForActiveTask(), 500); 
                 updateTaskTimerLoop();
             }
 
@@ -391,6 +446,15 @@
                 document.getElementById('targetMinutes').value = targetMins;
                 document.getElementById('progressFill').style.backgroundColor = "#10b981"; 
                 updateTimerUI(); 
+            }
+        }
+
+        // 좀비 복원 시 전역 Tasks 데이터를 기반으로 플로팅 바 내용을 채우고 띄웁니다.
+        function showFloatingBarForActiveTask() {
+            if (!activeTaskId || !window.currentTasks) return;
+            const task = window.currentTasks.find(t => t.task_id === activeTaskId);
+            if (task) {
+                showFloatingBar(task);
             }
         }
 
@@ -453,6 +517,13 @@
             if (error) { console.error(error); return; }
 
             window.currentTasks = data;
+
+            // 만약 Tasks를 새로 불러왔는데, 가동 중인 과목(activeTaskId)이 Tasks 목록 안에 없다면? 
+            // (에러나 데이터 불일치 상황) -> 과목 타이머 강제 일시정지 처리
+            if (activeTaskId && !data.some(t => t.task_id === activeTaskId)) {
+                console.warn("Active task ID not found in fetched tasks. Forcing pause.");
+                forcePauseTaskLocally(); 
+            }
 
             const totalCount = data.length;
             let achievedScore = 0;
@@ -756,18 +827,40 @@
             
             if (!isSwRunning) { forceStartStopwatch(); }
 
+            // ★ [NEW] 과목 가동 시 하단 플로팅 바 띄우기 ★
+            if (window.currentTasks) {
+                const task = window.currentTasks.find(t => t.task_id === taskId);
+                if (task) {
+                    showFloatingBar(task);
+                }
+            }
+
             await fetchTasks(); 
             updateTaskTimerLoop();
         }
 
         function updateTaskTimerLoop() {
             if (!activeTaskId) return;
+            const now = Date.now();
+            const elapsedMs = taskAccumulatedMs + (now - taskStartTime); 
+            const elapsedSec = Math.floor(elapsedMs / 1000);
+            const h = String(Math.floor(elapsedSec / 3600)).padStart(2, '0'); 
+            const m = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0'); 
+            const s = String(elapsedSec % 60).padStart(2, '0');
+            const timerStr = `${h}:${m}:${s}`;
+
+            // 1. 리스트 뷰 타이머 업데이트
             const timerElements = document.querySelectorAll(`#task-timer-${activeTaskId}`);
             if (timerElements.length > 0) {
-                const elapsedMs = taskAccumulatedMs + (Date.now() - taskStartTime); const elapsedSec = Math.floor(elapsedMs / 1000);
-                const h = String(Math.floor(elapsedSec / 3600)).padStart(2, '0'); const m = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0'); const s = String(elapsedSec % 60).padStart(2, '0');
-                timerElements.forEach(el => el.innerText = `${h}:${m}:${s}`);
+                timerElements.forEach(el => el.innerText = timerStr);
             }
+            
+            // ★ [NEW] 2. 하단 플로팅 바 타이머 업데이트 ★
+            const floatingTimer = document.getElementById('floatingTaskTimer');
+            if (floatingTimer) {
+                floatingTimer.innerText = timerStr;
+            }
+
             taskAnimationFrameId = requestAnimationFrame(updateTaskTimerLoop);
         }
 
@@ -780,11 +873,25 @@
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
             
-            // ★ 리스트에서 일시정지 누를 때 메인 스톱워치도 동기화되어 일시정지됨 ★
+            // ★ [NEW] 일시정지 시 하단 플로팅 바 숨기기 ★
+            hideFloatingBar();
+
+            // 리스트에서 일시정지 누를 때 메인 스톱워치도 동기화되어 일시정지됨
             if (isSwRunning) { pauseStopwatch(); }
 
             await supabaseClient.from('planner_tasks').update({ study_seconds: finalSeconds }).eq('task_id', taskId); 
             fetchTasks();
+        }
+
+        // DB Fetch 실패 등 예외 상황에서 로컬 상태만 강제로 초기화하는 함수
+        function forcePauseTaskLocally() {
+            cancelAnimationFrame(taskAnimationFrameId);
+            activeTaskId = null;
+            localStorage.removeItem('activeTaskId');
+            localStorage.removeItem('taskStartTime');
+            localStorage.removeItem('taskAccumulatedMs');
+            hideFloatingBar();
+            if (isSwRunning) { pauseStopwatch(); }
         }
 
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
@@ -797,6 +904,9 @@
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
             
+            // ★ [NEW] 종료 시 하단 플로팅 바 숨기기 ★
+            hideFloatingBar();
+
             if (isSwRunning) { pauseStopwatch(); }
 
             let updatePayload = { study_seconds: finalSeconds, completion_status: 'DONE', is_completed: true };
@@ -877,6 +987,43 @@
             if(status === 'SUCCESS') alert("목표 달성!"); await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
         }
         
+        /* ==========================================
+           ★ [NEW] Melon/Spotify 스타일 하단 바 로직 ★
+           ========================================== */
+        
+        // 플로팅 바에 내용 채우고 원격 제어 버튼에 함수 연결
+        function showFloatingBar(task) {
+            const bar = document.getElementById('floatingTaskBar');
+            const savedSec = task.study_seconds || 0;
+            const taskMode = task.task_mode || (!task.start_time && !task.end_time ? 'simple' : 'time');
+
+            // 정보 채우기
+            document.getElementById('floatingTaskSubject').innerText = `[${task.subject}]`;
+            document.getElementById('floatingTaskContent').innerText = task.content;
+            
+            // 타이머 초기값 세팅 (update loop가 이어서 돌림)
+            const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
+            const m = String(Math.floor((savedSec % 3600) / 60)).padStart(2, '0');
+            const s = String(savedSec % 60).padStart(2, '0');
+            document.getElementById('floatingTaskTimer').innerText = `${h}:${m}:${s}`;
+
+            // ★ 원격 제어 버튼 함수 연결 ★
+            document.getElementById('floatingPauseBtn').onclick = () => pauseTask(task.task_id, savedSec);
+            document.getElementById('floatingStopBtn').onclick = () => stopTask(task.task_id, savedSec, task.start_time || '', taskMode);
+
+            // 화면에 표시 및 애니메이션 가동
+            bar.style.display = 'flex';
+            setTimeout(() => bar.classList.add('active'), 50); 
+        }
+
+        // 플로팅 바 숨기기
+        function hideFloatingBar() {
+            const bar = document.getElementById('floatingTaskBar');
+            bar.classList.remove('active'); // 아래로 내려가는 애니메이션
+            // 애니메이션이 끝난 후 display: none 처리
+            setTimeout(() => bar.style.display = 'none', 350); 
+        }
+
         let swAnimationFrameId, swStartTime = 0, accumulatedMs = 0, isSwRunning = false;
         
         function handleSwStartClick() {
