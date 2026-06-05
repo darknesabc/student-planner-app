@@ -46,10 +46,10 @@
             .task-item > div { width: 100%; margin-top: 8px; margin-bottom: 8px; } 
         }
 
-        /* ★ [핵심 UX 개선] 가로 모드(PC)에서는 우측에 스톱워치가 있으므로 하단 바 강제 숨김 ★ */
+        /* 가로 모드(PC)에서는 우측에 상시 관제탑이 있으므로 하단 바 강제 숨김 */
         @media (min-width: 1025px) {
             #floatingTaskBar { display: none !important; }
-            body { padding-bottom: 30px !important; } /* 불필요한 하단 여백도 원상복구 */
+            body { padding-bottom: 30px !important; } 
         }
 
         .card-box { background: white; padding: 28px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid rgba(0,0,0,0.01); box-sizing: border-box; }
@@ -129,7 +129,7 @@
             <div id="floatingTaskTimer" style="font-family: monospace; font-weight: 800; font-size: 18px; color: #059669; min-width: 75px; text-align: right;">00:00:00</div>
         </div>
         <div style="display: flex; justify-content: space-between; gap: 8px;">
-            <button id="floatingPauseBtn" class="p-btn" style="flex: 1; padding: 12px; background-color: #fffbeb; color: #d97706; border-color: #fde68a;">⏸ 일시정지</button>
+            <button id="floatingPauseBtn" class="p-btn" style="flex: 1; padding: 12px; font-weight: 700;">⏸ 일시정지</button>
             <button id="floatingStopBtn" class="p-btn" style="flex: 1; padding: 12px; background-color: #fef2f2; color: #dc2626; border-color: #fca5a5;">■ 마감하기</button>
         </div>
     </div>
@@ -818,7 +818,7 @@
             if (window.currentTasks) {
                 const task = window.currentTasks.find(t => t.task_id === taskId);
                 if (task) {
-                    showFloatingBar(task);
+                    showFloatingBar(task, false); // 주행 모드로 하단 바 출력
                 }
             }
 
@@ -858,7 +858,14 @@
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
             
-            hideFloatingBar();
+            // ★ [버그 차단 고도화] 하단 바를 숨기지 않고 '일시정지 상태'로 UI 디자인 전환 ★
+            if (window.currentTasks) {
+                const task = window.currentTasks.find(t => t.task_id === taskId);
+                if (task) {
+                    task.study_seconds = finalSeconds; // 리셋 전 최신 누적 초 반영
+                    showFloatingBar(task, true); // true 인자를 넘겨 일시정지 테마 가동
+                }
+            }
 
             if (isSwRunning) { pauseStopwatch(); }
 
@@ -886,6 +893,7 @@
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
             
+            // 마감(종료) 버튼을 눌렀을 때만 하단 컨트롤러 완전 파기
             hideFloatingBar();
 
             if (isSwRunning) { pauseStopwatch(); }
@@ -968,20 +976,44 @@
             if(status === 'SUCCESS') alert("목표 달성!"); await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
         }
         
-        function showFloatingBar(task) {
+        /* =======================================================
+           ★ [기획 고도화] 하단 고정 바 스테이트풀 엔지니어링 링킹 ★
+           ======================================================= */
+        
+        function showFloatingBar(task, isPaused = false) {
             const bar = document.getElementById('floatingTaskBar');
             const savedSec = task.study_seconds || 0;
             const taskMode = task.task_mode || (!task.start_time && !task.end_time ? 'simple' : 'time');
+            const currentStatus = task.completion_status || (task.is_completed ? 'DONE' : 'NONE');
 
             document.getElementById('floatingTaskSubject').innerText = `[${task.subject}]`;
-            document.getElementById('floatingTaskContent').innerText = task.content;
+            // 일시정지 상태에 따른 감성 디스플레이 배지 텍스트 결합 분기
+            document.getElementById('floatingTaskContent').innerText = task.content + (isPaused ? ' (일시정지됨)' : '');
             
             const h = String(Math.floor(savedSec / 3600)).padStart(2, '0');
             const m = String(Math.floor((savedSec % 3600) / 60)).padStart(2, '0');
             const s = String(savedSec % 60).padStart(2, '0');
             document.getElementById('floatingTaskTimer').innerText = `${h}:${m}:${s}`;
 
-            document.getElementById('floatingPauseBtn').onclick = () => pauseTask(task.task_id, savedSec);
+            const pauseBtn = document.getElementById('floatingPauseBtn');
+            
+            // ★ 하단 바 내부 일시정지 상태 토글 인터랙션 설계 ★
+            if (isPaused) {
+                pauseBtn.innerText = "▶ 이어서 하기";
+                pauseBtn.style.backgroundColor = "#e6f4ea";
+                pauseBtn.style.color = "#137333";
+                pauseBtn.style.borderColor = "#ceead6";
+                // 일시정지 상태에서 누르면 다시 주행(startTask) 코드를 실행시킵니다.
+                pauseBtn.onclick = () => startTask(task.task_id, savedSec, task.start_time || '', taskMode, currentStatus);
+            } else {
+                pauseBtn.innerText = "⏸ 일시정지";
+                pauseBtn.style.backgroundColor = "#fffbeb";
+                pauseBtn.style.color = "#d97706";
+                pauseBtn.style.borderColor = "#fde68a";
+                // 주행 중일 때 누르면 일시정지(pauseTask) 로직 가동
+                pauseBtn.onclick = () => pauseTask(task.task_id, savedSec);
+            }
+
             document.getElementById('floatingStopBtn').onclick = () => stopTask(task.task_id, savedSec, task.start_time || '', taskMode);
 
             bar.style.display = 'flex';
