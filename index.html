@@ -262,11 +262,16 @@
                 </div>
 
                 <div class="input-group">
+                    <!-- ★ [NEW] 과목 선택 목록 확장 (한국사, 논술, 면접, 모의고사 추가) ★ -->
                     <select id="subjectInput" style="padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit; font-weight: 600; min-width: 100px;">
                         <option value="국어">국어</option>
                         <option value="수학">수학</option>
                         <option value="영어">영어</option>
+                        <option value="한국사">한국사</option>
                         <option value="탐구">탐구</option>
+                        <option value="논술">논술</option>
+                        <option value="면접">면접</option>
+                        <option value="모의고사">모의고사</option>
                     </select>
                     <input type="text" id="contentInput" placeholder="✏️ 예: 뉴런 수1 3강 완강" style="flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit;">
                 </div>
@@ -329,8 +334,8 @@
                     <button onclick="openFullscreen('focus')" style="background: none; border: none; color: #64748b; font-size: 16px; cursor: pointer; padding: 0; transition: color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#64748b'" title="전체화면(최대화)">⛶</button>
                 </div>
                 
-                <div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">목표: <input type="number" id="targetMinutes" value="" style="width: 52px; padding: 4px; font-size: 13px; text-align: center; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700;"> 분</div>
-                <div id="timerDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 12px; font-family: monospace; color: #ffffff; letter-spacing: 0.01em; white-space: nowrap;">00:00:00</div>
+                <div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">목표: <input type="number" id="targetMinutes" value="120" style="width: 52px; padding: 4px; font-size: 13px; text-align: center; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700;"> 분</div>
+                <div id="timerDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 12px; font-family: monospace; color: #ffffff; letter-spacing: 0.01em; white-space: nowrap;">02:00:00</div>
                 <div style="width: 100%; height: 6px; background-color: #1e293b; border-radius: 3px; margin-bottom: 24px; overflow: hidden;">
                     <div id="progressFill" style="width: 100%; height: 100%; background-color: #10b981; transition: width 0.1s linear, background-color 0.5s ease;"></div>
                 </div>
@@ -636,7 +641,17 @@
             if (simpleTasks.length === 0) simpleElement.innerHTML = '<li style="color:#94a3b8; font-size:14px; text-align:center; padding:20px 0;">아직 등록된 단순 할 일이 없습니다.</li>';
             if (timeTasks.length === 0) timeListElement.innerHTML = '<li style="color:#94a3b8; font-size:14px; text-align:center; padding:20px 0;">아직 등록된 시간표 일과가 없습니다.</li>';
 
-            const subjectColors = { '국어': '#ef4444', '수학': '#3b82f6', '영어': '#f59e0b', '탐구': '#8b5cf6' };
+            // ★ [NEW] 확장된 과목 색상 매핑 업데이트 ★
+            const subjectColors = { 
+                '국어': '#ef4444', 
+                '수학': '#3b82f6', 
+                '영어': '#f59e0b', 
+                '탐구': '#8b5cf6',
+                '한국사': '#10b981',
+                '논술': '#ec4899',
+                '면접': '#06b6d4',
+                '모의고사': '#1e293b'
+            };
 
             function renderTask(task, listContainer, timelineContainer) {
                 const currentStatus = task.completion_status || (task.is_completed ? 'DONE' : 'NONE');
@@ -861,7 +876,7 @@
 
         async function startTask(taskId, currentSeconds, existingStartTime, taskMode, currentStatus) {
             if (currentStatus === 'DONE' || currentStatus === 'PARTIAL') {
-                alert("📢 이미 마감(완료 또는 세모) 처리된 계획입니다!\n\n오전과 오후의 학습 세션은 각각 분리하여 기록하는 거시 타임테이블 궤적 관리에 정확합니다.\n\n해당 과목을 이어서 더 공부하고 싶다면, 리스트 왼쪽의 체크 아이콘을 클릭해 미완료(빈칸) 상태로 되돌리거나 상단 입력창에서 새 할 일을 추가해 주세요!");
+                alert("📢 이미 마감(완료 또는 세모) 처리된 계획입니다!\n\n오전과 오후의 학습 세션은 각각 분리하여 기록하는 것이 타임테이블 궤적 관리에 정확합니다.\n\n해당 과목을 이어서 더 공부하고 싶다면, 리스트 왼쪽의 체크 아이콘을 클릭해 미완료(빈칸) 상태로 되돌리거나 상단 입력창에서 새 할 일을 추가해 주세요!");
                 return;
             }
             
@@ -880,7 +895,6 @@
                 await supabaseClient.from('planner_tasks').update({ start_time: getKstTimeStr(taskStartTime) }).eq('task_id', taskId);
             }
             
-            // ★ 수정: 과목 시작 시각(taskStartTime)을 그대로 하단 스톱워치에 넘겨 완벽 동기화 ★
             if (!isSwRunning) { forceStartStopwatch(taskStartTime); }
 
             if (window.currentTasks) {
@@ -994,11 +1008,11 @@
                 if (error) { alert("계획 수정 실패: " + error.message); }
                 else { cancelEdit(); fetchTasks(); }
             } else {
-                const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode, completion_status: 'NONE' };
+                const insertData = { seat_number: '105', task_date: today, subject: subjectValue, content: contentValue, task_mode: currentInputMode };
                 if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
                 
                 const { error } = await supabaseClient.from('planner_tasks').insert([insertData]);
-                if (error) { alert("일정 추가 실패: " + error.message); }
+                if (error) { alert("일정 추가 실패 원인: " + error.message); }
                 else { document.getElementById('contentInput').value = ""; fetchTasks(); }
             }
         }
@@ -1009,7 +1023,6 @@
 
         let animationFrameId, endTime, targetMins, totalDurationMs;
         
-        // ★ 수정: 집중 모드 시작 시 하단 스톱워치 완벽 동기화 (exactNow 공유) ★
         function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
             totalDurationMs = targetMins * 60 * 1000; 
@@ -1034,7 +1047,6 @@
             const now = Date.now(); let remainingMs = endTime - now; 
             if (remainingMs <= 0) { remainingMs = 0; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "0%"; finishFocus('SUCCESS'); return; }
             
-            // ★ 수정: 집중모드의 남은 시간 계산을 Math.ceil(올림)로 변경하여 floor를 쓰는 스톱워치와 1초 오차 제거 ★
             const remainingSec = Math.ceil(remainingMs / 1000); 
             const h = String(Math.floor(remainingSec / 3600)).padStart(2, '0'); 
             const m = String(Math.floor((remainingSec % 3600) / 60)).padStart(2, '0'); 
@@ -1061,7 +1073,9 @@
             if(status === 'SUCCESS') alert("목표 달성!"); 
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
             
-            if (isSwRunning) { pauseStopwatch(); }
+            if (isSwRunning) {
+                pauseStopwatch();
+            }
         }
         
         function showFloatingBar(task, isPaused = false) {
@@ -1181,7 +1195,6 @@
             forceStartStopwatch();
         }
         
-        // ★ 수정: exactStartTime 파라미터를 받아 완벽하게 동기화된 밀리초로 시작 ★
         function forceStartStopwatch(exactStartTime = null) {
             swStartTime = exactStartTime || Date.now(); 
             isSwRunning = true;
