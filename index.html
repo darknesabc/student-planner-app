@@ -893,7 +893,7 @@
         }
         setInterval(updateCurrentTimeLine, 60000);
 
-        // ★ [NEW] 타임테이블 무결성 보호용 상태 잠금 로직 업데이트 ★
+        // ★ [NEW] 경고창 없는 세련된 상태 잠금 (완료 ↔ 세모 무한 순환) 로직 ★
         async function toggleTaskStatus(taskId, currentStatus, savedSec = 0) {
             let nextStatus = 'NONE';
             let isCompletedCompat = false;
@@ -905,9 +905,8 @@
             } else { 
                 // 현재 상태가 PARTIAL(세모)일 때 한 번 더 누른 경우
                 if (savedSec > 0) {
-                    // 타이머 기록이 1초라도 있으면 빈 칸(NONE)으로 돌려보내지 않고 완료(DONE)로 튕겨냅니다.
+                    // 타이머 기록이 1초라도 있으면 팝업 없이 조용히 완료(DONE)로 순환시킵니다.
                     nextStatus = 'DONE'; isCompletedCompat = true;
-                    alert("📢 타이머 기록이 마감된 계획은 빈 칸으로 되돌릴 수 없습니다!\n\n타임테이블 궤적의 시간 오염을 방지하기 위해 상태가 잠깁니다. 추가 공부가 필요하다면 새 할 일로 등록해 주세요.");
                 } else {
                     // 타이머를 켠 적이 없는 단순 체크 항목이라면 자유롭게 빈 칸(NONE)으로 돌려줍니다.
                     nextStatus = 'NONE'; isCompletedCompat = false; 
