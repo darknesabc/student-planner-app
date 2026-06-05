@@ -46,6 +46,7 @@
             .task-item > div { width: 100%; margin-top: 8px; margin-bottom: 8px; } 
         }
 
+        /* 가로 모드(PC)에서는 우측에 상시 관제탑이 있으므로 하단 바 강제 숨김 */
         @media (min-width: 1025px) {
             #floatingTaskBar { display: none !important; }
             body { padding-bottom: 30px !important; } 
@@ -169,6 +170,12 @@
             <button id="fsSwStartBtn" onclick="handleSwStartClick()" class="fs-btn" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; border-color: rgba(59,130,246,0.3);">▶ 공부 시작</button>
             <button id="fsSwPauseBtn" onclick="pauseStopwatch()" class="fs-btn" style="display:none; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border-color: rgba(245,158,11,0.3);">⏸ 일시 정지</button>
             <button id="fsSwStopBtn" onclick="stopStopwatch()" class="fs-btn" style="display:none; background: rgba(234, 88, 12, 0.2); color: #ea580c; border-color: rgba(234,88,12,0.3);">■ 종료/저장</button>
+        </div>
+
+        <div id="fsTaskControls" style="display: none; margin-top: 20px;">
+            <button onclick="handleFsTaskStop()" class="fs-btn" style="background: rgba(220, 38, 38, 0.2); color: #ef4444; border-color: rgba(220, 38, 38, 0.4); box-shadow: 0 0 20px rgba(239,68,68,0.1);">
+                ■ 현재 계획 마감하기
+            </button>
         </div>
 
         <div style="position: absolute; bottom: 40px; font-size: 13px; color: #334155; font-weight: 600; letter-spacing: 0.05em;">화면을 더블 터치하여 원래 화면으로 복귀</div>
@@ -356,7 +363,7 @@
 
     <script>
         const SUPABASE_URL = 'https://twdptukivwkkzwlzewrz.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFsZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
         const now = new Date();
@@ -798,7 +805,7 @@
             mainBtn.style.boxShadow = "0 4px 12px rgba(37,99,235,0.2)";
             
             const cancelArea = document.getElementById('cancelEditArea');
-            cancelArea.innerHTML = `<button id="cancelEditBtn" onclick="cancelEdit()" style="width: 100%; margin-top: 6px; padding: 12px; font-size: 14px; background-color: #64748b; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(100,116,139,0.15);">수정 취소</button>`;
+            cancelArea.innerHTML = `<button id="cancelEditBtn" onclick="cancelEdit()" style="width: 100%; margin-top: 6px; padding: 12px; font-size: 14px; background-color: #64748b; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(100,116,139,0.15); font-family: inherit;">수정 취소</button>`;
             
             document.getElementById('contentInput').focus();
         }
@@ -1219,9 +1226,6 @@
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
         }
 
-        /* ==========================================
-           ★ [버그 수정 완료] 풀스크린 오버레이 및 팝업 Z-index 해결 ★
-           ========================================== */
         let fsMode = null; 
         let fsAnimationFrameId;
 
@@ -1245,7 +1249,7 @@
                 document.getElementById('fsSwControls').style.display = 'flex';
             }
 
-            // ★ 수정된 핵심 로직: overlay 레이어가 아닌, 브라우저 화면(문서) 전체를 전체화면으로 만듭니다! ★
+            // 웹페이지 문서 전체(document.documentElement)를 전체화면으로 지정하여 모달 우선순위 트래킹 버그 완벽 수정
             const elem = document.documentElement;
             if (elem.requestFullscreen) { 
                 elem.requestFullscreen().catch(()=>{}); 
@@ -1287,20 +1291,41 @@
                 document.getElementById('fsSwStopBtn').style.display = document.getElementById('swStopBtn').style.display;
             }
 
+            // 1. 현재 주행 모드로 흘러가는 개별 스케줄 과목 텍스트 연동
             const fsTaskInfo = document.getElementById('fsTaskInfo');
+            const fsTaskControls = document.getElementById('fsTaskControls');
+            
             if (activeTaskId && window.currentTasks) {
                 const task = window.currentTasks.find(t => t.task_id === activeTaskId);
                 if (task) {
                     fsTaskInfo.style.display = 'block';
                     fsTaskInfo.innerText = `🔥 [${task.subject}] ${task.content} 진행 중`;
+                    
+                    // ★ [NEW] 개별 과목이 가동 중일 때만 마감하기 컨트롤 바를 오버레이 화면에 노출 ★
+                    fsTaskControls.style.display = 'block';
                 } else {
                     fsTaskInfo.style.display = 'none';
+                    fsTaskControls.style.display = 'none';
                 }
             } else {
                 fsTaskInfo.style.display = 'none';
+                fsTaskControls.style.display = 'none';
             }
             
             fsAnimationFrameId = requestAnimationFrame(fsLoop);
+        }
+
+        // ★ [NEW] 풀스크린 원격 조종석 전용 마감 커맨더 함수 ★
+        function handleFsTaskStop() {
+            if (!activeTaskId || !window.currentTasks) return;
+            const task = window.currentTasks.find(t => t.task_id === activeTaskId);
+            if (!task) return;
+            
+            const savedSec = task.study_seconds || 0;
+            const taskMode = task.task_mode || (!task.start_time && !task.end_time ? 'simple' : 'time');
+            
+            // 기존에 검증된 리스트 스케줄러 마감 로직을 정교하게 다이렉트로 결합 호출
+            stopTask(task.task_id, savedSec, task.start_time || '', taskMode);
         }
 
         restoreZombieState();
