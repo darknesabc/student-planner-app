@@ -1290,20 +1290,28 @@
             animationFrameId = requestAnimationFrame(updateTimerUI); 
         }
         
-        function stopFocus() { if(confirm("진행 중인 집중 모드를 종료하시겠습니까?")) finishFocus('INTERRUPTED'); }
+        function stopFocus() { 
+            if(confirm("진행 중인 집중 모드를 종료하시겠습니까?")) finishFocus('MANUAL_STOP'); 
+        }
         
         async function finishFocus(status, isEarlyFinish = false) {
-            cancelAnimationFrame(animationFrameId); const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
+            cancelAnimationFrame(animationFrameId); 
+            const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
             
             localStorage.removeItem('isFocusRunning');
             localStorage.removeItem('focusTargetMins');
             localStorage.removeItem('focusTotalDurationMs');
             localStorage.removeItem('focusEndTime');
 
-            document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
-            document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
+            document.getElementById('startBtn').style.display = 'inline-block'; 
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('targetMinutes').disabled = false; 
+            document.getElementById('timerDisplay').innerText = "00:00:00"; 
+            document.getElementById('progressFill').style.width = "100%"; 
+            document.getElementById('progressFill').style.backgroundColor = "#10b981";
             
-            if (status === 'SUCCESS' && activeTaskId && !isEarlyFinish) {
+            // ★ [NEW] 어떠한 사유로든 집중 모드가 종료되면, 연동된 플랜(자율학습 포함)도 무조건 마감(DONE) 처리 ★
+            if (activeTaskId && !isEarlyFinish) {
                 const finalSeconds = Math.floor((Date.now() - taskStartTime) / 1000);
                 await supabaseClient.from('planner_tasks').update({
                     study_seconds: finalSeconds,
@@ -1317,6 +1325,7 @@
                 hideFloatingBar();
             }
 
+            // 시청각 보상 및 팝업 처리
             if(status === 'SUCCESS') {
                 playSuccessSound(); 
                 
@@ -1336,11 +1345,19 @@
                     } else {
                         alert("🎉 제한시간 종료! 하던 것을 멈추고 마무리를 준비하세요.");
                     }
-                    fetchTasks(); 
+                    fetchTasks(); // 리스트 새로고침
                 }, 300);
+            } else {
+                // 사용자가 중간에 '계획 종료'를 누른 경우 (MANUAL_STOP)
+                setTimeout(() => { 
+                    alert("🛑 집중 모드가 안전하게 종료 및 저장되었습니다. 수고하셨습니다!"); 
+                    fetchTasks(); // 강제 종료 시에도 리스트 새로고침
+                }, 100);
             }
             
-            await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
+            // 집중 모드 로그 저장 (MANUAL_STOP은 INTERRUPTED로 기록)
+            const logStatus = status === 'SUCCESS' ? 'SUCCESS' : 'INTERRUPTED';
+            await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: logStatus }]);
             
             if (isSwRunning) {
                 pauseStopwatch();
