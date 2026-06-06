@@ -350,7 +350,8 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // 내 로그인 정보를 담아둘 전역 변수
+        // 💡 [변경] 학번(student_id) 전역 변수 추가
+        let myStudentId = null;
         let mySeatNumber = null;
         let myName = null;
         
@@ -513,7 +514,8 @@
                 
                 if (swAcc > 0) {
                     let finalSwSec = Math.floor(swAcc / 1000);
-                    supabaseClient.from('focus_logs').insert([{ seat_number: mySeatNumber, target_minutes: 0, actual_seconds: finalSwSec, status: 'STOPWATCH' }]);
+                    // 💡 [변경] focus_logs 저장 시 student_id와 seat_number 동시 저장
+                    supabaseClient.from('focus_logs').insert([{ student_id: myStudentId, seat_number: mySeatNumber, target_minutes: 0, actual_seconds: finalSwSec, status: 'STOPWATCH' }]);
                 }
 
                 const savedFocusRunning = localStorage.getItem('isFocusRunning') === 'true';
@@ -527,7 +529,8 @@
                     let finalFocusSec = Math.floor(Math.max(0, focusDuration) / 1000);
                     let status = (fEnd <= cutoffTime) ? 'SUCCESS' : 'INTERRUPTED';
                     
-                    supabaseClient.from('focus_logs').insert([{ seat_number: mySeatNumber, target_minutes: fTarget, actual_seconds: finalFocusSec, status: status }]);
+                    // 💡 [변경] focus_logs 저장 시 student_id와 seat_number 동시 저장
+                    supabaseClient.from('focus_logs').insert([{ student_id: myStudentId, seat_number: mySeatNumber, target_minutes: fTarget, actual_seconds: finalFocusSec, status: status }]);
                 }
 
                 alert("😴 새벽 3시가 지나 어제의 학습이 마감되었습니다.\n\n앱을 켜두고 잠드신 것으로 판단되어, 시작 시간부터 새벽 3시(마감 기준선)까지만 계산하여 어제의 노력으로 안전하게 자동 저장했습니다.\n\n새로운 하루를 힘차게 시작해 보세요!");
@@ -683,8 +686,10 @@
         }
 
         async function fetchTasks() {
+            // 💡 [변경] 데이터를 불러올 때 seat_number가 아닌 student_id를 기준으로 불러옵니다!
             const { data, error } = await supabaseClient.from('planner_tasks').select('*')
-                .eq('seat_number', mySeatNumber).eq('task_date', currentViewDateStr).order('start_time', { ascending: true, nullsFirst: true });
+                .eq('student_id', myStudentId).eq('task_date', currentViewDateStr).order('start_time', { ascending: true, nullsFirst: true });
+            
             if (error) { console.error(error); return; }
 
             window.currentTasks = data;
@@ -1174,7 +1179,15 @@
                 if (error) { alert("계획 수정 실패: " + error.message); }
                 else { cancelEdit(); fetchTasks(); }
             } else {
-                const insertData = { seat_number: mySeatNumber, task_date: currentViewDateStr, subject: subjectValue, content: contentValue, task_mode: currentInputMode };
+                // 💡 [변경] 할 일 추가 시 student_id와 seat_number를 동시에 저장합니다.
+                const insertData = { 
+                    student_id: myStudentId, 
+                    seat_number: mySeatNumber, 
+                    task_date: currentViewDateStr, 
+                    subject: subjectValue, 
+                    content: contentValue, 
+                    task_mode: currentInputMode 
+                };
                 if (currentInputMode === 'time') { insertData.start_time = startVal; insertData.end_time = endVal; }
                 
                 const { error } = await supabaseClient.from('planner_tasks').insert([insertData]);
@@ -1232,9 +1245,11 @@
 
             targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
             
+            // 1. 모의고사 장전 상태일 때의 자동 생성
             if (pendingMockExam) {
                 const exactStartTimeStr = getKstTimeStr(Date.now());
                 const insertData = { 
+                    student_id: myStudentId,      // 💡 [변경] 추가
                     seat_number: mySeatNumber, 
                     task_date: actualTodayStr, 
                     subject: '모의고사', 
@@ -1259,9 +1274,11 @@
                 fetchTasks(); 
                 showFloatingBar(data[0], false);
             }
+            // 2. 아무 계획 없이 그냥 [집중 시작]을 눌렀을 때의 '자율학습' 자동 생성
             else if (!activeTaskId) {
                 const exactStartTimeStr = getKstTimeStr(Date.now());
                 const insertData = { 
+                    student_id: myStudentId,      // 💡 [변경] 추가
                     seat_number: mySeatNumber, 
                     task_date: actualTodayStr, 
                     subject: '자율학습', 
@@ -1383,7 +1400,8 @@
             }
             
             const logStatus = status === 'SUCCESS' ? 'SUCCESS' : 'INTERRUPTED';
-            await supabaseClient.from('focus_logs').insert([{ seat_number: mySeatNumber, target_minutes: targetMins, actual_seconds: actualSeconds, status: logStatus }]);
+            // 💡 [변경] focus_logs 저장 시 student_id 추가
+            await supabaseClient.from('focus_logs').insert([{ student_id: myStudentId, seat_number: mySeatNumber, target_minutes: targetMins, actual_seconds: actualSeconds, status: logStatus }]);
             
             if (isSwRunning) {
                 pauseStopwatch();
@@ -1583,7 +1601,8 @@
                 pauseTask(activeTaskId, currentTaskSec);
             }
 
-            await supabaseClient.from('focus_logs').insert([{ seat_number: mySeatNumber, target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
+            // 💡 [변경] focus_logs 저장 시 student_id 추가
+            await supabaseClient.from('focus_logs').insert([{ student_id: myStudentId, seat_number: mySeatNumber, target_minutes: 0, actual_seconds: actualSeconds, status: 'STOPWATCH' }]);
             updateWakeLockState(); 
         }
 
@@ -1701,11 +1720,13 @@
         // 1. 세션 체크: 이전에 로그인한 적이 있는지 확인
         // ==========================================
         function checkLoginSession() {
+            const savedStudentId = localStorage.getItem('myStudentId'); // 💡 [변경] 학번 추가
             const savedSeat = localStorage.getItem('mySeatNumber');
             const savedName = localStorage.getItem('myName');
 
-            if (savedSeat && savedName) {
+            if (savedStudentId && savedSeat && savedName) {
                 // 이미 로그인된 상태라면 변수에 값 채우고 플래너 바로 시작
+                myStudentId = savedStudentId;
                 mySeatNumber = savedSeat;
                 myName = savedName;
                 document.getElementById('loginScreen').style.display = 'none';
@@ -1717,42 +1738,43 @@
         }
 
         // ==========================================
-// [보안이 강화된 최종 버전] 로그인 버튼 클릭 시 실행
-// ==========================================
-async function attemptLogin() {
-    const seatInput = document.getElementById('loginSeatInput').value.trim();
-    const pinInput = document.getElementById('loginPinInput').value.trim();
+        // 2. 로그인 버튼 클릭 시 실행
+        // ==========================================
+        async function attemptLogin() {
+            const seatInput = document.getElementById('loginSeatInput').value.trim();
+            const pinInput = document.getElementById('loginPinInput').value.trim();
 
-    if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
+            if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
-    // 💡 변경됨: 테이블을 직접 조회(select)하지 않고, 방금 만든 검문소 함수(rpc)를 호출합니다!
-    const { data: result, error } = await adminDb.rpc('verify_student_pin', { 
-        p_seat_no: seatInput, 
-        p_pin_code: pinInput 
-    });
+            // 💡 [변경] select()에 student_id를 추가로 가져옵니다.
+            const { data: student, error } = await adminDb.from('student') 
+                .select('student_id, name, seat_no, pin_code') 
+                .eq('seat_no', seatInput)          
+                .maybeSingle();
 
-    if (error) {
-        console.error("RPC 에러:", error);
-        return alert("로그인 처리 중 오류가 발생했습니다: " + error.message);
-    }
-    
-    // 배열이 비어있으면 좌석번호가 없거나 비밀번호가 틀린 것입니다.
-    if (!result || result.length === 0) {
-        return alert("좌석 번호가 없거나 비밀번호가 일치하지 않습니다.");
-    }
+            if (error) {
+                console.error("Supabase 상세 에러:", error);
+                return alert("DB 조회 실패! 원인: " + error.message);
+            }
+            
+            if (!student) {
+                return alert(`'${seatInput}' 번호를 찾을 수 없습니다.`);
+            }
+            
+            if (student.pin_code !== pinInput) return alert("비밀번호가 일치하지 않습니다.");
 
-    const student = result[0];
+            // 💡 [변경] 인증 성공! 학번(student_id)도 로컬 스토리지에 저장합니다.
+            localStorage.setItem('myStudentId', student.student_id); 
+            localStorage.setItem('mySeatNumber', student.seat_no); 
+            localStorage.setItem('myName', student.name);
+            
+            myStudentId = student.student_id; 
+            mySeatNumber = student.seat_no; 
+            myName = student.name;
 
-    // 인증 성공!
-    localStorage.setItem('mySeatNumber', student.seat_no); 
-    localStorage.setItem('myName', student.name);
-    
-    mySeatNumber = student.seat_no; 
-    myName = student.name;
-
-    document.getElementById('loginScreen').style.display = 'none';
-    initPlanner(); 
-}
+            document.getElementById('loginScreen').style.display = 'none';
+            initPlanner(); 
+        }
 
         // ==========================================
         // 3. 플래너 초기화 묶음 함수
@@ -1785,6 +1807,8 @@ async function attemptLogin() {
                     }
                 }
 
+                // 💡 [변경] 로그아웃 시 학번 데이터도 함께 삭제합니다.
+                localStorage.removeItem('myStudentId');
                 localStorage.removeItem('mySeatNumber');
                 localStorage.removeItem('myName');
                 
