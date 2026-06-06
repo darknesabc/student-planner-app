@@ -1725,18 +1725,23 @@ async function attemptLogin() {
 
     if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
-    // 💡 여기서 'student'로 정확하게 명시합니다.
+    // .single() 대신 .maybeSingle()을 사용하면 0개일 때 에러 대신 null을 반환합니다.
     const { data: student, error } = await adminDb.from('student') 
-        .select('name, seat_no, pin_code') // 컬럼명은 확인하신 대로 seat_no 사용
-        .eq('seat_no', seatInput)          // 컬럼명 seat_no
-        .single();
+        .select('name, seat_no, pin_code') 
+        .eq('seat_no', seatInput)          
+        .maybeSingle(); // ★ .single() 대신 이걸 사용하세요!
 
     if (error) {
         console.error("진짜 에러 내용:", error);
         return alert("DB 조회 실패! 원인: " + error.message);
     }
     
-    if (!student) return alert("존재하지 않는 좌석 번호입니다.");
+    // 💡 데이터가 없으면 student가 null이 됩니다.
+    if (!student) return alert("해당 좌석 번호를 찾을 수 없습니다.");
+    
+    // 💡 데이터가 2개 이상인 경우(중복)는 따로 확인이 필요합니다.
+    if (Array.isArray(student)) return alert("중복된 좌석 번호가 존재합니다. 관리자에게 문의하세요.");
+
     if (student.pin_code !== pinInput) return alert("비밀번호가 일치하지 않습니다.");
 
     // 인증 성공!
