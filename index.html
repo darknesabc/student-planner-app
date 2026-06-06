@@ -1202,8 +1202,15 @@
             updateWakeLockState();
         }
 
+        // ★ [NEW] 과목 마감과 집중 모드 연동 로직 적용 ★
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
-            if (!confirm("해당 계획을 마감하고 타이머를 종료할까요?")) return;
+            const isFocusRunning = localStorage.getItem('isFocusRunning') === 'true';
+            const msg = isFocusRunning 
+                ? "현재 진행 중인 계획을 마감하면 가동 중인 '집중 모드'도 함께 조기 종료됩니다. 마감하시겠습니까?" 
+                : "해당 계획을 마감하고 타이머를 종료할까요?";
+                
+            if (!confirm(msg)) return;
+            
             cancelAnimationFrame(taskAnimationFrameId); 
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
             activeTaskId = null;
@@ -1220,11 +1227,23 @@
 
             if (taskMode === 'simple') {
                 updatePayload.end_time = getKstTimeStr(Date.now());
-                alert(`최초 시작 시간부터 방금 종료한 시간까지의 텐미닛 스케줄러 궤적이 생성되었습니다!`);
-            } else { alert("수고하셨습니다! 마감 처리되었습니다."); }
+            } 
             
             const { error } = await supabaseClient.from('planner_tasks').update(updatePayload).eq('task_id', taskId); 
-            if(error) alert("상태 저장 실패: Supabase DB 권한을 확인해주세요.");
+            if(error) {
+                alert("상태 저장 실패: Supabase DB 권한을 확인해주세요.");
+            } else {
+                if (isFocusRunning) {
+                    // 집중 모드가 켜져있다면, 성공적인 조기 마감(SUCCESS)으로 이관하여 닫아버림
+                    finishFocus('SUCCESS', true); 
+                } else {
+                    if (taskMode === 'simple') {
+                        alert(`최초 시작 시간부터 방금 종료한 시간까지의 텐미닛 스케줄러 궤적이 생성되었습니다!`);
+                    } else { 
+                        alert("수고하셨습니다! 마감 처리되었습니다."); 
+                    }
+                }
+            }
             fetchTasks();
             updateWakeLockState(); 
         }
@@ -1375,7 +1394,8 @@
         
         function stopFocus() { if(confirm("정말 포기하시겠습니까?")) finishFocus('INTERRUPTED'); }
         
-        async function finishFocus(status) {
+        // ★ [NEW] 조기 마감(Early Finish) 인자를 추가로 받아 처리 ★
+        async function finishFocus(status, isEarlyFinish = false) {
             cancelAnimationFrame(animationFrameId); const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
             
             localStorage.removeItem('isFocusRunning');
@@ -1386,7 +1406,8 @@
             document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
             
-            if (status === 'SUCCESS' && activeTaskId) {
+            // isEarlyFinish가 참(true)이면 stopTask 쪽에서 이미 DB를 마감했으므로 중복 처리 방지
+            if (status === 'SUCCESS' && activeTaskId && !isEarlyFinish) {
                 const finalSeconds = Math.floor((Date.now() - taskStartTime) / 1000);
                 await supabaseClient.from('planner_tasks').update({
                     study_seconds: finalSeconds,
@@ -1413,7 +1434,14 @@
                     setTimeout(() => { document.body.style.backgroundColor = '#f8fafc'; }, 1000);
                 }
                 
-                setTimeout(() => { alert("🎉 실전 모의고사 제한시간 종료! 시험지를 덮고 오답노트 작성을 준비하세요."); fetchTasks(); }, 300);
+                setTimeout(() => { 
+                    if (isEarlyFinish) {
+                        alert("🎉 계획 조기 마감 완료! 수고하셨습니다.");
+                    } else {
+                        alert("🎉 제한시간 종료! 하던 것을 멈추고 마무리를 준비하세요.");
+                    }
+                    fetchTasks(); 
+                }, 300);
             }
             
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
