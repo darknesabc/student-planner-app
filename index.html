@@ -8,48 +8,15 @@
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
         
-        body { 
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; 
-            letter-spacing: -0.02em;
-            background-color: #f8fafc;
-            color: #1e293b;
-            padding: 30px 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding-bottom: 120px; 
-        }
-
+        body { font-family: 'Pretendard', sans-serif; letter-spacing: -0.02em; background-color: #f8fafc; color: #1e293b; padding: 30px 20px; max-width: 1200px; margin: 0 auto; padding-bottom: 120px; }
         .header-container { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding: 0 4px; flex-wrap: wrap; gap: 16px; }
         .main-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
         .sticky-sidebar { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 20px; z-index: 100; }
         .input-group { display: flex; gap: 10px; width: 100%; }
         
-        @media (max-width: 1024px) {
-            .main-layout { display: flex; flex-direction: column; }
-            .left-column { order: 2; width: 100%; }
-            .sticky-sidebar { 
-                order: 1; position: relative; top: 0; width: 100%; 
-                flex-direction: row; margin-bottom: 8px;
-            }
-            .sticky-sidebar > div { flex: 1; } 
-        }
-        
-        @media (max-width: 650px) {
-            body { padding: 15px 10px; padding-bottom: 110px; } 
-            .sticky-sidebar { flex-direction: column; } 
-            .input-group { flex-direction: column; } 
-            .header-container { flex-direction: column; gap: 12px; }
-            .time-setting-inputs { flex-direction: column; align-items: stretch !important; gap: 8px !important; }
-            .time-setting-inputs > span { display: none; } 
-            .card-box { padding: 20px 16px; } 
-            .task-item { padding: 12px; flex-wrap: wrap; }
-            .task-item > div { width: 100%; margin-top: 8px; margin-bottom: 8px; } 
-        }
-
-        @media (min-width: 1025px) {
-            #floatingTaskBar { display: none !important; }
-            body { padding-bottom: 30px !important; } 
-        }
+        @media (max-width: 1024px) { .main-layout { display: flex; flex-direction: column; } .left-column { order: 2; width: 100%; } .sticky-sidebar { order: 1; position: relative; top: 0; width: 100%; flex-direction: row; margin-bottom: 8px; } .sticky-sidebar > div { flex: 1; } }
+        @media (max-width: 650px) { body { padding: 15px 10px; padding-bottom: 110px; } .sticky-sidebar { flex-direction: column; } .input-group { flex-direction: column; } .header-container { flex-direction: column; gap: 12px; } }
+        @media (min-width: 1025px) { #floatingTaskBar { display: none !important; } body { padding-bottom: 30px !important; } }
 
         .card-box { background: white; padding: 28px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid rgba(0,0,0,0.01); box-sizing: border-box; }
         .achievement-box { background: linear-gradient(135deg, #ffffff, #f8fafc); border: 1px solid #e2e8f0; padding: 20px; border-radius: 16px; margin-bottom: 24px; }
@@ -73,7 +40,6 @@
         
         .p-btn { padding: 6px 12px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; background-color: #f8fafc; color: #3b82f6; margin-left: 6px; transition: all 0.2s; white-space: nowrap; }
         .p-btn:hover { background-color: #3b82f6; color: white; border-color: #3b82f6; transform: translateY(-1px); }
-        
         .p-btn.disabled-style { background-color: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; cursor: not-allowed; }
         .p-btn.disabled-style:hover { background-color: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; transform: none; }
 
@@ -89,113 +55,26 @@
         #taskSelectContainer::-webkit-scrollbar { width: 6px; }
         #taskSelectContainer::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
 
-        #floatingTaskBar {
-            display: none; 
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(8px);
-            border-top: 1px solid #e2e8f0;
-            z-index: 999;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
-            border-radius: 20px 20px 0 0;
-            box-sizing: border-box;
-            padding: 16px 20px;
-            flex-direction: column;
-            gap: 12px;
-            transition: transform 0.3s ease-out;
-            transform: translateY(100%); 
-        }
-        
+        #floatingTaskBar { display: none; position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); border-top: 1px solid #e2e8f0; z-index: 999; box-shadow: 0 -10px 30px rgba(0,0,0,0.05); border-radius: 20px 20px 0 0; box-sizing: border-box; padding: 16px 20px; flex-direction: column; gap: 12px; transition: transform 0.3s ease-out; transform: translateY(100%); }
         #floatingTaskBar.active { transform: translateY(0); }
+        @media (max-width: 650px) { #floatingTaskBar { padding: 12px 15px; } #floatingTaskTimer { font-size: 16px; } }
 
-        @media (max-width: 650px) {
-            #floatingTaskBar { padding: 12px 15px; }
-            #floatingTaskTimer { font-size: 16px; }
-        }
-
-        #fullscreenOverlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: #050505; 
-            z-index: 20000;
-            flex-direction: row; 
-            justify-content: center;
-            align-items: center;
-            color: white;
-            user-select: none;
-            opacity: 0;
-            transition: opacity 0.4s ease;
-            gap: 60px;
-        }
+        #fullscreenOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #050505; z-index: 20000; flex-direction: row; justify-content: center; align-items: center; color: white; user-select: none; opacity: 0; transition: opacity 0.4s ease; gap: 60px; }
         #fullscreenOverlay.active { opacity: 1; }
-
-        @media (max-width: 900px) {
-            #fullscreenOverlay { flex-direction: column; gap: 30px; padding: 20px; }
-            #fsMockPanel { width: 100% !important; max-width: 340px; }
-        }
-
-        .fs-btn {
-            padding: 14px 28px;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            border: 1px solid;
-            backdrop-filter: blur(10px);
-            transition: all 0.2s;
-            font-family: inherit;
-        }
+        @media (max-width: 900px) { #fullscreenOverlay { flex-direction: column; gap: 30px; padding: 20px; } #fsMockPanel { width: 100% !important; max-width: 340px; } }
+        .fs-btn { padding: 14px 28px; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; border: 1px solid; backdrop-filter: blur(10px); transition: all 0.2s; font-family: inherit; }
         .fs-btn:hover { transform: translateY(-2px); filter: brightness(1.2); }
         .fs-btn:active { transform: scale(0.95); }
 
-        @keyframes successFlash {
-            0% { background-color: #050505; }
-            50% { background-color: #064e3b; box-shadow: inset 0 0 100px rgba(16, 185, 129, 0.3); }
-            100% { background-color: #050505; }
-        }
-        .flash-animation {
-            animation: successFlash 1s ease-in-out 3; 
-        }
+        @keyframes successFlash { 0% { background-color: #050505; } 50% { background-color: #064e3b; box-shadow: inset 0 0 100px rgba(16, 185, 129, 0.3); } 100% { background-color: #050505; } }
+        .flash-animation { animation: successFlash 1s ease-in-out 3; }
         
-        .date-nav-btn {
-            background: #f1f5f9; color: #64748b; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; font-family: inherit;
-        }
+        .date-nav-btn { background: #f1f5f9; color: #64748b; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
         .date-nav-btn:hover { background: #e2e8f0; color: #334155; }
 
-        .mock-quick-btn {
-            width: 100%;
-            padding: 12px 16px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: white;
-            border-radius: 10px;
-            text-align: left;
-            cursor: pointer;
-            font-family: inherit;
-            transition: all 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .mock-quick-btn:hover {
-            background: rgba(255,255,255,0.15);
-            border-color: #3b82f6;
-            transform: translateX(4px);
-        }
-        .mock-quick-btn span.badge {
-            background: rgba(59, 130, 246, 0.2);
-            color: #60a5fa;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 800;
-            font-family: monospace;
-        }
+        .mock-quick-btn { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 10px; text-align: left; cursor: pointer; font-family: inherit; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .mock-quick-btn:hover { background: rgba(255,255,255,0.15); border-color: #3b82f6; transform: translateX(4px); }
+        .mock-quick-btn span.badge { background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 800; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -205,9 +84,7 @@
         
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
             <div id="fsTaskInfo" style="font-size: clamp(16px, 3vw, 24px); font-weight: 700; color: #3b82f6; margin-bottom: 24px; text-shadow: 0 0 15px rgba(59,130,246,0.4); display: none; padding: 8px 20px; background: rgba(59,130,246,0.1); border-radius: 20px; border: 1px solid rgba(59,130,246,0.2); text-align: center;"></div>
-            
             <div id="fsTimerDisplay" style="font-size: clamp(70px, 12vw, 180px); font-weight: 800; font-family: monospace; letter-spacing: 0.02em; line-height: 1;">00:00:00</div>
-            
             <div id="fsModeLabel" style="font-size: 16px; font-weight: 600; color: #64748b; margin-top: 30px; letter-spacing: 0.2em; text-transform: uppercase;">MODE</div>
             
             <div id="fsFocusControls" style="display: none; flex-direction: column; align-items: center; gap: 24px; margin-top: 24px;">
@@ -221,7 +98,7 @@
 
                 <div style="display: flex; gap: 16px;">
                     <button id="fsFocusStartBtn" onclick="startFocus()" class="fs-btn" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239,68,68,0.3);">▶ 집중 시작</button>
-                    <button id="fsFocusStopBtn" onclick="stopFocus()" class="fs-btn" style="display:none; background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border-color: rgba(100,116,139,0.3);">■ 포기 (종료)</button>
+                    <button id="fsFocusStopBtn" onclick="stopFocus()" class="fs-btn" style="display:none; background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border-color: rgba(100,116,139,0.3);">■ 계획 종료</button>
                 </div>
             </div>
 
@@ -347,7 +224,7 @@
                         <option value="논술">논술</option>
                         <option value="면접">면접</option>
                         <option value="모의고사">모의고사</option>
-                        <option value="자율학습">자율학습</option> <!-- ★ NEW: 자율학습 항목 추가 -->
+                        <option value="자율학습">자율학습</option>
                     </select>
                     <input type="text" id="contentInput" placeholder="✏️ 예: 뉴런 수1 3강 완강" style="flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit;">
                 </div>
@@ -417,7 +294,7 @@
                 </div>
                 <div style="display: flex; justify-content: center; gap: 8px;">
                     <button id="startBtn" onclick="startFocus()" style="padding: 10px 24px; font-size: 13px; background-color: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(239,68,68,0.2);">시작</button>
-                    <button id="stopBtn" onclick="stopFocus()" style="padding: 10px 24px; font-size: 13px; background-color: #475569; color: white; border: none; border-radius: 8px; cursor: pointer; display: none; font-weight: 700;">포기</button>
+                    <button id="stopBtn" onclick="stopFocus()" style="padding: 10px 24px; font-size: 13px; background-color: #475569; color: white; border: none; border-radius: 8px; cursor: pointer; display: none; font-weight: 700;">계획 종료</button>
                 </div>
             </div>
             
@@ -837,7 +714,6 @@
             const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time && !task.end_time));
             const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && (task.start_time || task.end_time)));
 
-            // ★ [NEW] '자율학습' 컬러 추가
             const subjectColors = { 
                 '국어': '#ef4444', 
                 '수학': '#3b82f6', 
@@ -905,7 +781,7 @@
                     if (activeTaskId === task.task_id) {
                         actionButtonsHtml = `
                             <button class="p-btn" style="background-color: #fffbeb; color: #d97706; border-color: #fde68a;" onclick="pauseTask('${task.task_id}', ${savedSec})">⏸ 일시정지</button>
-                            <button class="p-btn" style="background-color: #fef2f2; color: #dc2626; border-color: #fca5a5; margin-right: 12px;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 종료</button>
+                            <button class="p-btn" style="background-color: #fef2f2; color: #dc2626; border-color: #fca5a5; margin-right: 12px;" onclick="stopTask('${task.task_id}', ${savedSec}, '${task.start_time || ''}', '${taskMode}')">■ 계획 종료</button>
                         `;
                     } else {
                         const btnText = savedSec > 0 ? '▶ 이어서' : '▶ 시작';
@@ -1316,7 +1192,6 @@
             }
         }
 
-        // ★ [NEW] 자동 생성 로직이 포함된 집중 시작 ★
         async function startFocus() {
             if (currentViewDateStr !== actualTodayStr) {
                 alert("🔒 데이터 보호를 위해 집중 모드는 '오늘' 날짜에서만 실행 가능합니다.");
@@ -1394,7 +1269,9 @@
             document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
             document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
             
-            if (!isSwRunning) { forceStartStopwatch(exactNow); }
+            if (!isSwRunning) {
+                forceStartStopwatch(exactNow);
+            }
             updateWakeLockState(); 
         }
         
@@ -1413,7 +1290,7 @@
             animationFrameId = requestAnimationFrame(updateTimerUI); 
         }
         
-        function stopFocus() { if(confirm("정말 포기하시겠습니까?")) finishFocus('INTERRUPTED'); }
+        function stopFocus() { if(confirm("진행 중인 집중 모드를 종료하시겠습니까?")) finishFocus('INTERRUPTED'); }
         
         async function finishFocus(status, isEarlyFinish = false) {
             cancelAnimationFrame(animationFrameId); const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
