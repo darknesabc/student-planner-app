@@ -1714,7 +1714,7 @@ function checkLoginSession() {
 }
 
 // ==========================================
-// [추가] 2. 로그인 버튼 클릭 시 실행
+// [수정된 버전] 2. 로그인 버튼 클릭 시 실행
 // ==========================================
 async function attemptLogin() {
     const seatInput = document.getElementById('loginSeatInput').value.trim();
@@ -1722,20 +1722,20 @@ async function attemptLogin() {
 
     if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
-    // 1번 DB에서 학생 정보 확인
+    // 💡 1번 DB(adminDb) 조회 시 컬럼명을 seat_no로 변경
     const { data: student, error } = await adminDb.from('students')
-        .select('name, seat_number, pin_code')
-        .eq('seat_number', seatInput)
+        .select('name, seat_no, pin_code') // 변경: seat_number -> seat_no
+        .eq('seat_no', seatInput)          // 변경: seat_number -> seat_no
         .single();
 
     if (error || !student) return alert("존재하지 않는 좌석 번호입니다.");
     if (student.pin_code !== pinInput) return alert("비밀번호가 일치하지 않습니다.");
 
-    // 인증 성공! localStorage에 정보 저장
-    localStorage.setItem('mySeatNumber', student.seat_number);
+    // 💡 꺼내온 데이터도 student.seat_no 로 접근해서 저장
+    localStorage.setItem('mySeatNumber', student.seat_no); // 변경
     localStorage.setItem('myName', student.name);
     
-    mySeatNumber = student.seat_number;
+    mySeatNumber = student.seat_no; // 변경
     myName = student.name;
 
     document.getElementById('loginScreen').style.display = 'none';
