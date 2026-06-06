@@ -1738,43 +1738,42 @@
         }
 
         // ==========================================
-        // 2. 로그인 버튼 클릭 시 실행
-        // ==========================================
-        async function attemptLogin() {
-            const seatInput = document.getElementById('loginSeatInput').value.trim();
-            const pinInput = document.getElementById('loginPinInput').value.trim();
+// [보안이 강화된 최종 버전] 로그인 버튼 클릭 시 실행
+// ==========================================
+async function attemptLogin() {
+    const seatInput = document.getElementById('loginSeatInput').value.trim();
+    const pinInput = document.getElementById('loginPinInput').value.trim();
 
-            if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
+    if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
-            // 💡 [변경] select()에 student_id를 추가로 가져옵니다.
-            const { data: student, error } = await adminDb.from('student') 
-                .select('student_id, name, seat_no, pin_code') 
-                .eq('seat_no', seatInput)          
-                .maybeSingle();
+    // 💡 변경됨: 테이블을 직접 조회(select)하지 않고, 방금 만든 검문소 함수(rpc)를 호출합니다!
+    const { data: result, error } = await adminDb.rpc('verify_student_pin', { 
+        p_seat_no: seatInput, 
+        p_pin_code: pinInput 
+    });
 
-            if (error) {
-                console.error("Supabase 상세 에러:", error);
-                return alert("DB 조회 실패! 원인: " + error.message);
-            }
-            
-            if (!student) {
-                return alert(`'${seatInput}' 번호를 찾을 수 없습니다.`);
-            }
-            
-            if (student.pin_code !== pinInput) return alert("비밀번호가 일치하지 않습니다.");
+    if (error) {
+        console.error("RPC 에러:", error);
+        return alert("로그인 처리 중 오류가 발생했습니다: " + error.message);
+    }
+    
+    // 배열이 비어있으면 좌석번호가 없거나 비밀번호가 틀린 것입니다.
+    if (!result || result.length === 0) {
+        return alert("좌석 번호가 없거나 비밀번호가 일치하지 않습니다.");
+    }
 
-            // 💡 [변경] 인증 성공! 학번(student_id)도 로컬 스토리지에 저장합니다.
-            localStorage.setItem('myStudentId', student.student_id); 
-            localStorage.setItem('mySeatNumber', student.seat_no); 
-            localStorage.setItem('myName', student.name);
-            
-            myStudentId = student.student_id; 
-            mySeatNumber = student.seat_no; 
-            myName = student.name;
+    const student = result[0];
 
-            document.getElementById('loginScreen').style.display = 'none';
-            initPlanner(); 
-        }
+    // 인증 성공!
+    localStorage.setItem('mySeatNumber', student.seat_no); 
+    localStorage.setItem('myName', student.name);
+    
+    mySeatNumber = student.seat_no; 
+    myName = student.name;
+
+    document.getElementById('loginScreen').style.display = 'none';
+    initPlanner(); 
+}
 
         // ==========================================
         // 3. 플래너 초기화 묶음 함수
