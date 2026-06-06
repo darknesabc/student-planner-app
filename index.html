@@ -172,11 +172,7 @@
 
     <div class="header-container">
         <div>
-        <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.03em;">
-    📝 나의 학습 플래너 
-    <span id="headerInfo" style="font-size: 16px; font-weight: 600; color: #64748b; margin-left: 6px;"></span>
-    <button onclick="logout()" style="background: none; border: none; color: #94a3b8; font-size: 12px; cursor: pointer; margin-left: 10px; text-decoration: underline;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">로그아웃</button>
-</h1>
+            <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.03em;">📝 나의 학습 플래너 <span style="font-size: 16px; font-weight: 600; color: #64748b; margin-left: 6px;"></span></h1>
             
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
                 <button onclick="changeDate(-1)" class="date-nav-btn">◀ 어제</button>
@@ -1697,7 +1693,6 @@
             
             stopTask(task.task_id, savedSec, task.start_time || '', taskMode);
         }
-        
 
         // ==========================================
 // [추가] 1. 세션 체크: 이전에 로그인한 적이 있는지 확인
@@ -1725,23 +1720,18 @@ async function attemptLogin() {
 
     if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
-    // .single() 대신 .maybeSingle()을 사용하면 0개일 때 에러 대신 null을 반환합니다.
+    // 💡 여기서 'student'로 정확하게 명시합니다.
     const { data: student, error } = await adminDb.from('student') 
-        .select('name, seat_no, pin_code') 
-        .eq('seat_no', seatInput)          
-        .maybeSingle(); // ★ .single() 대신 이걸 사용하세요!
+        .select('name, seat_no, pin_code') // 컬럼명은 확인하신 대로 seat_no 사용
+        .eq('seat_no', seatInput)          // 컬럼명 seat_no
+        .single();
 
     if (error) {
         console.error("진짜 에러 내용:", error);
         return alert("DB 조회 실패! 원인: " + error.message);
     }
     
-    // 💡 데이터가 없으면 student가 null이 됩니다.
-    if (!student) return alert("해당 좌석 번호를 찾을 수 없습니다.");
-    
-    // 💡 데이터가 2개 이상인 경우(중복)는 따로 확인이 필요합니다.
-    if (Array.isArray(student)) return alert("중복된 좌석 번호가 존재합니다. 관리자에게 문의하세요.");
-
+    if (!student) return alert("존재하지 않는 좌석 번호입니다.");
     if (student.pin_code !== pinInput) return alert("비밀번호가 일치하지 않습니다.");
 
     // 인증 성공!
@@ -1768,32 +1758,6 @@ function initPlanner() {
     
     // 새벽 좀비 상태 복원
     restoreZombieState();
-}
-
-        function logout() {
-    if (confirm("로그아웃 하시겠습니까? 진행 중인 타이머는 저장 후 종료됩니다.")) {
-        // 1. 현재 진행 중인 작업(타이머)이 있을 때만 마감 처리
-        if (activeTaskId) {
-            // 현재 작업 중인 정보를 window.currentTasks에서 찾음
-            const currentTask = window.currentTasks.find(t => t.task_id === activeTaskId);
-            if (currentTask) {
-                // 정확한 시간(study_seconds)을 넘겨주어 데이터 유실 방지
-                stopTask(
-                    currentTask.task_id, 
-                    currentTask.study_seconds || 0, 
-                    currentTask.start_time || "", 
-                    currentTask.task_mode || "simple"
-                );
-            }
-        }
-
-        // 2. localStorage 정보 삭제
-        localStorage.removeItem('mySeatNumber');
-        localStorage.removeItem('myName');
-        
-        // 3. 페이지 새로고침
-        location.reload();
-    }
 }
 
         // ❌ updateDateUI(); 와 restoreZombieState(); 는 지웁니다. 
