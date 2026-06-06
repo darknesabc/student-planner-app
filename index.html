@@ -1713,45 +1713,36 @@ function checkLoginSession() {
     }
 }
 
-// ==========================================
-// [수정된 버전] 2. 로그인 버튼 클릭 시 실행
-// ==========================================
+// [수정] 아래 코드의 from('students')를 from('student')로 변경하세요!
 async function attemptLogin() {
     const seatInput = document.getElementById('loginSeatInput').value.trim();
     const pinInput = document.getElementById('loginPinInput').value.trim();
 
     if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
-    // 💡 1번 DB(adminDb) 조회 시 컬럼명을 seat_no로 변경
-    const { data: student, error } = await adminDb.from('students')
-        .select('name, seat_no, pin_code') 
-        .eq('seat_no', seatInput)          
+    // 💡 여기서 'student'로 정확하게 명시합니다.
+    const { data: student, error } = await adminDb.from('student') 
+        .select('name, seat_no, pin_code') // 컬럼명은 확인하신 대로 seat_no 사용
+        .eq('seat_no', seatInput)          // 컬럼명 seat_no
         .single();
 
-    // 🚨 [여기를 바꿨습니다] 에러가 났을 때 진짜 원인을 화면에 띄워줍니다!
     if (error) {
-        console.error("Supabase 상세 에러:", error);
-        alert("DB 조회 실패! 원인: " + error.message + "\n\n(개발자 도구 F12를 눌러 콘솔창을 확인하세요)");
-        return;
+        console.error("진짜 에러 내용:", error);
+        return alert("DB 조회 실패! 원인: " + error.message);
     }
+    
+    if (!student) return alert("존재하지 않는 좌석 번호입니다.");
+    if (student.pin_code !== pinInput) return alert("비밀번호가 일치하지 않습니다.");
 
-    if (!student) {
-        return alert("에러는 안 났지만, 해당 좌석 번호가 DB에 없습니다.");
-    }
-
-    if (student.pin_code !== pinInput) {
-        return alert("비밀번호가 일치하지 않습니다.");
-    }
-
-    // 💡 꺼내온 데이터도 student.seat_no 로 접근해서 저장
-    localStorage.setItem('mySeatNumber', student.seat_no); // 변경
+    // 인증 성공!
+    localStorage.setItem('mySeatNumber', student.seat_no); // 컬럼명 seat_no
     localStorage.setItem('myName', student.name);
     
-    mySeatNumber = student.seat_no; // 변경
+    mySeatNumber = student.seat_no; // 컬럼명 seat_no
     myName = student.name;
 
     document.getElementById('loginScreen').style.display = 'none';
-    initPlanner(); // 플래너 데이터 로딩 시작!
+    initPlanner(); 
 }
 
 // ==========================================
