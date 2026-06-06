@@ -347,6 +347,7 @@
                         <option value="논술">논술</option>
                         <option value="면접">면접</option>
                         <option value="모의고사">모의고사</option>
+                        <option value="자율학습">자율학습</option> <!-- ★ NEW: 자율학습 항목 추가 -->
                     </select>
                     <input type="text" id="contentInput" placeholder="✏️ 예: 뉴런 수1 3강 완강" style="flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit;">
                 </div>
@@ -836,6 +837,7 @@
             const simpleTasks = data.filter(task => task.task_mode === 'simple' || (!task.task_mode && !task.start_time && !task.end_time));
             const timeTasks = data.filter(task => task.task_mode === 'time' || (!task.task_mode && (task.start_time || task.end_time)));
 
+            // ★ [NEW] '자율학습' 컬러 추가
             const subjectColors = { 
                 '국어': '#ef4444', 
                 '수학': '#3b82f6', 
@@ -845,7 +847,8 @@
                 '한국사': '#10b981',
                 '논술': '#ec4899',
                 '면접': '#06b6d4',
-                '모의고사': '#1e293b'
+                '모의고사': '#1e293b',
+                '자율학습': '#14b8a6' 
             };
 
             function renderTask(task, listContainer, timelineContainer) {
@@ -1103,7 +1106,6 @@
             return `${String(kstObj.getUTCHours()).padStart(2, '0')}:${String(kstObj.getUTCMinutes()).padStart(2, '0')}`;
         }
 
-        // ★ [보안] 타이머 작동 방어 로직 ★
         async function startTask(taskId, currentSeconds, existingStartTime, taskMode, currentStatus) {
             if (currentViewDateStr !== actualTodayStr) {
                 alert("🔒 데이터 보호를 위해 타이머는 '오늘' 날짜에서만 실행 가능합니다.");
@@ -1202,7 +1204,6 @@
             updateWakeLockState();
         }
 
-        // ★ [NEW] 과목 마감과 집중 모드 연동 로직 적용 ★
         async function stopTask(taskId, currentSeconds, existingStartTime, taskMode) {
             const isFocusRunning = localStorage.getItem('isFocusRunning') === 'true';
             const msg = isFocusRunning 
@@ -1234,7 +1235,6 @@
                 alert("상태 저장 실패: Supabase DB 권한을 확인해주세요.");
             } else {
                 if (isFocusRunning) {
-                    // 집중 모드가 켜져있다면, 성공적인 조기 마감(SUCCESS)으로 이관하여 닫아버림
                     finishFocus('SUCCESS', true); 
                 } else {
                     if (taskMode === 'simple') {
@@ -1293,7 +1293,6 @@
 
         let animationFrameId, endTime, targetMins, totalDurationMs;
         
-        // ★ [보안] 타이머 작동 방어 로직 ★
         function prepareMockExam(mins, subjectName) {
             if (currentViewDateStr !== actualTodayStr) {
                 alert("🔒 데이터 보호를 위해 모의고사 훈련은 '오늘' 날짜에서만 실행 가능합니다.");
@@ -1317,7 +1316,7 @@
             }
         }
 
-        // ★ [보안] 타이머 작동 방어 로직 ★
+        // ★ [NEW] 자동 생성 로직이 포함된 집중 시작 ★
         async function startFocus() {
             if (currentViewDateStr !== actualTodayStr) {
                 alert("🔒 데이터 보호를 위해 집중 모드는 '오늘' 날짜에서만 실행 가능합니다.");
@@ -1326,6 +1325,7 @@
 
             targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
             
+            // 1. 모의고사 장전 상태일 때의 자동 생성
             if (pendingMockExam) {
                 const exactStartTimeStr = getKstTimeStr(Date.now());
                 const insertData = { 
@@ -1338,10 +1338,7 @@
                 };
                 
                 const { data, error } = await supabaseClient.from('planner_tasks').insert([insertData]).select();
-                if (error) {
-                    alert("모의고사 생성 실패: " + error.message);
-                    return;
-                }
+                if (error) { alert("모의고사 생성 실패: " + error.message); return; }
                 
                 activeTaskId = data[0].task_id;
                 taskStartTime = Date.now();
@@ -1353,6 +1350,32 @@
                 localStorage.setItem('logicalDate', actualTodayStr);
                 
                 pendingMockExam = null; 
+                fetchTasks(); 
+                showFloatingBar(data[0], false);
+            }
+            // 2. 아무 계획 없이 그냥 [집중 시작]을 눌렀을 때의 '자율학습' 자동 생성
+            else if (!activeTaskId) {
+                const exactStartTimeStr = getKstTimeStr(Date.now());
+                const insertData = { 
+                    seat_number: '105', 
+                    task_date: actualTodayStr, 
+                    subject: '자율학습', 
+                    content: `🔥 딥 워크 집중모드 (${targetMins}분)`, 
+                    task_mode: 'simple',
+                    start_time: exactStartTimeStr
+                };
+                
+                const { data, error } = await supabaseClient.from('planner_tasks').insert([insertData]).select();
+                if (error) { alert("자동 계획 생성 실패: " + error.message); return; }
+                
+                activeTaskId = data[0].task_id;
+                taskStartTime = Date.now();
+                taskAccumulatedMs = 0;
+                
+                localStorage.setItem('activeTaskId', activeTaskId);
+                localStorage.setItem('taskStartTime', taskStartTime);
+                localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
+                localStorage.setItem('logicalDate', actualTodayStr);
                 
                 fetchTasks(); 
                 showFloatingBar(data[0], false);
@@ -1371,9 +1394,7 @@
             document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
             document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
             
-            if (!isSwRunning) {
-                forceStartStopwatch(exactNow);
-            }
+            if (!isSwRunning) { forceStartStopwatch(exactNow); }
             updateWakeLockState(); 
         }
         
@@ -1394,7 +1415,6 @@
         
         function stopFocus() { if(confirm("정말 포기하시겠습니까?")) finishFocus('INTERRUPTED'); }
         
-        // ★ [NEW] 조기 마감(Early Finish) 인자를 추가로 받아 처리 ★
         async function finishFocus(status, isEarlyFinish = false) {
             cancelAnimationFrame(animationFrameId); const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
             
@@ -1406,7 +1426,6 @@
             document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
             
-            // isEarlyFinish가 참(true)이면 stopTask 쪽에서 이미 DB를 마감했으므로 중복 처리 방지
             if (status === 'SUCCESS' && activeTaskId && !isEarlyFinish) {
                 const finalSeconds = Math.floor((Date.now() - taskStartTime) / 1000);
                 await supabaseClient.from('planner_tasks').update({
@@ -1496,7 +1515,6 @@
 
         let swAnimationFrameId, swStartTime = 0, accumulatedMs = 0, isSwRunning = false;
         
-        // ★ [보안] 타이머 작동 방어 로직 ★
         function handleSwStartClick() {
             if (currentViewDateStr !== actualTodayStr) {
                 alert("🔒 데이터 보호를 위해 순공 측정은 '오늘' 날짜에서만 실행 가능합니다.");
@@ -1569,7 +1587,6 @@
             document.getElementById('taskSelectModal').style.display = 'none';
         }
 
-        // ★ [보안] 타이머 작동 방어 로직 ★
         function startPureStopwatch() {
             if (currentViewDateStr !== actualTodayStr) {
                 alert("🔒 데이터 보호를 위해 순공 측정은 '오늘' 날짜에서만 실행 가능합니다.");
@@ -1579,9 +1596,8 @@
             forceStartStopwatch();
         }
         
-        // ★ [보안] 이중 방어 로직 ★
         function forceStartStopwatch(exactStartTime = null) {
-            if (currentViewDateStr !== actualTodayStr) return; // 오늘이 아니면 조용히 종료
+            if (currentViewDateStr !== actualTodayStr) return; 
 
             swStartTime = exactStartTime || Date.now(); 
             isSwRunning = true;
