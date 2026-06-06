@@ -123,7 +123,7 @@
             width: 100%; height: 100%;
             background-color: #050505; 
             z-index: 20000;
-            flex-direction: row; /* 좌측 타이머 컨트롤러 / 우측 모의고사 퀵패널 분리를 위해 가로 배치 */
+            flex-direction: row; 
             justify-content: center;
             align-items: center;
             color: white;
@@ -167,7 +167,6 @@
         }
         .date-nav-btn:hover { background: #e2e8f0; color: #334155; }
 
-        /* 퀵 버튼 디자인 */
         .mock-quick-btn {
             width: 100%;
             padding: 12px 16px;
@@ -205,7 +204,7 @@
         <button onclick="closeFullscreen()" style="position: absolute; top: 30px; right: 30px; background: rgba(255,255,255,0.1); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 100; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&times;</button>
         
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <div id="fsTaskInfo" style="font-size: clamp(16px, 3vw, 24px); font-weight: 700; color: #3b82f6; margin-bottom: 24px; text-shadow: 0 0 15px rgba(59,130,246,0.4); display: none; padding: 8px 20px; background: rgba(59,130,246,0.1); border-radius: 20px; border: 1px solid rgba(59,130,246,0.2);"></div>
+            <div id="fsTaskInfo" style="font-size: clamp(16px, 3vw, 24px); font-weight: 700; color: #3b82f6; margin-bottom: 24px; text-shadow: 0 0 15px rgba(59,130,246,0.4); display: none; padding: 8px 20px; background: rgba(59,130,246,0.1); border-radius: 20px; border: 1px solid rgba(59,130,246,0.2); text-align: center;"></div>
             
             <div id="fsTimerDisplay" style="font-size: clamp(70px, 12vw, 180px); font-weight: 800; font-family: monospace; letter-spacing: 0.02em; line-height: 1;">00:00:00</div>
             
@@ -241,14 +240,15 @@
 
         <div id="fsMockPanel" style="display: none; width: 300px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; flex-direction: column; gap: 12px; backdrop-filter: blur(10px);">
             <h4 style="margin: 0 0 8px 0; font-size: 15px; color: #a855f7; font-weight: 800; letter-spacing: 0.05em; text-align: center; text-transform: uppercase;">⚡ 실전 모의고사 훈련소</h4>
-            <button onclick="startInstantMockExam(80, '국어')" class="mock-quick-btn"><span>📝 국어 모의고사</span> <span class="badge">80분</span></button>
-            <button onclick="startInstantMockExam(100, '수학')" class="mock-quick-btn"><span>📐 수학 모의고사</span> <span class="badge">100분</span></button>
-            <button onclick="startInstantMockExam(70, '영어(듣기포함)')" class="mock-quick-btn"><span>🎧 영어 (듣기포함)</span> <span class="badge">70분</span></button>
-            <button onclick="startInstantMockExam(50, '영어(듣기제외)')" class="mock-quick-btn"><span>📖 영어 (듣기제외)</span> <span class="badge">50분</span></button>
-            <button onclick="startInstantMockExam(30, '탐구')" class="mock-quick-btn"><span>🧬 탐구 모의고사</span> <span class="badge">30분</span></button>
+            <button onclick="prepareMockExam(80, '국어')" class="mock-quick-btn"><span>📝 국어 모의고사</span> <span class="badge">80분</span></button>
+            <button onclick="prepareMockExam(100, '수학')" class="mock-quick-btn"><span>📐 수학 모의고사</span> <span class="badge">100분</span></button>
+            <button onclick="prepareMockExam(70, '영어(듣기포함)')" class="mock-quick-btn"><span>🎧 영어 (듣기포함)</span> <span class="badge">70분</span></button>
+            <button onclick="prepareMockExam(50, '영어(듣기제외)')" class="mock-quick-btn"><span>📖 영어 (듣기제외)</span> <span class="badge">50분</span></button>
+            <button onclick="prepareMockExam(30, '탐구')" class="mock-quick-btn"><span>🧬 탐구 모의고사</span> <span class="badge">30분</span></button>
         </div>
     </div>
 
+    <!-- 하단 고정 플로팅 바 -->
     <div id="floatingTaskBar">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
             <div style="flex: 1; min-width: 0;">
@@ -458,6 +458,9 @@
         let currentViewDateObj = new Date(logicalEpoch);
         let currentViewDateStr = actualTodayStr;
         const currentKstHour = kstDateObj.getUTCHours();
+        
+        // ★ [NEW] 장전된 모의고사 상태 변수
+        let pendingMockExam = null;
 
         function updateDateUI() {
             const yyyy = currentViewDateObj.getUTCFullYear();
@@ -1264,8 +1267,66 @@
 
         let animationFrameId, endTime, targetMins, totalDurationMs;
         
-        function startFocus() {
+        // ★ [NEW] 모의고사 장전(대기) 함수 ★
+        function prepareMockExam(mins, subjectName) {
+            if (activeTaskId) {
+                alert("📢 현재 다른 과목 공부가 가동 중입니다. 마감이나 종료를 먼저 완료해 주세요!");
+                return;
+            }
+            
+            // 전역 변수에 장전
+            pendingMockExam = { mins: mins, subject: subjectName };
+            
+            // 목표 시간 UI 연동
+            document.getElementById('targetMinutes').value = mins;
+            syncTargetTime('main'); 
+            
+            // 풀스크린 메시지 즉각 반영 (fsLoop에서 덮어쓰지 않도록 처리)
+            const fsTaskInfo = document.getElementById('fsTaskInfo');
+            if (fsTaskInfo) {
+                fsTaskInfo.style.display = 'block';
+                fsTaskInfo.innerHTML = `⚡ <span style="color:#fff;">[${subjectName} 모의고사]</span> ${mins}분 장전 완료!<br><span style="font-size: 16px; color:#94a3b8; font-weight:600; margin-top:8px; display:block;">심호흡 후 하단의 [▶ 집중 시작] 버튼을 누르세요.</span>`;
+            }
+        }
+
+        // ★ [NEW] 시작 버튼을 눌렀을 때 장전된 모의고사를 발사하는 로직 통합 ★
+        async function startFocus() {
             targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
+            
+            // --- 모의고사가 장전되어 있다면 DB에 인서트하고 즉시 실행 ---
+            if (pendingMockExam) {
+                const exactStartTimeStr = getKstTimeStr(Date.now());
+                const insertData = { 
+                    seat_number: '105', 
+                    task_date: actualTodayStr, // 실전 훈련은 반드시 오늘 날짜에 기록
+                    subject: '모의고사', 
+                    content: `${pendingMockExam.subject} 모의고사 (${pendingMockExam.mins}분 실전)`, 
+                    task_mode: 'simple',
+                    start_time: exactStartTimeStr
+                };
+                
+                const { data, error } = await supabaseClient.from('planner_tasks').insert([insertData]).select();
+                if (error) {
+                    alert("모의고사 생성 실패: " + error.message);
+                    return;
+                }
+                
+                activeTaskId = data[0].task_id;
+                taskStartTime = Date.now();
+                taskAccumulatedMs = 0;
+                
+                localStorage.setItem('activeTaskId', activeTaskId);
+                localStorage.setItem('taskStartTime', taskStartTime);
+                localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
+                localStorage.setItem('logicalDate', actualTodayStr);
+                
+                pendingMockExam = null; // 장전 해제 (소모)
+                
+                fetchTasks(); // 백그라운드 리스트 갱신
+                showFloatingBar(data[0], false);
+            }
+            // --------------------------------------------------------
+
             totalDurationMs = targetMins * 60 * 1000; 
             const exactNow = Date.now();
             endTime = exactNow + totalDurationMs; 
@@ -1285,56 +1346,6 @@
             updateWakeLockState(); 
         }
         
-        // ★ [NEW] 풀스크린 원터치 실전 모의고사 퀵스타트 엔진 함수 ★
-        async function startInstantMockExam(mins, subjectName) {
-            if (activeTaskId) {
-                alert("📢 현재 다른 과목 공부가 가동 중입니다. 마감이나 종료를 먼저 완료해 주세요!");
-                return;
-            }
-            
-            // 1. Supabase DB에 실전 모의고사 계획 가동 인서트
-            const exactStartTimeStr = getKstTimeStr(Date.now());
-            const insertData = { 
-                seat_number: '105', 
-                task_date: actualTodayStr, // 무조건 당일 실전 시험만 허용
-                subject: '모의고사', 
-                content: `${subjectName} 모의고사 (${mins}분 실전)`, 
-                task_mode: 'simple',
-                start_time: exactStartTimeStr
-            };
-            
-            const { data, error } = await supabaseClient.from('planner_tasks').insert([insertData]).select();
-            if (error) {
-                alert("모의고사 추가 실패: " + error.message);
-                return;
-            }
-            
-            // 2. 시간 세팅 동기화 및 바인딩
-            document.getElementById('targetMinutes').value = mins;
-            syncTargetTime('main');
-            
-            // 3. 백그라운드 리스트 갱신
-            await fetchTasks();
-            
-            // 4. 생성된 신규 태스크 ID를 가져와 다이렉트 바인딩 구동
-            const newTaskId = data[0].task_id;
-            activeTaskId = newTaskId;
-            taskStartTime = Date.now();
-            taskAccumulatedMs = 0;
-            
-            localStorage.setItem('activeTaskId', activeTaskId);
-            localStorage.setItem('taskStartTime', taskStartTime);
-            localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
-            localStorage.setItem('logicalDate', actualTodayStr);
-            
-            // 스톱워치 및 하단 플로팅바 가동
-            if (!isSwRunning) { forceStartStopwatch(taskStartTime); }
-            showFloatingBar(data[0], false);
-            
-            // 5. 집중 모드 카운트다운 출발!
-            startFocus();
-        }
-
         function updateTimerUI() {
             const now = Date.now(); let remainingMs = endTime - now; 
             if (remainingMs <= 0) { remainingMs = 0; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "0%"; finishFocus('SUCCESS'); return; }
@@ -1363,7 +1374,6 @@
             document.getElementById('startBtn').style.display = 'inline-block'; document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('targetMinutes').disabled = false; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('progressFill').style.width = "100%"; document.getElementById('progressFill').style.backgroundColor = "#10b981";
             
-            // ★ [UX 고도화] 모의고사 실전 훈련이 타임아웃으로 성공 종료 시, 해당 과목도 자동 DONE 마감처리 완료 ★
             if (status === 'SUCCESS' && activeTaskId) {
                 const finalSeconds = Math.floor((Date.now() - taskStartTime) / 1000);
                 await supabaseClient.from('planner_tasks').update({
@@ -1391,7 +1401,7 @@
                     setTimeout(() => { document.body.style.backgroundColor = '#f8fafc'; }, 1000);
                 }
                 
-                setTimeout(() => { alert("🎉 실전 모의고사 제한시간 종료! 시험지를 덮고 오답노트 작성을 준비하세요."); fetchTasks(); }, 300);
+                setTimeout(() => { alert("🎉 집중 목표 달성! 정말 수고하셨습니다."); fetchTasks(); }, 300);
             }
             
             await supabaseClient.from('focus_logs').insert([{ seat_number: '105', target_minutes: targetMins, actual_seconds: actualSeconds, status: status }]);
@@ -1605,7 +1615,6 @@
                 document.getElementById('fsFocusControls').style.display = 'flex';
                 document.getElementById('fsSwControls').style.display = 'none';
                 
-                // ★ 집중 모드 대기 상태일 때만 우측 모의고사 패널을 노출시킵니다 ★
                 const isFocusActive = document.getElementById('startBtn').style.display === 'none';
                 document.getElementById('fsMockPanel').style.display = isFocusActive ? 'none' : 'flex';
             } else {
@@ -1655,7 +1664,6 @@
                     fsFocusSettingArea.style.display = isFocusActive ? 'none' : 'flex';
                 }
                 
-                // 집중 모드가 가동되면 시험 도중의 방해를 차단하기 위해 우측 모의고사 퀵패널을 숨김 처리합니다.
                 document.getElementById('fsMockPanel').style.display = isFocusActive ? 'none' : 'flex';
             } else {
                 document.getElementById('fsTimerDisplay').innerText = document.getElementById('stopwatchDisplay').innerText;
@@ -1678,6 +1686,10 @@
                     fsTaskInfo.style.display = 'none';
                     fsTaskControls.style.display = 'none';
                 }
+            } else if (pendingMockExam) {
+                // ★ [NEW] 장전 상태 텍스트 유지 로직 ★
+                fsTaskInfo.style.display = 'block';
+                fsTaskControls.style.display = 'none';
             } else {
                 fsTaskInfo.style.display = 'none';
                 fsTaskControls.style.display = 'none';
