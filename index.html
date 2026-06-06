@@ -1721,10 +1721,10 @@ async function attemptLogin() {
     if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
     // 💡 여기서 'student'로 정확하게 명시합니다.
-    const { data: student, error } = await adminDb.from('student') 
-        .select('name, seat_no, pin_code') // 컬럼명은 확인하신 대로 seat_no 사용
-        .eq('seat_no', seatInput)          // 컬럼명 seat_no
-        .single();
+    const { data: student, error } = await adminDb.from('student')
+    .select('name, seat_no, pin_code')
+    .eq('seat_no', seatInput)
+    .maybeSingle(); // ★ 이걸로 바꾸세요!
 
     if (error) {
         console.error("진짜 에러 내용:", error);
