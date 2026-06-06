@@ -1718,22 +1718,22 @@ async function attemptLogin() {
     const seatInput = document.getElementById('loginSeatInput').value.trim();
     const pinInput = document.getElementById('loginPinInput').value.trim();
 
-    // 💡 테스트: DB에 있는 모든 좌석 번호를 콘솔에 찍어봅니다.
-    const { data: allStudents, error: checkError } = await adminDb.from('student').select('seat_no');
-    if (checkError) console.error("전체 조회 실패:", checkError);
-    else console.log("DB에 저장된 좌석 번호 목록:", allStudents.map(s => s.seat_no));
+    if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
-    // 원래 로그인 로직
-    const { data: student, error } = await adminDb.from('student')
-        .select('name, seat_no, pin_code')
-        .eq('seat_no', seatInput) 
-        .maybeSingle();
+    // 💡 여기서 'student'로 정확하게 명시합니다.
+    const { data: student, error } = await adminDb.from('student') 
+        .select('name, seat_no, pin_code') // 컬럼명은 확인하신 대로 seat_no 사용
+        .eq('seat_no', seatInput)          // 컬럼명 seat_no
+        .single();
 
-    if (error) return alert("DB 조회 실패! 원인: " + error.message);
+    if (error) {
+        console.error("진짜 에러 내용:", error);
+        return alert("DB 조회 실패! 원인: " + error.message);
     }
     
     if (!student) return alert("존재하지 않는 좌석 번호입니다.");
     if (student.pin_code !== pinInput) return alert("비밀번호가 일치하지 않습니다.");
+
 
     // 인증 성공!
     localStorage.setItem('mySeatNumber', student.seat_no); // 컬럼명 seat_no
