@@ -409,8 +409,8 @@
                     <button onclick="openFullscreen('focus')" style="background: none; border: none; color: #64748b; font-size: 16px; cursor: pointer; padding: 0; transition: color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#64748b'" title="전체화면(최대화)">⛶</button>
                 </div>
                 
-                <div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">목표: <input type="number" id="targetMinutes" value="" onchange="syncTargetTime('main')" style="width: 52px; padding: 4px; font-size: 13px; text-align: center; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700; outline: none;"> 분</div>
-                <div id="timerDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 12px; font-family: monospace; color: #ffffff; letter-spacing: 0.01em; white-space: nowrap;">00:00:00</div>
+                <div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">목표: <input type="number" id="targetMinutes" value="120" onchange="syncTargetTime('main')" style="width: 52px; padding: 4px; font-size: 13px; text-align: center; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700; outline: none;"> 분</div>
+                <div id="timerDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 12px; font-family: monospace; color: #ffffff; letter-spacing: 0.01em; white-space: nowrap;">02:00:00</div>
                 <div style="width: 100%; height: 6px; background-color: #1e293b; border-radius: 3px; margin-bottom: 24px; overflow: hidden;">
                     <div id="progressFill" style="width: 100%; height: 100%; background-color: #10b981; transition: width 0.1s linear, background-color 0.5s ease;"></div>
                 </div>
@@ -840,7 +840,6 @@
                 '국어': '#ef4444', 
                 '수학': '#3b82f6', 
                 '영어': '#f59e0b', 
-                '탐구': '#8b5cf6',
                 '탐구1': '#8b5cf6',
                 '탐구2': '#7c3aed',
                 '한국사': '#10b981',
@@ -1104,7 +1103,13 @@
             return `${String(kstObj.getUTCHours()).padStart(2, '0')}:${String(kstObj.getUTCMinutes()).padStart(2, '0')}`;
         }
 
+        // ★ [보안] 타이머 작동 방어 로직 ★
         async function startTask(taskId, currentSeconds, existingStartTime, taskMode, currentStatus) {
+            if (currentViewDateStr !== actualTodayStr) {
+                alert("🔒 데이터 보호를 위해 타이머는 '오늘' 날짜에서만 실행 가능합니다.");
+                return;
+            }
+
             if (currentStatus === 'DONE' || currentStatus === 'PARTIAL') {
                 alert("📢 이미 마감(완료 또는 세모) 처리된 계획입니다!\n\n오전과 오후의 학습 세션은 각각 분리하여 기록하는 것이 타임테이블 궤적 관리에 정확합니다.\n\n해당 과목을 이어서 더 공부하고 싶다면, 리스트 왼쪽의 체크 아이콘을 클릭해 미완료(빈칸) 상태로 되돌리거나 상단 입력창에서 새 할 일을 추가해 주세요!");
                 return;
@@ -1269,7 +1274,13 @@
 
         let animationFrameId, endTime, targetMins, totalDurationMs;
         
+        // ★ [보안] 타이머 작동 방어 로직 ★
         function prepareMockExam(mins, subjectName) {
+            if (currentViewDateStr !== actualTodayStr) {
+                alert("🔒 데이터 보호를 위해 모의고사 훈련은 '오늘' 날짜에서만 실행 가능합니다.");
+                return;
+            }
+
             if (activeTaskId) {
                 alert("📢 현재 다른 과목 공부가 가동 중입니다. 마감이나 종료를 먼저 완료해 주세요!");
                 return;
@@ -1287,92 +1298,65 @@
             }
         }
 
+        // ★ [보안] 타이머 작동 방어 로직 ★
         async function startFocus() {
-        // ★ [보안] 오늘이 아니면 즉시 실행 중단 ★
-        if (currentViewDateStr !== actualTodayStr) {
-            alert("🔒 데이터 보호를 위해 타이머는 '오늘' 날짜에서만 실행 가능합니다.");
-            return;
-        }
-        
-        targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
-        totalDurationMs = targetMins * 60 * 1000; 
-        const exactNow = Date.now();
-        endTime = exactNow + totalDurationMs; 
-        
-        localStorage.setItem('isFocusRunning', 'true');
-        localStorage.setItem('focusTargetMins', targetMins);
-        localStorage.setItem('focusTotalDurationMs', totalDurationMs);
-        localStorage.setItem('focusEndTime', endTime);
-        localStorage.setItem('logicalDate', actualTodayStr);
-
-        document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
-        document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
-        
-        if (!isSwRunning) {
-            forceStartStopwatch(exactNow);
-        }
-        updateWakeLockState(); 
-    }
-
-    function forceStartStopwatch(exactStartTime = null) {
-        // ★ [보안] 오늘이 아니면 즉시 실행 중단 ★
-        if (currentViewDateStr !== actualTodayStr) return;
-
-        swStartTime = exactStartTime || Date.now(); 
-        isSwRunning = true;
-        
-        localStorage.setItem('isSwRunning', 'true');
-        localStorage.setItem('swStartTime', swStartTime);
-        localStorage.setItem('accumulatedMs', accumulatedMs);
-        localStorage.setItem('logicalDate', actualTodayStr);
-
-        document.getElementById('swStartBtn').style.display = 'none'; 
-        document.getElementById('swPauseBtn').style.display = 'inline-block'; 
-        document.getElementById('swStopBtn').style.display = 'inline-block'; 
-        updateStopwatchUI();
-        updateWakeLockState(); 
-    }
-
-    async function startTask(taskId, currentSeconds, existingStartTime, taskMode, currentStatus) {
-        // ★ [보안] 오늘이 아니면 즉시 실행 중단 ★
-        if (currentViewDateStr !== actualTodayStr) {
-            alert("🔒 데이터 보호를 위해 타이머는 '오늘' 날짜에서만 실행 가능합니다.");
-            return;
-        }
-
-        if (currentStatus === 'DONE' || currentStatus === 'PARTIAL') {
-            alert("📢 이미 마감(완료 또는 세모) 처리된 계획입니다!");
-            return;
-        }
-        
-        if (activeTaskId && activeTaskId !== taskId) { alert("현재 다른 과목 공부가 가동 중입니다."); return; }
-        
-        activeTaskId = taskId; 
-        taskStartTime = Date.now(); 
-        taskAccumulatedMs = currentSeconds * 1000;
-        
-        localStorage.setItem('activeTaskId', activeTaskId);
-        localStorage.setItem('taskStartTime', taskStartTime);
-        localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
-        localStorage.setItem('logicalDate', actualTodayStr); 
-        
-        if (taskMode === 'simple' && !existingStartTime) {
-            await supabaseClient.from('planner_tasks').update({ start_time: getKstTimeStr(taskStartTime) }).eq('task_id', taskId);
-        }
-        
-        if (!isSwRunning) { forceStartStopwatch(taskStartTime); }
-
-        if (window.currentTasks) {
-            const task = window.currentTasks.find(t => t.task_id === taskId);
-            if (task) {
-                showFloatingBar(task, false); 
+            if (currentViewDateStr !== actualTodayStr) {
+                alert("🔒 데이터 보호를 위해 집중 모드는 '오늘' 날짜에서만 실행 가능합니다.");
+                return;
             }
-        }
 
-        await fetchTasks(); 
-        updateTaskTimerLoop();
-        updateWakeLockState(); 
-    }
+            targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
+            
+            if (pendingMockExam) {
+                const exactStartTimeStr = getKstTimeStr(Date.now());
+                const insertData = { 
+                    seat_number: '105', 
+                    task_date: actualTodayStr, 
+                    subject: '모의고사', 
+                    content: `${pendingMockExam.subject} 모의고사 (${pendingMockExam.mins}분 실전)`, 
+                    task_mode: 'simple',
+                    start_time: exactStartTimeStr
+                };
+                
+                const { data, error } = await supabaseClient.from('planner_tasks').insert([insertData]).select();
+                if (error) {
+                    alert("모의고사 생성 실패: " + error.message);
+                    return;
+                }
+                
+                activeTaskId = data[0].task_id;
+                taskStartTime = Date.now();
+                taskAccumulatedMs = 0;
+                
+                localStorage.setItem('activeTaskId', activeTaskId);
+                localStorage.setItem('taskStartTime', taskStartTime);
+                localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
+                localStorage.setItem('logicalDate', actualTodayStr);
+                
+                pendingMockExam = null; 
+                
+                fetchTasks(); 
+                showFloatingBar(data[0], false);
+            }
+
+            totalDurationMs = targetMins * 60 * 1000; 
+            const exactNow = Date.now();
+            endTime = exactNow + totalDurationMs; 
+            
+            localStorage.setItem('isFocusRunning', 'true');
+            localStorage.setItem('focusTargetMins', targetMins);
+            localStorage.setItem('focusTotalDurationMs', totalDurationMs);
+            localStorage.setItem('focusEndTime', endTime);
+            localStorage.setItem('logicalDate', actualTodayStr);
+
+            document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
+            document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
+            
+            if (!isSwRunning) {
+                forceStartStopwatch(exactNow);
+            }
+            updateWakeLockState(); 
+        }
         
         function updateTimerUI() {
             const now = Date.now(); let remainingMs = endTime - now; 
@@ -1484,7 +1468,12 @@
 
         let swAnimationFrameId, swStartTime = 0, accumulatedMs = 0, isSwRunning = false;
         
+        // ★ [보안] 타이머 작동 방어 로직 ★
         function handleSwStartClick() {
+            if (currentViewDateStr !== actualTodayStr) {
+                alert("🔒 데이터 보호를 위해 순공 측정은 '오늘' 날짜에서만 실행 가능합니다.");
+                return;
+            }
             if (!isSwRunning) {
                 openTaskSelectModal();
             }
@@ -1552,12 +1541,20 @@
             document.getElementById('taskSelectModal').style.display = 'none';
         }
 
+        // ★ [보안] 타이머 작동 방어 로직 ★
         function startPureStopwatch() {
+            if (currentViewDateStr !== actualTodayStr) {
+                alert("🔒 데이터 보호를 위해 순공 측정은 '오늘' 날짜에서만 실행 가능합니다.");
+                return;
+            }
             closeTaskSelectModal();
             forceStartStopwatch();
         }
         
+        // ★ [보안] 이중 방어 로직 ★
         function forceStartStopwatch(exactStartTime = null) {
+            if (currentViewDateStr !== actualTodayStr) return; // 오늘이 아니면 조용히 종료
+
             swStartTime = exactStartTime || Date.now(); 
             isSwRunning = true;
             
