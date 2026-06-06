@@ -1288,58 +1288,91 @@
         }
 
         async function startFocus() {
-            targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
-            
-            if (pendingMockExam) {
-                const exactStartTimeStr = getKstTimeStr(Date.now());
-                const insertData = { 
-                    seat_number: '105', 
-                    task_date: actualTodayStr, 
-                    subject: '모의고사', 
-                    content: `${pendingMockExam.subject} 모의고사 (${pendingMockExam.mins}분 실전)`, 
-                    task_mode: 'simple',
-                    start_time: exactStartTimeStr
-                };
-                
-                const { data, error } = await supabaseClient.from('planner_tasks').insert([insertData]).select();
-                if (error) {
-                    alert("모의고사 생성 실패: " + error.message);
-                    return;
-                }
-                
-                activeTaskId = data[0].task_id;
-                taskStartTime = Date.now();
-                taskAccumulatedMs = 0;
-                
-                localStorage.setItem('activeTaskId', activeTaskId);
-                localStorage.setItem('taskStartTime', taskStartTime);
-                localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
-                localStorage.setItem('logicalDate', actualTodayStr);
-                
-                pendingMockExam = null; 
-                
-                fetchTasks(); 
-                showFloatingBar(data[0], false);
-            }
-
-            totalDurationMs = targetMins * 60 * 1000; 
-            const exactNow = Date.now();
-            endTime = exactNow + totalDurationMs; 
-            
-            localStorage.setItem('isFocusRunning', 'true');
-            localStorage.setItem('focusTargetMins', targetMins);
-            localStorage.setItem('focusTotalDurationMs', totalDurationMs);
-            localStorage.setItem('focusEndTime', endTime);
-            localStorage.setItem('logicalDate', actualTodayStr);
-
-            document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
-            document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
-            
-            if (!isSwRunning) {
-                forceStartStopwatch(exactNow);
-            }
-            updateWakeLockState(); 
+        // ★ [보안] 오늘이 아니면 즉시 실행 중단 ★
+        if (currentViewDateStr !== actualTodayStr) {
+            alert("🔒 데이터 보호를 위해 타이머는 '오늘' 날짜에서만 실행 가능합니다.");
+            return;
         }
+        
+        targetMins = parseInt(document.getElementById('targetMinutes').value); if (targetMins <= 0 || isNaN(targetMins)) return alert("정확한 분 입력!");
+        totalDurationMs = targetMins * 60 * 1000; 
+        const exactNow = Date.now();
+        endTime = exactNow + totalDurationMs; 
+        
+        localStorage.setItem('isFocusRunning', 'true');
+        localStorage.setItem('focusTargetMins', targetMins);
+        localStorage.setItem('focusTotalDurationMs', totalDurationMs);
+        localStorage.setItem('focusEndTime', endTime);
+        localStorage.setItem('logicalDate', actualTodayStr);
+
+        document.getElementById('startBtn').style.display = 'none'; document.getElementById('stopBtn').style.display = 'inline-block';
+        document.getElementById('targetMinutes').disabled = true; document.getElementById('progressFill').style.backgroundColor = "#10b981"; updateTimerUI(); 
+        
+        if (!isSwRunning) {
+            forceStartStopwatch(exactNow);
+        }
+        updateWakeLockState(); 
+    }
+
+    function forceStartStopwatch(exactStartTime = null) {
+        // ★ [보안] 오늘이 아니면 즉시 실행 중단 ★
+        if (currentViewDateStr !== actualTodayStr) return;
+
+        swStartTime = exactStartTime || Date.now(); 
+        isSwRunning = true;
+        
+        localStorage.setItem('isSwRunning', 'true');
+        localStorage.setItem('swStartTime', swStartTime);
+        localStorage.setItem('accumulatedMs', accumulatedMs);
+        localStorage.setItem('logicalDate', actualTodayStr);
+
+        document.getElementById('swStartBtn').style.display = 'none'; 
+        document.getElementById('swPauseBtn').style.display = 'inline-block'; 
+        document.getElementById('swStopBtn').style.display = 'inline-block'; 
+        updateStopwatchUI();
+        updateWakeLockState(); 
+    }
+
+    async function startTask(taskId, currentSeconds, existingStartTime, taskMode, currentStatus) {
+        // ★ [보안] 오늘이 아니면 즉시 실행 중단 ★
+        if (currentViewDateStr !== actualTodayStr) {
+            alert("🔒 데이터 보호를 위해 타이머는 '오늘' 날짜에서만 실행 가능합니다.");
+            return;
+        }
+
+        if (currentStatus === 'DONE' || currentStatus === 'PARTIAL') {
+            alert("📢 이미 마감(완료 또는 세모) 처리된 계획입니다!");
+            return;
+        }
+        
+        if (activeTaskId && activeTaskId !== taskId) { alert("현재 다른 과목 공부가 가동 중입니다."); return; }
+        
+        activeTaskId = taskId; 
+        taskStartTime = Date.now(); 
+        taskAccumulatedMs = currentSeconds * 1000;
+        
+        localStorage.setItem('activeTaskId', activeTaskId);
+        localStorage.setItem('taskStartTime', taskStartTime);
+        localStorage.setItem('taskAccumulatedMs', taskAccumulatedMs);
+        localStorage.setItem('logicalDate', actualTodayStr); 
+        
+        if (taskMode === 'simple' && !existingStartTime) {
+            await supabaseClient.from('planner_tasks').update({ start_time: getKstTimeStr(taskStartTime) }).eq('task_id', taskId);
+        }
+        
+        if (!isSwRunning) { forceStartStopwatch(taskStartTime); }
+
+        if (window.currentTasks) {
+            const task = window.currentTasks.find(t => t.task_id === taskId);
+            if (task) {
+                showFloatingBar(task, false); 
+            }
+        }
+
+        await fetchTasks(); 
+        updateTaskTimerLoop();
+        updateWakeLockState(); 
+    }
         
         function updateTimerUI() {
             const now = Date.now(); let remainingMs = endTime - now; 
