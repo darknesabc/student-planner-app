@@ -354,6 +354,9 @@
         let myStudentId = null;
         let mySeatNumber = null;
         let myName = null;
+        let myClassName = null;  // 반
+        let myTam1 = null;       // 탐구1
+        let myTam2 = null;       // 탐구2
         
         const now = new Date();
         const kstEpoch = now.getTime() + (9 * 60 * 60 * 1000); 
@@ -1731,22 +1734,28 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
         // 1. 세션 체크: 이전에 로그인한 적이 있는지 확인
         // ==========================================
         function checkLoginSession() {
-            const savedStudentId = localStorage.getItem('myStudentId'); // 💡 [변경] 학번 추가
-            const savedSeat = localStorage.getItem('mySeatNumber');
-            const savedName = localStorage.getItem('myName');
+    const savedStudentId = localStorage.getItem('myStudentId'); 
+    const savedSeat = localStorage.getItem('mySeatNumber');
+    const savedName = localStorage.getItem('myName');
+    const savedClass = localStorage.getItem('myClassName');
+    const savedTam1 = localStorage.getItem('myTam1');
+    const savedTam2 = localStorage.getItem('myTam2');
 
-            if (savedStudentId && savedSeat && savedName) {
-                // 이미 로그인된 상태라면 변수에 값 채우고 플래너 바로 시작
-                myStudentId = savedStudentId;
-                mySeatNumber = savedSeat;
-                myName = savedName;
-                document.getElementById('loginScreen').style.display = 'none';
-                initPlanner(); 
-            } else {
-                // 처음 왔거나 로그아웃 상태라면 로그인 창 띄우기
-                document.getElementById('loginScreen').style.display = 'flex';
-            }
-        }
+    // 이제 학번도 필수로 체크합니다.
+    if (savedStudentId && savedSeat && savedName) {
+        myStudentId = savedStudentId;
+        mySeatNumber = savedSeat;
+        myName = savedName;
+        myClassName = savedClass || "";
+        myTam1 = savedTam1 || "";
+        myTam2 = savedTam2 || "";
+        
+        document.getElementById('loginScreen').style.display = 'none';
+        initPlanner(); 
+    } else {
+        document.getElementById('loginScreen').style.display = 'flex';
+    }
+}
 
         // ==========================================
         // 2. 로그인 버튼 클릭 시 실행
@@ -1776,18 +1785,25 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
 
             const student = result[0];
 
-// 이제 RPC에서 student_id를 받아옵니다.
+// 추가된 데이터 받아오기
 myStudentId = student.student_id; 
 mySeatNumber = student.seat_no;
 myName = student.name;
+myClassName = student.class_name;
+myTam1 = student.tam1_subject;
+myTam2 = student.tam2_subject;
 
 if (!myStudentId) {
     return alert("학번 정보를 불러오지 못했습니다. 관리자에게 문의하세요.");
 }
 
+// 로컬 스토리지에 저장
 localStorage.setItem('myStudentId', myStudentId);
 localStorage.setItem('mySeatNumber', mySeatNumber);
 localStorage.setItem('myName', myName);
+if(myClassName) localStorage.setItem('myClassName', myClassName);
+if(myTam1) localStorage.setItem('myTam1', myTam1);
+if(myTam2) localStorage.setItem('myTam2', myTam2);
 
 document.getElementById('loginScreen').style.display = 'none';
 initPlanner();
@@ -1797,15 +1813,18 @@ initPlanner();
         // 3. 플래너 초기화 묶음 함수
         // ==========================================
         function initPlanner() {
-            // 헤더에 내 이름과 좌석번호 반영
-            document.getElementById('headerInfo').innerText = `(${mySeatNumber}번 ${myName})`;
+    // 💡 헤더에 [반 이름]을 추가했습니다. (예: 1-1A01번 샘플 -> M1반 1-1A01번 샘플)
+    const classStr = myClassName ? `[${myClassName}] ` : "";
+    document.getElementById('headerInfo').innerText = `(${classStr}${mySeatNumber}번 ${myName})`;
 
-            // 날짜 세팅 및 내 할 일(Tasks) 불러오기
-            updateDateUI();
-            
-            // 새벽 좀비 상태 복원
-            restoreZombieState();
-        }
+    // 💡 과목 선택 드롭다운의 탐구1, 탐구2 이름을 학생의 실제 과목명으로 변경합니다.
+    const subjectSelect = document.getElementById('subjectInput');
+    if (myTam1) subjectSelect.querySelector('option[value="탐구1"]').innerText = myTam1;
+    if (myTam2) subjectSelect.querySelector('option[value="탐구2"]').innerText = myTam2;
+
+    updateDateUI();
+    restoreZombieState();
+}
 
         // ==========================================
         // 4. 로그아웃 함수
@@ -1828,6 +1847,9 @@ initPlanner();
                 localStorage.removeItem('myStudentId');
                 localStorage.removeItem('mySeatNumber');
                 localStorage.removeItem('myName');
+                localStorage.removeItem('myClassName');
+                localStorage.removeItem('myTam1');
+                localStorage.removeItem('myTam2');
                 
                 location.reload();
             }
