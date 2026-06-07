@@ -1788,16 +1788,20 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
 
         // --- [열품타 실시간 상태 기능] ---
 
-// 1. 내 상태 업데이트 함수 (DB 1번 전송)
+// 1. 내 상태 업데이트 함수 (안전한 RPC 호출 방식으로 변경)
 async function setMyStudyState(isStudying) {
     if (!myStudentId) return;
-    const { error } = await adminDb.from('student')
-        .update({ is_studying: isStudying })
-        .eq('student_id', myStudentId);
+    
+    // 테이블 직접 수정(from.update) 대신, 만들어둔 안전한 함수(rpc)를 호출합니다.
+    const { error } = await adminDb.rpc('update_study_status', {
+        p_student_id: myStudentId,
+        p_is_studying: isStudying
+    });
+    
     if (error) console.error("상태 업데이트 에러:", error);
 }
 
-// 2. 모달 제어 및 친구 목록 불러오기 함수
+// 2. 모달 제어 함수 (그대로 유지)
 function openGroupModal() {
     document.getElementById('groupModal').style.display = 'flex';
     fetchClassmatesStatus();
@@ -1807,6 +1811,7 @@ function closeGroupModal() {
     document.getElementById('groupModal').style.display = 'none';
 }
 
+// 3. 친구 목록 불러오기 함수 (안전한 RPC 호출 방식으로 변경)
 async function fetchClassmatesStatus() {
     const container = document.getElementById('groupListContainer');
     container.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8; font-size:14px;">데이터를 불러오는 중...</div>';
@@ -1816,12 +1821,10 @@ async function fetchClassmatesStatus() {
         return;
     }
 
-    // 1번 DB에서 우리 반 친구들 조회 (공부중인 사람 우선 정렬)
-    const { data, error } = await adminDb.from('student')
-        .select('name, seat_no, is_studying')
-        .eq('class_name', myClassName)
-        .order('is_studying', { ascending: false }) 
-        .order('seat_no', { ascending: true });
+    // 테이블 직접 조회(from.select) 대신, 만들어둔 안전한 함수(rpc)를 호출합니다.
+    const { data, error } = await adminDb.rpc('get_classmates_status', {
+        p_class_name: myClassName
+    });
 
     if (error) {
         container.innerHTML = `<div style="text-align:center; padding: 20px; color:#ef4444; font-size:13px;">에러 발생: ${error.message}</div>`;
@@ -1848,7 +1851,6 @@ async function fetchClassmatesStatus() {
         const textColor = isStudying ? '#10b981' : '#94a3b8';
         const bgStyle = isMe ? 'background: #f0f9ff; border-color: #bae6fd;' : 'background: #f8fafc; border-color: #f1f5f9;';
 
-        // 뒷부분 좌석번호만 짧게 표시 (예: 1-1A01 -> 1A01)
         const shortSeat = student.seat_no.split('-').pop(); 
 
         html += `
