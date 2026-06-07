@@ -1841,7 +1841,7 @@ initPlanner();
         subjectSelect.querySelector('option[value="탐구1"]').innerText = myTam1;
         const mockBtn1 = document.getElementById('btnMockTam1');
         if (mockBtn1) {
-            mockBtn1.querySelector('span:first-child').innerText = `🧬 ${myTam1} 실전`;
+            mockBtn1.querySelector('span:first-child').innerText = `🧬 ${myTam1} 모의고사`;
             mockBtn1.setAttribute('onclick', `prepareMockExam(30, '${myTam1}')`);
         }
     }
@@ -1849,7 +1849,7 @@ initPlanner();
         subjectSelect.querySelector('option[value="탐구2"]').innerText = myTam2;
         const mockBtn2 = document.getElementById('btnMockTam2');
         if (mockBtn2) {
-            mockBtn2.querySelector('span:first-child').innerText = `🧪 ${myTam2} 실전`;
+            mockBtn2.querySelector('span:first-child').innerText = `🧪 ${myTam2} 모의고사`;
             mockBtn2.setAttribute('onclick', `prepareMockExam(30, '${myTam2}')`);
         }
     }
