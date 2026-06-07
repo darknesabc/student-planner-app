@@ -135,8 +135,8 @@
             <button onclick="prepareMockExam(100, '수학')" class="mock-quick-btn"><span>📐 수학 모의고사</span> <span class="badge">100분</span></button>
             <button onclick="prepareMockExam(70, '영어(듣기포함)')" class="mock-quick-btn"><span>🎧 영어 (듣기포함)</span> <span class="badge">70분</span></button>
             <button onclick="prepareMockExam(50, '영어(듣기제외)')" class="mock-quick-btn"><span>📖 영어 (듣기제외)</span> <span class="badge">50분</span></button>
-            <button onclick="prepareMockExam(30, '탐구1')" class="mock-quick-btn"><span>🧬 탐구1 모의고사</span> <span class="badge">30분</span></button>
-            <button onclick="prepareMockExam(30, '탐구2')" class="mock-quick-btn"><span>🧪 탐구2 모의고사</span> <span class="badge">30분</span></button>
+            <button id="btnMockTam1" onclick="prepareMockExam(30, '탐구1')" class="mock-quick-btn"><span>🧬 탐구1 모의고사</span> <span class="badge">30분</span></button>
+            <button id="btnMockTam2" onclick="prepareMockExam(30, '탐구2')" class="mock-quick-btn"><span>🧪 탐구2 모의고사</span> <span class="badge">30분</span></button>
         </div>
     </div>
 
@@ -1229,27 +1229,45 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
         let animationFrameId, endTime, targetMins, totalDurationMs;
         
         function prepareMockExam(mins, subjectName) {
-            if (currentViewDateStr !== actualTodayStr) {
-                alert("🔒 데이터 보호를 위해 모의고사 훈련은 '오늘' 날짜에서만 실행 가능합니다.");
-                return;
-            }
+    if (currentViewDateStr !== actualTodayStr) {
+        alert("🔒 데이터 보호를 위해 모의고사 훈련은 '오늘' 날짜에서만 실행 가능합니다.");
+        return;
+    }
 
-            if (activeTaskId) {
-                alert("📢 현재 다른 과목 공부가 가동 중입니다. 마감이나 종료를 먼저 완료해 주세요!");
-                return;
-            }
-            
-            pendingMockExam = { mins: mins, subject: subjectName };
-            
-            document.getElementById('targetMinutes').value = mins;
-            syncTargetTime('main'); 
-            
-            const fsTaskInfo = document.getElementById('fsTaskInfo');
-            if (fsTaskInfo) {
-                fsTaskInfo.style.display = 'block';
-                fsTaskInfo.innerHTML = `⚡ <span style="color:#fff;">[${subjectName} 모의고사]</span> ${mins}분 장전 완료!<br><span style="font-size: 16px; color:#94a3b8; font-weight:600; margin-top:8px; display:block;">심호흡 후 하단의 [▶ 집중 시작] 버튼을 누르세요.</span>`;
-            }
+    if (activeTaskId) {
+        alert("📢 현재 다른 과목 공부가 가동 중입니다. 마감이나 종료를 먼저 완료해 주세요!");
+        return;
+    }
+    
+    const fsTaskInfo = document.getElementById('fsTaskInfo');
+
+    // 💡 [추가] 방금 누른 과목을 '또' 눌렀을 경우 -> 취소(Toggle Off) 처리
+    if (pendingMockExam && pendingMockExam.subject === subjectName) {
+        pendingMockExam = null; // 장전 해제
+        
+        // 기본값인 120분으로 되돌리기
+        document.getElementById('targetMinutes').value = 120;
+        syncTargetTime('main'); 
+        
+        // 장전 알림창 숨기기
+        if (fsTaskInfo) {
+            fsTaskInfo.style.display = 'none';
+            fsTaskInfo.innerHTML = '';
         }
+        return; // 여기서 함수 종료
+    }
+    
+    // 처음 누르거나, 다른 과목을 눌렀을 경우 -> 장전(Toggle On) 처리
+    pendingMockExam = { mins: mins, subject: subjectName };
+    
+    document.getElementById('targetMinutes').value = mins;
+    syncTargetTime('main'); 
+    
+    if (fsTaskInfo) {
+        fsTaskInfo.style.display = 'block';
+        fsTaskInfo.innerHTML = `⚡ <span style="color:#fff;">[${subjectName} 모의고사]</span> ${mins}분 장전 완료!<br><span style="font-size: 16px; color:#94a3b8; font-weight:600; margin-top:8px; display:block;">심호흡 후 하단의 [▶ 집중 시작] 버튼을 누르세요. (한 번 더 누르면 취소됩니다)</span>`;
+    }
+}
 
         async function startFocus() {
             if (currentViewDateStr !== actualTodayStr) {
@@ -1813,19 +1831,32 @@ initPlanner();
         // 3. 플래너 초기화 묶음 함수
         // ==========================================
         function initPlanner() {
-    // 💡 헤더에 [반 이름]을 추가했습니다. (예: 1-1A01번 샘플 -> M1반 1-1A01번 샘플)
     const classStr = myClassName ? `[${myClassName}] ` : "";
     document.getElementById('headerInfo').innerText = `(${classStr}${mySeatNumber}번 ${myName})`;
 
-    // 💡 과목 선택 드롭다운의 탐구1, 탐구2 이름을 학생의 실제 과목명으로 변경합니다.
     const subjectSelect = document.getElementById('subjectInput');
-    if (myTam1) subjectSelect.querySelector('option[value="탐구1"]').innerText = myTam1;
-    if (myTam2) subjectSelect.querySelector('option[value="탐구2"]').innerText = myTam2;
+    
+    // 💡 [추가] 과목 선택 드롭다운과 함께, 모의고사 패널의 버튼 이름/동작도 변경합니다.
+    if (myTam1) {
+        subjectSelect.querySelector('option[value="탐구1"]').innerText = myTam1;
+        const mockBtn1 = document.getElementById('btnMockTam1');
+        if (mockBtn1) {
+            mockBtn1.querySelector('span:first-child').innerText = `🧬 ${myTam1} 실전`;
+            mockBtn1.setAttribute('onclick', `prepareMockExam(30, '${myTam1}')`);
+        }
+    }
+    if (myTam2) {
+        subjectSelect.querySelector('option[value="탐구2"]').innerText = myTam2;
+        const mockBtn2 = document.getElementById('btnMockTam2');
+        if (mockBtn2) {
+            mockBtn2.querySelector('span:first-child').innerText = `🧪 ${myTam2} 실전`;
+            mockBtn2.setAttribute('onclick', `prepareMockExam(30, '${myTam2}')`);
+        }
+    }
 
     updateDateUI();
     restoreZombieState();
 }
-
         // ==========================================
         // 4. 로그아웃 함수
         // ==========================================
