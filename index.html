@@ -172,6 +172,22 @@
         </div>
     </div>
 
+    <!-- 우리 반 열품타 모달 -->
+<div id="groupModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); z-index: 20002; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+    <div style="background: white; padding: 28px; border-radius: 20px; width: 90%; max-width: 360px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+        <h3 id="groupModalTitle" style="margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: space-between;">
+            🔥 우리 반 접속 현황
+            <button onclick="closeGroupModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">&times;</button>
+        </h3>
+        <p style="color: #64748b; font-size: 13px; margin-bottom: 20px; font-weight: 500;">현재 타이머를 켜고 공부 중인 친구들입니다.</p>
+        
+        <!-- 친구 목록이 들어갈 자리 -->
+        <div id="groupListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto; padding-right: 4px;"></div>
+        
+        <button onclick="fetchClassmatesStatus()" style="width: 100%; margin-top: 16px; padding: 12px; font-size: 13px; background-color: #f1f5f9; color: #475569; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: all 0.2s;" onmouseover="this.style.backgroundColor='#e2e8f0'">🔄 새로고침</button>
+    </div>
+</div>
+
     <!-- 헤더 -->
     <div class="header-container">
         <div>
@@ -189,9 +205,10 @@
                 <button onclick="changeDate(1)" class="date-nav-btn">내일 ▶</button>
                 <button onclick="goToToday()" class="date-nav-btn" style="background: white; border: 1px solid #e2e8f0; margin-left: 4px;">오늘로 복귀</button>
             </div>
-        </div>
-        <a href="stats.html" style="padding: 12px 20px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(124,58,237,0.2); transition: all 0.2s; white-space: nowrap;">📊 나의 학습 통계</a>
-    </div>
+        <div style="display: flex; gap: 8px;">
+    <button onclick="openGroupModal()" style="padding: 12px 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(16,185,129,0.2); cursor: pointer; transition: all 0.2s; white-space: nowrap;">🟢 우리 반 접속 현황</button>
+    <a href="stats.html" style="padding: 12px 16px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(124,58,237,0.2); transition: all 0.2s; white-space: nowrap;">📊 나의 학습 통계</a>
+</div>
     
     <!-- 메인 레이아웃 -->
     <div class="main-layout">
@@ -1747,6 +1764,91 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             
             stopTask(task.task_id, savedSec, task.start_time || '', taskMode);
         }
+
+        // --- [열품타 실시간 상태 기능] ---
+
+// 1. 내 상태 업데이트 함수 (DB 1번 전송)
+async function setMyStudyState(isStudying) {
+    if (!myStudentId) return;
+    const { error } = await adminDb.from('student')
+        .update({ is_studying: isStudying })
+        .eq('student_id', myStudentId);
+    if (error) console.error("상태 업데이트 에러:", error);
+}
+
+// 2. 모달 제어 및 친구 목록 불러오기 함수
+function openGroupModal() {
+    document.getElementById('groupModal').style.display = 'flex';
+    fetchClassmatesStatus();
+}
+
+function closeGroupModal() {
+    document.getElementById('groupModal').style.display = 'none';
+}
+
+async function fetchClassmatesStatus() {
+    const container = document.getElementById('groupListContainer');
+    container.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8; font-size:14px;">데이터를 불러오는 중...</div>';
+
+    if (!myClassName) {
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444; font-size:14px; font-weight: 700;">소속 반 정보가 없습니다.</div>';
+        return;
+    }
+
+    // 1번 DB에서 우리 반 친구들 조회 (공부중인 사람 우선 정렬)
+    const { data, error } = await adminDb.from('student')
+        .select('name, seat_no, is_studying')
+        .eq('class_name', myClassName)
+        .order('is_studying', { ascending: false }) 
+        .order('seat_no', { ascending: true });
+
+    if (error) {
+        container.innerHTML = `<div style="text-align:center; padding: 20px; color:#ef4444; font-size:13px;">에러 발생: ${error.message}</div>`;
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8; font-size:14px;">우리 반 학생 데이터가 없습니다.</div>';
+        return;
+    }
+
+    let html = '';
+    let studyCount = 0;
+
+    data.forEach(student => {
+        const isMe = student.seat_no === mySeatNumber;
+        const isStudying = student.is_studying;
+        
+        if (isStudying) studyCount++;
+
+        const statusColor = isStudying ? '#10b981' : '#cbd5e1'; 
+        const statusGlow = isStudying ? 'box-shadow: 0 0 8px rgba(16,185,129,0.5);' : '';
+        const statusText = isStudying ? '🔥 열공 중' : '휴식 중';
+        const textColor = isStudying ? '#10b981' : '#94a3b8';
+        const bgStyle = isMe ? 'background: #f0f9ff; border-color: #bae6fd;' : 'background: #f8fafc; border-color: #f1f5f9;';
+
+        // 뒷부분 좌석번호만 짧게 표시 (예: 1-1A01 -> 1A01)
+        const shortSeat = student.seat_no.split('-').pop(); 
+
+        html += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid; border-radius: 12px; ${bgStyle}">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width:12px; height:12px; border-radius:50%; background-color:${statusColor}; ${statusGlow}"></div>
+                    <div style="font-size: 14px; font-weight: ${isMe ? '800' : '600'}; color: #1e293b;">
+                        ${shortSeat} ${student.name} ${isMe ? '<span style="font-size:11px; color:#3b82f6; margin-left:4px;">(나)</span>' : ''}
+                    </div>
+                </div>
+                <div style="font-size: 12px; font-weight: 700; color: ${textColor};">
+                    ${statusText}
+                </div>
+            </div>
+        `;
+    });
+
+    document.getElementById('groupModalTitle').innerHTML = `🔥 우리 반 접속 현황 <span style="font-size:14px; color:#10b981; margin-left:8px;">(${studyCount}명 열공 중)</span> <button onclick="closeGroupModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8;">&times;</button>`;
+    
+    container.innerHTML = html;
+}
 
         // ==========================================
         // 1. 세션 체크: 이전에 로그인한 적이 있는지 확인
