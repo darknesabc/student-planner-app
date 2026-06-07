@@ -190,6 +190,7 @@
 
     <!-- 헤더 -->
     <div class="header-container">
+        <!-- 1. 왼쪽 영역 (타이틀 + 날짜) -->
         <div>
             <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.03em;">
                 📝 나의 학습 플래너 
@@ -205,10 +206,14 @@
                 <button onclick="changeDate(1)" class="date-nav-btn">내일 ▶</button>
                 <button onclick="goToToday()" class="date-nav-btn" style="background: white; border: 1px solid #e2e8f0; margin-left: 4px;">오늘로 복귀</button>
             </div>
-        <div style="display: flex; gap: 8px;">
-    <button onclick="openGroupModal()" style="padding: 12px 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(16,185,129,0.2); cursor: pointer; transition: all 0.2s; white-space: nowrap;">🟢 우리 반 접속 현황</button>
-    <a href="stats.html" style="padding: 12px 16px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(124,58,237,0.2); transition: all 0.2s; white-space: nowrap;">📊 나의 학습 통계</a>
-</div>
+        </div> <!-- 💡 바로 이 닫는 태그가 빠져 있었습니다! -->
+
+        <!-- 2. 오른쪽 영역 (버튼 2개) -->
+        <div style="display: flex; gap: 8px; align-items: flex-start; margin-top: 4px;">
+            <button onclick="openGroupModal()" style="padding: 12px 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(16,185,129,0.2); cursor: pointer; transition: all 0.2s; white-space: nowrap;">🟢 우리 반 접속 현황</button>
+            <a href="stats.html" style="padding: 12px 16px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(124,58,237,0.2); transition: all 0.2s; white-space: nowrap;">📊 나의 학습 통계</a>
+        </div>
+    </div>
     
     <!-- 메인 레이아웃 -->
     <div class="main-layout">
