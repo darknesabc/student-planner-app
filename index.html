@@ -75,6 +75,41 @@
         .mock-quick-btn { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 10px; text-align: left; cursor: pointer; font-family: inherit; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
         .mock-quick-btn:hover { background: rgba(255,255,255,0.15); border-color: #3b82f6; transform: translateX(4px); }
         .mock-quick-btn span.badge { background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 800; font-family: monospace; }
+        /* 🌙 다크 모드 전용 덮어쓰기 */
+        body.dark-theme { background-color: #0f172a !important; color: #f8fafc !important; }
+        body.dark-theme h1, body.dark-theme h2, body.dark-theme h3, body.dark-theme h4 { color: #f8fafc !important; }
+        
+        body.dark-theme .card-box, 
+        body.dark-theme .achievement-box, 
+        body.dark-theme .task-item { background: #1e293b !important; border-color: #334155 !important; }
+        
+        body.dark-theme #loginScreen { background: #0f172a !important; }
+        body.dark-theme #loginScreen > div { background: #1e293b !important; border-color: #334155 !important; }
+        body.dark-theme #loginScreen p { color: #94a3b8 !important; }
+        
+        body.dark-theme input, 
+        body.dark-theme select { background: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
+        
+        body.dark-theme .tab-btn { background: #334155 !important; color: #94a3b8 !important; }
+        body.dark-theme .tab-btn.active { background: #1e293b !important; color: #f8fafc !important; border-top-color: #3b82f6 !important; }
+        body.dark-theme .date-nav-btn { background: #334155 !important; color: #f8fafc !important; border-color: #475569 !important; }
+        
+        /* 모달 & 리스트 내부 글자색 처리 */
+        body.dark-theme #taskSelectModal > div, 
+        body.dark-theme #groupModal > div { background: #1e293b !important; box-shadow: 0 20px 40px rgba(0,0,0,0.8) !important; }
+        body.dark-theme #taskSelectContainer button { background: #0f172a !important; border-color: #334155 !important; }
+        body.dark-theme #taskSelectContainer button span[style*="color: #1e293b"] { color: #f8fafc !important; }
+        
+        body.dark-theme #groupListContainer > div { background: #0f172a !important; border-color: #334155 !important; color: #f8fafc !important; }
+        body.dark-theme #groupListContainer > div[style*="background: #f0f9ff"] { background: #172554 !important; border-color: #1e3a8a !important; }
+        body.dark-theme #groupListContainer div[style*="color: #1e293b"] { color: #f8fafc !important; }
+        
+        body.dark-theme span[style*="color: #334155"], body.dark-theme div[style*="color: #334155"] { color: #f8fafc !important; }
+        body.dark-theme .status-btn div[style*="background: white"] { background: #0f172a !important; border-color: #475569 !important; }
+        
+        /* 하단 플로팅 바 */
+        body.dark-theme #floatingTaskBar { background: rgba(30, 41, 59, 0.95) !important; border-top-color: #334155 !important; }
+        body.dark-theme #floatingTaskContent { color: #e2e8f0 !important; }
     </style>
 </head>
 <body>
@@ -210,6 +245,7 @@
 
         <!-- 2. 오른쪽 영역 (버튼 2개) -->
         <div style="display: flex; gap: 8px; align-items: flex-start; margin-top: 4px;">
+            <button id="themeToggleBtn" onclick="toggleTheme()" style="padding: 12px 16px; background: white; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); cursor: pointer; transition: all 0.2s; white-space: nowrap;">🌙 다크 모드</button>
             <button onclick="openGroupModal()" style="padding: 12px 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(16,185,129,0.2); cursor: pointer; transition: all 0.2s; white-space: nowrap;">🟢 우리 반 접속 현황</button>
             <a href="stats.html" style="padding: 12px 16px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(124,58,237,0.2); transition: all 0.2s; white-space: nowrap;">📊 나의 학습 통계</a>
         </div>
@@ -1879,6 +1915,36 @@ async function fetchClassmatesStatus() {
     
     container.innerHTML = html;
 }
+
+        // --- [다크 모드 제어 기능] ---
+        function applySavedTheme() {
+            const savedTheme = localStorage.getItem('appTheme');
+            const themeBtn = document.getElementById('themeToggleBtn');
+            
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+                if(themeBtn) themeBtn.innerText = '☀️ 라이트 모드';
+            } else {
+                document.body.classList.remove('dark-theme');
+                if(themeBtn) themeBtn.innerText = '🌙 다크 모드';
+            }
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark-theme');
+            const themeBtn = document.getElementById('themeToggleBtn');
+            
+            if (isDark) {
+                localStorage.setItem('appTheme', 'dark');
+                themeBtn.innerText = '☀️ 라이트 모드';
+            } else {
+                localStorage.setItem('appTheme', 'light');
+                themeBtn.innerText = '🌙 다크 모드';
+            }
+        }
+
+        // 앱 켜질 때 저장된 테마 즉시 적용
+        window.addEventListener('DOMContentLoaded', applySavedTheme);
 
         // ==========================================
         // 1. 세션 체크: 이전에 로그인한 적이 있는지 확인
