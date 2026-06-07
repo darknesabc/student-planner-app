@@ -75,39 +75,59 @@
         .mock-quick-btn { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 10px; text-align: left; cursor: pointer; font-family: inherit; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
         .mock-quick-btn:hover { background: rgba(255,255,255,0.15); border-color: #3b82f6; transform: translateX(4px); }
         .mock-quick-btn span.badge { background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 800; font-family: monospace; }
-        /* 🌙 다크 모드 전용 덮어쓰기 */
+        /* 🌙 다크 모드 전용 덮어쓰기 (완전판) */
         body.dark-theme { background-color: #0f172a !important; color: #f8fafc !important; }
         body.dark-theme h1, body.dark-theme h2, body.dark-theme h3, body.dark-theme h4 { color: #f8fafc !important; }
-        
+
+        /* 기본 카드 및 박스 */
         body.dark-theme .card-box, 
         body.dark-theme .achievement-box, 
         body.dark-theme .task-item { background: #1e293b !important; border-color: #334155 !important; }
-        
-        body.dark-theme #loginScreen { background: #0f172a !important; }
-        body.dark-theme #loginScreen > div { background: #1e293b !important; border-color: #334155 !important; }
-        body.dark-theme #loginScreen p { color: #94a3b8 !important; }
-        
+
+        /* 🚨 1. 하단 리스트/타임테이블 감싸는 거대한 흰색 박스 잡기 */
+        body.dark-theme div:has(> #simpleListContainer) { background: #1e293b !important; border-color: #334155 !important; }
+
+        /* 🚨 2. 타임테이블 내부 (완전 하얗게 뜨던 부분) */
+        body.dark-theme #timelineScrollWrapper { background: #0f172a !important; border-color: #334155 !important; box-shadow: inset 0 0 8px rgba(0,0,0,0.5) !important; }
+        body.dark-theme .timeline-container { background: #0f172a !important; border-left-color: #334155 !important; }
+        body.dark-theme .timeline-grid { background: #1e293b !important; }
+        body.dark-theme .vertical-grid-line { border-left-color: #1e293b !important; }
+        body.dark-theme .time-label { color: #94a3b8 !important; }
+        body.dark-theme #timetableTitle { color: #f8fafc !important; border-bottom-color: #334155 !important; }
+
+        /* 🚨 3. 할 일 리스트 글씨 및 버튼 (어두워서 안 보이던 부분) */
+        body.dark-theme .task-item div[style*="color: #334155"] { color: #e2e8f0 !important; }
+        body.dark-theme .task-item span[style*="color:#334155"] { color: #e2e8f0 !important; }
+        body.dark-theme .status-btn div[style*="background: white"] { background: #0f172a !important; border-color: #475569 !important; }
+
+        /* 리스트 내부 시작/일시정지/종료 버튼 톤다운 */
+        body.dark-theme .p-btn { background-color: #0f172a !important; border-color: #3b82f6 !important; color: #60a5fa !important; }
+        body.dark-theme .p-btn:hover { background-color: #3b82f6 !important; color: white !important; }
+        body.dark-theme .p-btn[style*="color: #d97706"] { background-color: #451a03 !important; border-color: #92400e !important; color: #fbbf24 !important; }
+        body.dark-theme .p-btn[style*="color: #dc2626"] { background-color: #450a0a !important; border-color: #991b1b !important; color: #f87171 !important; }
+        body.dark-theme .p-btn.disabled-style { background-color: #1e293b !important; border-color: #334155 !important; color: #475569 !important; }
+
+        /* 🚨 4. 시간 설정 영역 (정규 교시 선택 박스) */
+        body.dark-theme #timeSettingArea { background: #0f172a !important; border-color: #334155 !important; }
+        body.dark-theme #timeSettingArea div[style*="color: #475569"] { color: #cbd5e1 !important; }
+
+        /* 기본 인풋/버튼들 */
         body.dark-theme input, 
         body.dark-theme select { background: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
-        
         body.dark-theme .tab-btn { background: #334155 !important; color: #94a3b8 !important; }
         body.dark-theme .tab-btn.active { background: #1e293b !important; color: #f8fafc !important; border-top-color: #3b82f6 !important; }
         body.dark-theme .date-nav-btn { background: #334155 !important; color: #f8fafc !important; border-color: #475569 !important; }
-        
-        /* 모달 & 리스트 내부 글자색 처리 */
+
+        /* 모달창 */
         body.dark-theme #taskSelectModal > div, 
         body.dark-theme #groupModal > div { background: #1e293b !important; box-shadow: 0 20px 40px rgba(0,0,0,0.8) !important; }
         body.dark-theme #taskSelectContainer button { background: #0f172a !important; border-color: #334155 !important; }
         body.dark-theme #taskSelectContainer button span[style*="color: #1e293b"] { color: #f8fafc !important; }
-        
         body.dark-theme #groupListContainer > div { background: #0f172a !important; border-color: #334155 !important; color: #f8fafc !important; }
         body.dark-theme #groupListContainer > div[style*="background: #f0f9ff"] { background: #172554 !important; border-color: #1e3a8a !important; }
         body.dark-theme #groupListContainer div[style*="color: #1e293b"] { color: #f8fafc !important; }
-        
-        body.dark-theme span[style*="color: #334155"], body.dark-theme div[style*="color: #334155"] { color: #f8fafc !important; }
-        body.dark-theme .status-btn div[style*="background: white"] { background: #0f172a !important; border-color: #475569 !important; }
-        
-        /* 하단 플로팅 바 */
+
+        /* 플로팅 바 */
         body.dark-theme #floatingTaskBar { background: rgba(30, 41, 59, 0.95) !important; border-top-color: #334155 !important; }
         body.dark-theme #floatingTaskContent { color: #e2e8f0 !important; }
     </style>
