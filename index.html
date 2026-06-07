@@ -1066,6 +1066,8 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             activeTaskId = taskId; 
             taskStartTime = Date.now(); 
             taskAccumulatedMs = currentSeconds * 1000;
+
+            setMyStudyState(true);
             
             localStorage.setItem('activeTaskId', activeTaskId);
             localStorage.setItem('taskStartTime', taskStartTime);
@@ -1117,6 +1119,8 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             cancelAnimationFrame(taskAnimationFrameId); 
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
             activeTaskId = null;
+
+            setMyStudyState(false);
             
             localStorage.removeItem('activeTaskId');
             localStorage.removeItem('taskStartTime');
@@ -1159,6 +1163,8 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             cancelAnimationFrame(taskAnimationFrameId); 
             const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
             activeTaskId = null;
+
+            setMyStudyState(false);
             
             localStorage.removeItem('activeTaskId');
             localStorage.removeItem('taskStartTime');
@@ -1355,6 +1361,8 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             totalDurationMs = targetMins * 60 * 1000; 
             const exactNow = Date.now();
             endTime = exactNow + totalDurationMs; 
+
+            setMyStudyState(true);
             
             localStorage.setItem('isFocusRunning', 'true');
             localStorage.setItem('focusTargetMins', targetMins);
@@ -1393,6 +1401,8 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
         async function finishFocus(status, isEarlyFinish = false) {
             cancelAnimationFrame(animationFrameId); 
             const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
+
+            setMyStudyState(false);
             
             localStorage.removeItem('isFocusRunning');
             localStorage.removeItem('focusTargetMins');
@@ -1588,6 +1598,8 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
 
             swStartTime = exactStartTime || Date.now(); 
             isSwRunning = true;
+
+            setMyStudyState(true);
             
             localStorage.setItem('isSwRunning', 'true');
             localStorage.setItem('swStartTime', swStartTime);
@@ -1606,6 +1618,8 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
                 accumulatedMs += (Date.now() - swStartTime); 
                 isSwRunning = false; 
                 cancelAnimationFrame(swAnimationFrameId); 
+
+                setMyStudyState(false);
                 
                 localStorage.setItem('isSwRunning', 'false');
                 localStorage.setItem('accumulatedMs', accumulatedMs);
@@ -1634,6 +1648,8 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
         
         async function stopStopwatch() {
             if(!confirm("순공 시간을 저장할까요?")) return; let finalElapsedMs = accumulatedMs; if (isSwRunning) finalElapsedMs += (Date.now() - swStartTime); isSwRunning = false; cancelAnimationFrame(swAnimationFrameId); const actualSeconds = Math.floor(finalElapsedMs / 1000); accumulatedMs = 0;
+
+            setMyStudyState(false);
             
             localStorage.removeItem('isSwRunning');
             localStorage.removeItem('swStartTime');
