@@ -577,6 +577,8 @@
                 taskAccumulatedMs = parseInt(localStorage.getItem('taskAccumulatedMs'), 10);
                 setTimeout(() => showFloatingBarForActiveTask(), 500); 
                 updateTaskTimerLoop();
+
+                setMyStudyState(true);
             }
 
             const savedSwRunning = localStorage.getItem('isSwRunning') === 'true';
@@ -589,6 +591,7 @@
                 document.getElementById('swPauseBtn').style.display = 'inline-block'; 
                 document.getElementById('swStopBtn').style.display = 'inline-block'; 
                 updateStopwatchUI();
+                setMyStudyState(true);
             } else if (accumulatedMs > 0) {
                 document.getElementById('swStartBtn').innerText = '이어서 하기'; 
                 document.getElementById('swStartBtn').style.backgroundColor = "#10b981"; 
@@ -611,6 +614,8 @@
                 document.getElementById('targetMinutes').value = targetMins;
                 document.getElementById('progressFill').style.backgroundColor = "#10b981"; 
                 updateTimerUI(); 
+
+                setMyStudyState(true);
             }
             
             updateWakeLockState(); 
