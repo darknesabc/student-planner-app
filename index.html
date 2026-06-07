@@ -1915,57 +1915,6 @@ async function fetchClassmatesStatus() {
         // 2. 로그인 버튼 클릭 시 실행
         // ==========================================
         async function attemptLogin() {
-            // 💡 영문 소문자로 입력해도 무조건 대문자로 변환합니다.
-            const seatInput = document.getElementById('loginSeatInput').value.trim().toUpperCase();
-            const pinInput = document.getElementById('loginPinInput').value.trim();
-
-            if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
-
-            // 💡 [핵심 변경] 보안이 잠긴 select() 대신, 검문소 역할인 rpc()를 호출합니다!
-            const { data: result, error } = await adminDb.rpc('verify_student_pin', { 
-                p_seat_no: seatInput, 
-                p_pin_code: pinInput 
-            });
-
-            if (error) {
-                console.error("Supabase 상세 에러:", error);
-                return alert("DB 조회 실패! 원인: " + error.message);
-            }
-            
-            // 데이터가 없거나 비밀번호가 틀리면 빈 배열([])이 반환됩니다.
-            if (!result || result.length === 0) {
-                return alert(`'${seatInput}' 번호를 찾을 수 없거나 비밀번호가 틀립니다.`);
-            }
-
-            const student = result[0];
-
-// 추가된 데이터 받아오기
-myStudentId = student.student_id; 
-mySeatNumber = student.seat_no;
-myName = student.name;
-myClassName = student.class_name;
-myTam1 = student.tam1_subject;
-myTam2 = student.tam2_subject;
-myStatus = student.status;
-myTeacherName = student.teacher_name;
-
-if (!myStudentId) {
-    return alert("학번 정보를 불러오지 못했습니다. 관리자에게 문의하세요.");
-}
-
-// 로컬 스토리지에 저장
-localStorage.setItem('myStudentId', myStudentId);
-localStorage.setItem('mySeatNumber', mySeatNumber);
-localStorage.setItem('myName', myName);
-if(myClassName) localStorage.setItem('myClassName', myClassName);
-if(myTam1) localStorage.setItem('myTam1', myTam1);
-if(myTam2) localStorage.setItem('myTam2', myTam2);
-if(myStatus) localStorage.setItem('myStatus', myStatus);
-if(myTeacherName) localStorage.setItem('myTeacherName', myTeacherName);
-
-document.getElementById('loginScreen').style.display = 'none';
-initPlanner();
-        }
 
         // ==========================================
         // 3. 플래너 초기화 묶음 함수
