@@ -1773,14 +1773,19 @@
 
             const student = result[0];
 
-            // 인증 성공! 학번, 좌석, 이름 모두 로컬 스토리지에 저장합니다.
-            localStorage.setItem('myStudentId', student.student_id); 
-            localStorage.setItem('mySeatNumber', student.seat_no); 
-            localStorage.setItem('myName', student.name);
-            
-            myStudentId = student.student_id; 
-            mySeatNumber = student.seat_no; 
-            myName = student.name;
+// 💡 콘솔창(F12)을 열어 여기서 찍히는 정확한 필드명(예: id, hakbun 등)을 확인하세요.
+console.log("✅ 로그인된 학생 데이터:", student); 
+
+// student_id가 없을 경우를 대비해 id나 hakbun 속성도 체크하도록 안전망 추가
+const actualStudentId = student.student_id || student.id || student.hakbun || null;
+
+localStorage.setItem('myStudentId', actualStudentId);
+localStorage.setItem('mySeatNumber', student.seat_no);
+localStorage.setItem('myName', student.name);
+
+myStudentId = actualStudentId;
+mySeatNumber = student.seat_no;
+myName = student.name;
 
             document.getElementById('loginScreen').style.display = 'none';
             initPlanner(); 
