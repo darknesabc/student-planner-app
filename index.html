@@ -689,8 +689,11 @@
             // 💡 [디버깅] 무엇을 기준으로 데이터를 가져오려는지 콘솔에 출력합니다.
             console.log("🔍 불러오기 시도 - 내 학번:", myStudentId, "날짜:", currentViewDateStr);
             
-            const { data, error } = await supabaseClient.from('planner_tasks').select('*')
-                .eq('student_id', myStudentId).eq('task_date', currentViewDateStr).order('start_time', { ascending: true, nullsFirst: true });
+           // 좌석이 바뀌어도 학번을 추적하여 데이터를 불러옵니다.
+const { data, error } = await supabaseClient.from('planner_tasks').select('*')
+    .eq('student_id', myStudentId) 
+    .eq('task_date', currentViewDateStr)
+    .order('start_time', { ascending: true, nullsFirst: true });
             
             // 💡 [디버깅] 에러가 났는지, 데이터를 몇 개 가져왔는지 출력합니다.
             if (error) { 
@@ -1773,22 +1776,21 @@
 
             const student = result[0];
 
-// 💡 콘솔창(F12)을 열어 여기서 찍히는 정확한 필드명(예: id, hakbun 등)을 확인하세요.
-console.log("✅ 로그인된 학생 데이터:", student); 
-
-// student_id가 없을 경우를 대비해 id나 hakbun 속성도 체크하도록 안전망 추가
-const actualStudentId = student.student_id || student.id || student.hakbun || null;
-
-localStorage.setItem('myStudentId', actualStudentId);
-localStorage.setItem('mySeatNumber', student.seat_no);
-localStorage.setItem('myName', student.name);
-
-myStudentId = actualStudentId;
+// 이제 RPC에서 student_id를 받아옵니다.
+myStudentId = student.student_id; 
 mySeatNumber = student.seat_no;
 myName = student.name;
 
-            document.getElementById('loginScreen').style.display = 'none';
-            initPlanner(); 
+if (!myStudentId) {
+    return alert("학번 정보를 불러오지 못했습니다. 관리자에게 문의하세요.");
+}
+
+localStorage.setItem('myStudentId', myStudentId);
+localStorage.setItem('mySeatNumber', mySeatNumber);
+localStorage.setItem('myName', myName);
+
+document.getElementById('loginScreen').style.display = 'none';
+initPlanner();
         }
 
         // ==========================================
