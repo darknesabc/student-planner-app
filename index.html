@@ -686,14 +686,22 @@
         }
 
         async function fetchTasks() {
-            // 💡 [변경] 데이터를 불러올 때 seat_number가 아닌 student_id를 기준으로 불러옵니다!
+            // 💡 [디버깅] 무엇을 기준으로 데이터를 가져오려는지 콘솔에 출력합니다.
+            console.log("🔍 불러오기 시도 - 내 학번:", myStudentId, "날짜:", currentViewDateStr);
+            
             const { data, error } = await supabaseClient.from('planner_tasks').select('*')
                 .eq('student_id', myStudentId).eq('task_date', currentViewDateStr).order('start_time', { ascending: true, nullsFirst: true });
             
-            if (error) { console.error(error); return; }
+            // 💡 [디버깅] 에러가 났는지, 데이터를 몇 개 가져왔는지 출력합니다.
+            if (error) { 
+                console.error("❌ 불러오기 에러 발생:", error); 
+                return; 
+            }
+            console.log("✅ 성공적으로 불러온 데이터 갯수:", data.length, data);
 
             window.currentTasks = data;
 
+            // ... (아래는 기존 fetchTasks 코드와 완벽히 동일합니다)
             if (activeTaskId && !data.some(t => t.task_id === activeTaskId)) {
                 forcePauseTaskLocally(); 
             }
