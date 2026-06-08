@@ -1914,13 +1914,24 @@ function openGroupModal() {
 
 function closeGroupModal() {
     document.getElementById('groupModal').style.display = 'none';
+    if(groupTimerInterval) clearInterval(groupTimerInterval); // 👈 모달 닫을 때 애니메이션 멈춤
 }
 
-// 💡 [변경] 탭 클릭 시 해당 그룹의 데이터를 영리하게 불러오는 통합 함수
+// 💡 모달창 타이머를 제어할 전역 변수
+let groupTimerInterval = null; 
+let activeGroupStudents = []; // 현재 열공 중인 학생들의 시간 정보 저장
+
 async function fetchGroupStatus(type) {
-    currentGroupTab = type; // 현재 선택된 탭 기억
+    currentGroupTab = type; 
     
-    // 1. 탭 버튼 디자인 변경 (선택된 탭 하얗게, 나머지는 투명하게)
+    // 1. 기존 타이머가 돌고 있다면 중지 (모달 탭 이동 시 꼬임 방지)
+    if (groupTimerInterval) {
+        clearInterval(groupTimerInterval);
+        groupTimerInterval = null;
+    }
+    activeGroupStudents = []; 
+
+    // 2. 탭 버튼 디자인 변경
     const activeStyle = 'flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; background: white; color: #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;';
     const inactiveStyle = 'flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; background: transparent; color: #64748b; transition: all 0.2s;';
     
@@ -1929,102 +1940,110 @@ async function fetchGroupStatus(type) {
     document.getElementById('tabGroupTeacher').style.cssText = type === 'teacher' ? activeStyle : inactiveStyle;
 
     const container = document.getElementById('groupListContainer');
-    container.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8; font-size:14px;">데이터를 불러오는 중...</div>';
+    container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding: 40px; color:#94a3b8; font-size:14px;">데이터를 불러오는 중...</div>';
 
-    let pVal = "";
-    let groupTitle = "";
+    let pVal = ""; let groupTitle = "";
     
-    // 2. 탭의 종류에 따라 넘겨줄 값(pVal)과 제목 자동 세팅
     if (type === 'floor') {
-        if (!mySeatNumber) return container.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444; font-size:14px; font-weight: 700;">좌석 정보가 없습니다.</div>';
-        pVal = mySeatNumber.split('-')[0]; // "3-1A01"에서 앞의 "3"만 똑 떼어냄
-        groupTitle = `🏢 ${pVal}층 접속 현황`;
+        if (!mySeatNumber) return container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding: 20px; color:#ef4444;">좌석 정보가 없습니다.</div>';
+        pVal = mySeatNumber.split('-')[0]; groupTitle = `🏢 ${pVal}층 접속 현황`;
     } else if (type === 'class') {
-        if (!myClassName) return container.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444; font-size:14px; font-weight: 700;">소속 계열 정보가 없습니다.</div>';
-        pVal = myClassName; 
-        groupTitle = `🏫 ${myClassName.startsWith('HS') ? 'HS계열' : myClassName} 접속 현황`;
+        if (!myClassName) return container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding: 20px; color:#ef4444;">계열 정보가 없습니다.</div>';
+        pVal = myClassName; groupTitle = `🏫 ${myClassName.startsWith('HS') ? 'HS계열' : myClassName} 접속 현황`;
     } else if (type === 'teacher') {
-        if (!myTeacherName) return container.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444; font-size:14px; font-weight: 700;">담임 선생님 정보가 없습니다.</div>';
-        pVal = myTeacherName;
-        groupTitle = `👨‍🏫 ${myTeacherName}T 반 접속 현황`;
+        if (!myTeacherName) return container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding: 20px; color:#ef4444;">담임 선생님 정보가 없습니다.</div>';
+        pVal = myTeacherName; groupTitle = `👨‍🏫 ${myTeacherName}T 반 접속 현황`;
     }
 
-    // 3. 만들어둔 안전한 통합 DB 함수 호출
-    const { data, error } = await adminDb.rpc('get_study_group_status', {
-        p_type: type,
-        p_val: pVal
-    });
+    const { data, error } = await adminDb.rpc('get_study_group_status', { p_type: type, p_val: pVal });
 
-    if (error) {
-        container.innerHTML = `<div style="text-align:center; padding: 20px; color:#ef4444; font-size:13px;">에러 발생: ${error.message}</div>`;
-        return;
-    }
+    if (error) return container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding: 20px; color:#ef4444;">에러 발생: ${error.message}</div>`;
+    if (!data || data.length === 0) return container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding: 20px; color:#94a3b8;">접속 데이터가 없습니다.</div>';
 
-    if (!data || data.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8; font-size:14px;">해당 그룹의 접속 데이터가 없습니다.</div>';
-        return;
-    }
-
-    // 💡 [변경] 컨테이너를 바둑판(Grid) 형태로 전환
     container.style.display = 'grid';
-    container.style.gridTemplateColumns = 'repeat(3, 1fr)'; // 한 줄에 3명씩 배치 (모바일 최적화)
+    container.style.gridTemplateColumns = 'repeat(3, 1fr)';
     container.style.gap = '10px';
     container.style.padding = '8px 4px';
 
     let html = '';
     let studyCount = 0;
 
-    // 4. 화면 리스트 생성 (열품타 스타일 카드 UI)
     data.forEach(student => {
         const isMe = student.seat_no === mySeatNumber;
         const isStudying = student.is_studying;
-        if (isStudying) studyCount++;
-
-        // 상태별 스타일 세팅
-        const borderColor = isStudying ? '#10b981' : '#e2e8f0'; // 열공중이면 초록색 테두리
-        const bgColor = isMe ? (isStudying ? '#ecfdf5' : '#f8fafc') : 'transparent';
-        const opacity = isStudying ? '1' : '0.6'; // 휴식 중이면 반투명하게 처리
         
-        // 🚨 타인은 이름/좌석번호 완벽 차단! 닉네임만 표시
-        let nick = "";
-        let isMeTag = "";
+        let displayHtml = "";
+        
+        if (isStudying) {
+            studyCount++;
+            // 💡 열공 중인 학생은 배열에 담아서 나중에 초를 올려줍니다.
+            const total = student.today_total_time || 0;
+            const startStr = student.current_start_time || new Date().toISOString();
+            
+            activeGroupStudents.push({
+                domId: `group-timer-${student.seat_no}`,
+                baseTotal: total,
+                startTimeMs: new Date(startStr).getTime()
+            });
+
+            // 초기 시간 포맷팅 
+            const initSecs = total + Math.floor((Date.now() - new Date(startStr).getTime()) / 1000);
+            const hh = String(Math.floor(initSecs / 3600)).padStart(2, '0');
+            const mm = String(Math.floor((initSecs % 3600) / 60)).padStart(2, '0');
+            const ss = String(initSecs % 60).padStart(2, '0');
+
+            // 초록색 불꽃 UI
+            displayHtml = `<div id="group-timer-${student.seat_no}" style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 800; color: #10b981; background: #d1fae5; padding: 2px 6px; border-radius: 4px; display: inline-block; box-shadow: 0 0 8px rgba(16,185,129,0.3);">🔥 ${hh}:${mm}:${ss}</div>`;
+        } else {
+            // 회색 휴식 UI
+            displayHtml = `<div style="font-size: 11px; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; display: inline-block;">💤 휴식 중</div>`;
+        }
+
+        const borderColor = isStudying ? '#10b981' : '#e2e8f0'; 
+        const bgColor = isMe ? (isStudying ? '#ecfdf5' : '#f8fafc') : 'transparent';
+        const opacity = isStudying ? '1' : '0.6'; 
+        
+        let nick = ""; let isMeTag = "";
         if (isMe) {
             nick = student.nickname ? student.nickname : student.name;
             isMeTag = `<div style="font-size:10px; color:#3b82f6; font-weight:800; margin-bottom:2px;">(나)</div>`;
         } else {
             nick = student.nickname ? student.nickname : "의문의 경쟁자";
-            isMeTag = `<div style="height:15px;"></div>`; // 줄맞춤용 빈 공간
+            isMeTag = `<div style="height:15px;"></div>`; 
         }
-
-        // 💡 타이머 or 휴식 텍스트
-        let timeOrStatusHtml = "";
-        if (isStudying) {
-            // 열공 중이면 타이머 형태의 UI 표시 (현재는 임시 00:00:00)
-            timeOrStatusHtml = `<div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 800; color: #10b981; background: #d1fae5; padding: 2px 6px; border-radius: 4px; display: inline-block; box-shadow: 0 0 8px rgba(16,185,129,0.3);">00:00:00</div>`;
-        } else {
-            // 휴식 중
-            timeOrStatusHtml = `<div style="font-size: 11px; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; display: inline-block;">💤 휴식 중</div>`;
-        }
-
-        // 🧑‍💻 기본 아바타 이모지 사용
-        const avatarIcon = isStudying ? '🔥' : '🧑‍💻'; 
 
         html += `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 4px; border: 2px solid ${borderColor}; border-radius: 16px; background-color: ${bgColor}; opacity: ${opacity}; transition: all 0.2s; position: relative;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 4px; border: 2px solid ${borderColor}; border-radius: 16px; background-color: ${bgColor}; opacity: ${opacity}; transition: all 0.2s;">
                 ${isMeTag}
                 <div style="font-size: 32px; line-height: 1; margin-bottom: 6px;">
-                    ${avatarIcon}
+                    ${isStudying ? '🧑‍💻' : '👦 💻'}
                 </div>
                 <div style="font-size: 11px; font-weight: 800; color: #1e293b; margin-bottom: 6px; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; box-sizing: border-box;">
                     ${nick}
                 </div>
-                ${timeOrStatusHtml}
+                ${displayHtml}
             </div>
         `;
     });
 
     document.getElementById('groupModalTitle').innerHTML = `${groupTitle} <span style="font-size:14px; color:#10b981; margin-left:8px;">(${studyCount}명 열공 중)</span> <button onclick="closeGroupModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8;">&times;</button>`;
     container.innerHTML = html;
+
+    // 🚨 3. 1초마다 활성화된 학생들의 시간을 업데이트 하는 인터벌 실행!
+    if (activeGroupStudents.length > 0) {
+        groupTimerInterval = setInterval(() => {
+            const nowMs = Date.now();
+            activeGroupStudents.forEach(st => {
+                const currentSecs = st.baseTotal + Math.floor((nowMs - st.startTimeMs) / 1000);
+                const hh = String(Math.floor(currentSecs / 3600)).padStart(2, '0');
+                const mm = String(Math.floor((currentSecs % 3600) / 60)).padStart(2, '0');
+                const ss = String(currentSecs % 60).padStart(2, '0');
+                
+                const timerEl = document.getElementById(st.domId);
+                if (timerEl) timerEl.innerText = `🔥 ${hh}:${mm}:${ss}`;
+            });
+        }, 1000);
+    }
 }
 
         // --- [다크 모드 제어 기능] ---
