@@ -159,6 +159,16 @@
         </div>
     </div>
 
+    <!-- 닉네임 설정 스크린 -->
+    <div id="nicknameModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); z-index: 99998; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+        <div style="background: white; padding: 32px; border-radius: 20px; width: 90%; max-width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center;">
+            <h3 style="margin-top: 0; color: #0f172a; font-size: 20px; font-weight: 800;">✨ 플래너 닉네임 설정</h3>
+            <p style="color: #64748b; font-size: 13px; margin-bottom: 24px; word-break: keep-all; line-height: 1.5;">스터디 그룹에서 다른 친구들에게 보여질 나만의 멋진 닉네임을 설정해 주세요! (욕설/비방 금지)</p>
+            <input type="text" id="nicknameInput" placeholder="예: 의대합격생, 수학1등급" style="width: 100%; padding: 14px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; outline: none; font-family: inherit; box-sizing: border-box; text-align: center; font-weight: 700;">
+            <button onclick="saveNickname()" style="width: 100%; padding: 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(16,185,129,0.2);">플래너 시작하기</button>
+        </div>
+    </div>
+
     <!-- 집중/순공 전체화면 모드 -->
     <div id="fullscreenOverlay" ondblclick="closeFullscreen()">
         <button onclick="closeFullscreen()" style="position: absolute; top: 30px; right: 30px; background: rgba(255,255,255,0.1); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 100; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&times;</button>
@@ -580,6 +590,7 @@
         let taskAccumulatedMs = 0;      
         let taskAnimationFrameId;       
         let editTaskId = null;
+        let myNickname = null;
 
         function restoreZombieState() {
             const savedLogicalDate = localStorage.getItem('logicalDate');
@@ -647,6 +658,7 @@
                 localStorage.removeItem('focusTotalDurationMs');
                 localStorage.removeItem('focusEndTime');
                 localStorage.removeItem('logicalDate');
+                localStorage.removeItem('myNickname');
                 
                 return; 
             }
@@ -1957,15 +1969,28 @@ async function fetchGroupStatus(type) {
         const textColor = isStudying ? '#10b981' : '#94a3b8';
         const bgStyle = isMe ? 'background: #f0f9ff; border-color: #bae6fd;' : 'background: #f8fafc; border-color: #f1f5f9;';
         
-        // 층이나 계열 전체를 볼 때는 앞의 호실(예: 1A01)까지 다 보여주는 것이 동선 파악에 유리함
-        const displaySeat = type === 'teacher' ? student.seat_no.split('-').pop() : student.seat_no;
+        let displayHtml = "";
+
+        if (isMe) {
+            // 본인은 (나) 표시와 함께 내 닉네임을 보여줍니다.
+            const displaySeat = type === 'teacher' ? student.seat_no.split('-').pop() : student.seat_no;
+            const nick = student.nickname ? student.nickname : student.name;
+            displayHtml = `
+                <span style="color:#64748b; font-size:12px; font-weight:500; margin-right:4px;">${displaySeat}</span>
+                ${nick} <span style="font-size:11px; color:#3b82f6; margin-left:4px;">(나)</span>
+            `;
+        } else {
+            // 🚨 타인은 이름/좌석번호 완벽 차단! 닉네임만 표시합니다.
+            const nick = student.nickname ? student.nickname : "의문의 경쟁자"; // 닉네임 설정 전인 친구
+            displayHtml = `🎭 ${nick}`;
+        }
 
         html += `
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid; border-radius: 12px; ${bgStyle}">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div style="width:12px; height:12px; border-radius:50%; background-color:${statusColor}; ${statusGlow}"></div>
                     <div style="font-size: 14px; font-weight: ${isMe ? '800' : '600'}; color: #1e293b;">
-                        <span style="color:#64748b; font-size:12px; font-weight:500;">${displaySeat}</span> ${student.name} ${isMe ? '<span style="font-size:11px; color:#3b82f6; margin-left:4px;">(나)</span>' : ''}
+                        ${displayHtml}
                     </div>
                 </div>
                 <div style="font-size: 12px; font-weight: 700; color: ${textColor};">
@@ -2021,6 +2046,7 @@ async function fetchGroupStatus(type) {
     const savedTam2 = localStorage.getItem('myTam2');
     const savedStatus = localStorage.getItem('myStatus');
     const savedTeacher = localStorage.getItem('myTeacherName');
+    const savedNickname = localStorage.getItem('myNickname');        
 
     // 이제 학번도 필수로 체크합니다.
     if (savedStudentId && savedSeat && savedName) {
@@ -2032,13 +2058,20 @@ async function fetchGroupStatus(type) {
         myTam2 = savedTam2 || "";
         myStatus = savedStatus || "";
         myTeacherName = savedTeacher || "";
+        myNickname = savedNickname || null;
         
         document.getElementById('loginScreen').style.display = 'none';
-        initPlanner(); 
-    } else {
-        document.getElementById('loginScreen').style.display = 'flex';
-    }
-}
+                
+                // 🚨 닉네임이 없으면 닉네임 모달 띄우기, 있으면 플래너 진입
+                if (!myNickname) {
+                    document.getElementById('nicknameModal').style.display = 'flex';
+                } else {
+                    initPlanner(); 
+                }
+            } else {
+                document.getElementById('loginScreen').style.display = 'flex';
+            }
+        }
 
         // ==========================================
         // 2. 로그인 버튼 클릭 시 실행
@@ -2049,53 +2082,55 @@ async function fetchGroupStatus(type) {
 
             if(!seatInput || !pinInput) return alert("좌석 번호와 비밀번호를 입력해주세요.");
 
-            const { data: result, error } = await adminDb.rpc('verify_student_pin', { 
-                p_seat_no: seatInput, 
-                p_pin_code: pinInput 
-            });
-
-            if (error) {
-                console.error("Supabase 상세 에러:", error);
-                return alert("DB 조회 실패! 원인: " + error.message);
-            }
-            
-            if (!result || result.length === 0) {
-                return alert(`'${seatInput}' 번호를 찾을 수 없거나 비밀번호가 틀립니다.`);
-            }
+            const { data: result, error } = await adminDb.rpc('verify_student_pin', { p_seat_no: seatInput, p_pin_code: pinInput });
+            if (error) return alert("DB 조회 실패! 원인: " + error.message);
+            if (!result || result.length === 0) return alert(`'${seatInput}' 번호를 찾을 수 없거나 비밀번호가 틀립니다.`);
 
             const student = result[0];
 
-            // 추가된 데이터 받아오기
-            myStudentId = student.student_id; 
-            mySeatNumber = student.seat_no;
-            myName = student.name;
-            myClassName = student.class_name;
-            myTam1 = student.tam1_subject;
-            myTam2 = student.tam2_subject;
-            myStatus = student.status;
-            myTeacherName = student.teacher_name;
+            if (student.status === '잔여석') return alert("해당 좌석은 현재 '잔여석' 처리되어 로그인할 수 없습니다. 데스크에 문의해 주세요.");
+            if (!student.student_id) return alert("학번 정보를 불러오지 못했습니다. 관리자에게 문의하세요.");
 
-            // 🚨 [추가] 상태가 '잔여석'인 경우 로그인 원천 차단!
-            if (myStatus === '잔여석') {
-                return alert("해당 좌석은 현재 '잔여석' 처리되어 로그인할 수 없습니다. 데스크에 문의해 주세요.");
-            }
+            myStudentId = student.student_id; mySeatNumber = student.seat_no; myName = student.name;
+            myClassName = student.class_name; myTam1 = student.tam1_subject; myTam2 = student.tam2_subject;
+            myStatus = student.status; myTeacherName = student.teacher_name;
+            myNickname = student.nickname; // 👈 추가
 
-            if (!myStudentId) {
-                return alert("학번 정보를 불러오지 못했습니다. 관리자에게 문의하세요.");
-            }
-
-            // 로컬 스토리지에 저장
-            localStorage.setItem('myStudentId', myStudentId);
-            localStorage.setItem('mySeatNumber', mySeatNumber);
+            localStorage.setItem('myStudentId', myStudentId); localStorage.setItem('mySeatNumber', mySeatNumber);
             localStorage.setItem('myName', myName);
             if(myClassName) localStorage.setItem('myClassName', myClassName);
-            if(myTam1) localStorage.setItem('myTam1', myTam1);
-            if(myTam2) localStorage.setItem('myTam2', myTam2);
-            if(myStatus) localStorage.setItem('myStatus', myStatus);
-            if(myTeacherName) localStorage.setItem('myTeacherName', myTeacherName);
+            if(myTam1) localStorage.setItem('myTam1', myTam1); if(myTam2) localStorage.setItem('myTam2', myTam2);
+            if(myStatus) localStorage.setItem('myStatus', myStatus); if(myTeacherName) localStorage.setItem('myTeacherName', myTeacherName);
+            if(myNickname) localStorage.setItem('myNickname', myNickname); // 👈 추가
 
             document.getElementById('loginScreen').style.display = 'none';
-            initPlanner(); 
+
+            // 🚨 닉네임이 없으면 닉네임 모달 띄우기, 있으면 플래너 진입
+            if (!myNickname) {
+                document.getElementById('nicknameModal').style.display = 'flex';
+            } else {
+                initPlanner(); 
+            }
+        }
+
+        // 💡 닉네임 DB 저장 함수
+        async function saveNickname() {
+            const inputVal = document.getElementById('nicknameInput').value.trim();
+            if (!inputVal) return alert("사용할 닉네임을 입력해 주세요!");
+            if (inputVal.length > 12) return alert("닉네임은 12글자 이내로 설정해 주세요.");
+
+            const { error } = await adminDb.rpc('update_student_nickname', {
+                p_student_id: myStudentId,
+                p_nickname: inputVal
+            });
+
+            if (error) return alert("닉네임 저장에 실패했습니다: " + error.message);
+
+            myNickname = inputVal;
+            localStorage.setItem('myNickname', myNickname);
+            
+            document.getElementById('nicknameModal').style.display = 'none';
+            initPlanner(); // 저장 성공 시 비로소 플래너 진입!
         }
 
         // ==========================================
