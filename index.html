@@ -142,6 +142,9 @@
         body.dark-theme #groupModal div[style*="background: #f1f5f9"] { background: #0f172a !important; }
         body.dark-theme #groupModal button[style*="background: white"] { background: #1e293b !important; color: #f8fafc !important; }
         body.dark-theme #groupModal button[style*="background: transparent"] { color: #94a3b8 !important; }
+        /* 스터디 그룹 카드 다크모드 대응 */
+        body.dark-theme #groupListContainer > div { border-color: #334155 !important; background-color: transparent !important; }
+        body.dark-theme #groupListContainer > div[style*="border: 2px solid rgb(16, 185, 129)"] { border-color: #10b981 !important; background-color: rgba(16, 185, 129, 0.1) !important; }
     </style>
 </head>
 <body>
@@ -1962,48 +1965,60 @@ async function fetchGroupStatus(type) {
         return;
     }
 
+    // 💡 [변경] 컨테이너를 바둑판(Grid) 형태로 전환
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = 'repeat(3, 1fr)'; // 한 줄에 3명씩 배치 (모바일 최적화)
+    container.style.gap = '10px';
+    container.style.padding = '8px 4px';
+
     let html = '';
     let studyCount = 0;
 
-    // 4. 화면 리스트 생성 
+    // 4. 화면 리스트 생성 (열품타 스타일 카드 UI)
     data.forEach(student => {
         const isMe = student.seat_no === mySeatNumber;
         const isStudying = student.is_studying;
         if (isStudying) studyCount++;
 
-        const statusColor = isStudying ? '#10b981' : '#cbd5e1'; 
-        const statusGlow = isStudying ? 'box-shadow: 0 0 8px rgba(16,185,129,0.5);' : '';
-        const statusText = isStudying ? '🔥 열공 중' : '휴식 중';
-        const textColor = isStudying ? '#10b981' : '#94a3b8';
-        const bgStyle = isMe ? 'background: #f0f9ff; border-color: #bae6fd;' : 'background: #f8fafc; border-color: #f1f5f9;';
+        // 상태별 스타일 세팅
+        const borderColor = isStudying ? '#10b981' : '#e2e8f0'; // 열공중이면 초록색 테두리
+        const bgColor = isMe ? (isStudying ? '#ecfdf5' : '#f8fafc') : 'transparent';
+        const opacity = isStudying ? '1' : '0.6'; // 휴식 중이면 반투명하게 처리
         
-        let displayHtml = "";
-
+        // 🚨 타인은 이름/좌석번호 완벽 차단! 닉네임만 표시
+        let nick = "";
+        let isMeTag = "";
         if (isMe) {
-            // 본인은 (나) 표시와 함께 내 닉네임을 보여줍니다.
-            const displaySeat = type === 'teacher' ? student.seat_no.split('-').pop() : student.seat_no;
-            const nick = student.nickname ? student.nickname : student.name;
-            displayHtml = `
-                <span style="color:#64748b; font-size:12px; font-weight:500; margin-right:4px;">${displaySeat}</span>
-                ${nick} <span style="font-size:11px; color:#3b82f6; margin-left:4px;">(나)</span>
-            `;
+            nick = student.nickname ? student.nickname : student.name;
+            isMeTag = `<div style="font-size:10px; color:#3b82f6; font-weight:800; margin-bottom:2px;">(나)</div>`;
         } else {
-            // 🚨 타인은 이름/좌석번호 완벽 차단! 닉네임만 표시합니다.
-            const nick = student.nickname ? student.nickname : "의문의 경쟁자"; // 닉네임 설정 전인 친구
-            displayHtml = `🎭 ${nick}`;
+            nick = student.nickname ? student.nickname : "의문의 경쟁자";
+            isMeTag = `<div style="height:15px;"></div>`; // 줄맞춤용 빈 공간
         }
 
+        // 💡 타이머 or 휴식 텍스트
+        let timeOrStatusHtml = "";
+        if (isStudying) {
+            // 열공 중이면 타이머 형태의 UI 표시 (현재는 임시 00:00:00)
+            timeOrStatusHtml = `<div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 800; color: #10b981; background: #d1fae5; padding: 2px 6px; border-radius: 4px; display: inline-block; box-shadow: 0 0 8px rgba(16,185,129,0.3);">00:00:00</div>`;
+        } else {
+            // 휴식 중
+            timeOrStatusHtml = `<div style="font-size: 11px; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; display: inline-block;">💤 휴식 중</div>`;
+        }
+
+        // 🧑‍💻 기본 아바타 이모지 사용
+        const avatarIcon = isStudying ? '🔥' : '🧑‍💻'; 
+
         html += `
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid; border-radius: 12px; ${bgStyle}">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="width:12px; height:12px; border-radius:50%; background-color:${statusColor}; ${statusGlow}"></div>
-                    <div style="font-size: 14px; font-weight: ${isMe ? '800' : '600'}; color: #1e293b;">
-                        ${displayHtml}
-                    </div>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 4px; border: 2px solid ${borderColor}; border-radius: 16px; background-color: ${bgColor}; opacity: ${opacity}; transition: all 0.2s; position: relative;">
+                ${isMeTag}
+                <div style="font-size: 32px; line-height: 1; margin-bottom: 6px;">
+                    ${avatarIcon}
                 </div>
-                <div style="font-size: 12px; font-weight: 700; color: ${textColor};">
-                    ${statusText}
+                <div style="font-size: 11px; font-weight: 800; color: #1e293b; margin-bottom: 6px; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; box-sizing: border-box;">
+                    ${nick}
                 </div>
+                ${timeOrStatusHtml}
             </div>
         `;
     });
