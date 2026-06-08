@@ -682,7 +682,7 @@
                 setTimeout(() => showFloatingBarForActiveTask(), 500); 
                 updateTaskTimerLoop();
 
-                setMyStudyState(true);
+                notifyStudyStart();
             }
 
             const savedSwRunning = localStorage.getItem('isSwRunning') === 'true';
@@ -695,7 +695,7 @@
                 document.getElementById('swPauseBtn').style.display = 'inline-block'; 
                 document.getElementById('swStopBtn').style.display = 'inline-block'; 
                 updateStopwatchUI();
-                setMyStudyState(true);
+                notifyStudyStart();
             } else if (accumulatedMs > 0) {
                 document.getElementById('swStartBtn').innerText = '이어서 하기'; 
                 document.getElementById('swStartBtn').style.backgroundColor = "#10b981"; 
@@ -719,7 +719,7 @@
                 document.getElementById('progressFill').style.backgroundColor = "#10b981"; 
                 updateTimerUI(); 
 
-                setMyStudyState(true);
+                notifyStudyStart();
             }
             
             updateWakeLockState(); 
@@ -1176,7 +1176,7 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             taskStartTime = Date.now(); 
             taskAccumulatedMs = currentSeconds * 1000;
 
-            setMyStudyState(true);
+            notifyStudyStart();
             
             localStorage.setItem('activeTaskId', activeTaskId);
             localStorage.setItem('taskStartTime', taskStartTime);
@@ -1226,11 +1226,13 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
 
         async function pauseTask(taskId, currentSeconds) {
             cancelAnimationFrame(taskAnimationFrameId); 
-            const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
-            activeTaskId = null;
-
-            setMyStudyState(false);
             
+            // 🚨 수정된 부분: 방금 공부한 초 계산 및 DB 통신
+            const addedSeconds = Math.floor((Date.now() - taskStartTime) / 1000); 
+            const finalSeconds = currentSeconds + addedSeconds; 
+            activeTaskId = null;
+            notifyStudyStop(addedSeconds); 
+
             localStorage.removeItem('activeTaskId');
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
@@ -1270,11 +1272,13 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             if (!confirm(msg)) return;
             
             cancelAnimationFrame(taskAnimationFrameId); 
-            const finalSeconds = currentSeconds + Math.floor((Date.now() - taskStartTime) / 1000); 
-            activeTaskId = null;
 
-            setMyStudyState(false);
-            
+            // 🚨 수정된 부분: 방금 공부한 초 계산 및 DB 통신
+            const addedSeconds = Math.floor((Date.now() - taskStartTime) / 1000); 
+            const finalSeconds = currentSeconds + addedSeconds; 
+            activeTaskId = null;
+            notifyStudyStop(addedSeconds); 
+
             localStorage.removeItem('activeTaskId');
             localStorage.removeItem('taskStartTime');
             localStorage.removeItem('taskAccumulatedMs');
@@ -1471,7 +1475,7 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             const exactNow = Date.now();
             endTime = exactNow + totalDurationMs; 
 
-            setMyStudyState(true);
+            notifyStudyStart();
             
             localStorage.setItem('isFocusRunning', 'true');
             localStorage.setItem('focusTargetMins', targetMins);
@@ -1511,8 +1515,13 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             cancelAnimationFrame(animationFrameId); 
             const actualSeconds = targetMins * 60 - Math.floor(Math.max(0, endTime - Date.now()) / 1000);
 
-            setMyStudyState(false);
-            
+            // 🚨 수정된 부분: 방금 공부한 초 계산 및 DB 통신
+            let addedSeconds = 0;
+            if (taskStartTime && taskStartTime > 0) {
+                addedSeconds = Math.floor((Date.now() - taskStartTime) / 1000);
+            }
+            notifyStudyStop(addedSeconds); 
+
             localStorage.removeItem('isFocusRunning');
             localStorage.removeItem('focusTargetMins');
             localStorage.removeItem('focusTotalDurationMs');
@@ -1708,7 +1717,7 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
             swStartTime = exactStartTime || Date.now(); 
             isSwRunning = true;
 
-            setMyStudyState(true);
+            notifyStudyStart();
             
             localStorage.setItem('isSwRunning', 'true');
             localStorage.setItem('swStartTime', swStartTime);
@@ -1724,12 +1733,13 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
 
         function pauseStopwatch() {
             if (isSwRunning) {
+                // 🚨 수정된 부분: 방금 공부한 초 계산 및 DB 통신
+                const addedSeconds = Math.floor((Date.now() - swStartTime) / 1000); 
                 accumulatedMs += (Date.now() - swStartTime); 
                 isSwRunning = false; 
                 cancelAnimationFrame(swAnimationFrameId); 
+                notifyStudyStop(addedSeconds); 
 
-                setMyStudyState(false);
-                
                 localStorage.setItem('isSwRunning', 'false');
                 localStorage.setItem('accumulatedMs', accumulatedMs);
 
@@ -1756,10 +1766,22 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
         }
         
         async function stopStopwatch() {
-            if(!confirm("순공 시간을 저장할까요?")) return; let finalElapsedMs = accumulatedMs; if (isSwRunning) finalElapsedMs += (Date.now() - swStartTime); isSwRunning = false; cancelAnimationFrame(swAnimationFrameId); const actualSeconds = Math.floor(finalElapsedMs / 1000); accumulatedMs = 0;
-
-            setMyStudyState(false);
+            if(!confirm("순공 시간을 저장할까요?")) return; 
             
+            let finalElapsedMs = accumulatedMs; 
+            
+            // 🚨 수정된 부분: 방금 공부한 초 계산 및 DB 통신
+            let addedSeconds = 0; 
+            if (isSwRunning) {
+                addedSeconds = Math.floor((Date.now() - swStartTime) / 1000);
+                finalElapsedMs += (Date.now() - swStartTime); 
+            }
+            isSwRunning = false; 
+            cancelAnimationFrame(swAnimationFrameId); 
+            const actualSeconds = Math.floor(finalElapsedMs / 1000); 
+            accumulatedMs = 0;
+            notifyStudyStop(addedSeconds); 
+
             localStorage.removeItem('isSwRunning');
             localStorage.removeItem('swStartTime');
             localStorage.removeItem('accumulatedMs');
@@ -1892,18 +1914,6 @@ const { data, error } = await supabaseClient.from('planner_tasks').select('*')
 
         // --- [열품타 실시간 상태 기능] ---
 
-// 1. 내 상태 업데이트 함수 (안전한 RPC 호출 방식으로 변경)
-async function setMyStudyState(isStudying) {
-    if (!myStudentId) return;
-    
-    // 테이블 직접 수정(from.update) 대신, 만들어둔 안전한 함수(rpc)를 호출합니다.
-    const { error } = await adminDb.rpc('update_study_status', {
-        p_student_id: myStudentId,
-        p_is_studying: isStudying
-    });
-    
-    if (error) console.error("상태 업데이트 에러:", error);
-}
 
 let currentGroupTab = 'teacher'; // 모달을 열었을 때 기본적으로 보여줄 탭 (우리 반)
 
@@ -2045,6 +2055,23 @@ async function fetchGroupStatus(type) {
         }, 1000);
     }
 }
+
+        // 💡 [추가] 내가 타이머를 시작했을 때 DB에 알리는 함수
+        async function notifyStudyStart() {
+            if (!mySeatNumber) return;
+            await adminDb.rpc('set_study_status_start', { 
+                p_seat_no: mySeatNumber 
+            });
+        }
+
+        // 💡 [추가] 내가 타이머를 멈췄을 때 방금 공부한 시간(초)을 DB에 누적하는 함수
+        async function notifyStudyStop(secondsStudied) {
+            if (!mySeatNumber || secondsStudied <= 0) return;
+            await adminDb.rpc('set_study_status_stop', { 
+                p_seat_no: mySeatNumber,
+                p_added_seconds: Math.floor(secondsStudied)
+            });
+        }
 
         // --- [다크 모드 제어 기능] ---
         function applySavedTheme() {
