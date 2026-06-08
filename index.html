@@ -161,11 +161,15 @@
 
     <!-- 닉네임 설정 스크린 -->
     <div id="nicknameModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); z-index: 99998; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
-        <div style="background: white; padding: 32px; border-radius: 20px; width: 90%; max-width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center;">
+        <div style="position: relative; background: white; padding: 32px; border-radius: 20px; width: 90%; max-width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center;">
+            
+            <!-- 💡 [추가] 닫기 버튼 (처음 로그인 시 필수 입력할 때는 숨겨짐) -->
+            <button id="closeNicknameBtn" onclick="closeNicknameModal()" style="display: none; position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">&times;</button>
+            
             <h3 style="margin-top: 0; color: #0f172a; font-size: 20px; font-weight: 800;">✨ 플래너 닉네임 설정</h3>
             <p style="color: #64748b; font-size: 13px; margin-bottom: 24px; word-break: keep-all; line-height: 1.5;">스터디 그룹에서 다른 친구들에게 보여질 나만의 멋진 닉네임을 설정해 주세요! (욕설/비방 금지)</p>
             <input type="text" id="nicknameInput" placeholder="예: 의대합격생, 수학1등급" style="width: 100%; padding: 14px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; outline: none; font-family: inherit; box-sizing: border-box; text-align: center; font-weight: 700;">
-            <button onclick="saveNickname()" style="width: 100%; padding: 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(16,185,129,0.2);">플래너 시작하기</button>
+            <button onclick="saveNickname()" style="width: 100%; padding: 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(16,185,129,0.2);">저장 및 시작하기</button>
         </div>
     </div>
 
@@ -278,9 +282,13 @@
             <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.03em;">
                 📝 나의 학습 플래너 
                 <span id="headerInfo" style="font-size: 16px; font-weight: 600; color: #64748b; margin-left: 6px;"></span>
+                
+                <!-- 💡 [추가] 닉네임 변경 버튼 -->
+                <button onclick="openNicknameEdit()" style="background: none; border: none; color: #3b82f6; font-size: 13px; font-weight: 700; cursor: pointer; margin-left: 10px; text-decoration: underline;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#3b82f6'">✏️ 닉네임 변경</button>
+                
                 <button onclick="logout()" style="background: none; border: none; color: #94a3b8; font-size: 12px; cursor: pointer; margin-left: 10px; text-decoration: underline;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">로그아웃</button>
             </h1>
-            
+                   
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
                 <button onclick="changeDate(-1)" class="date-nav-btn">◀ 어제</button>
                 <div id="todayDateStr" style="font-size: 15px; color: #334155; font-weight: 700; display: flex; align-items: center;">
@@ -2107,6 +2115,7 @@ async function fetchGroupStatus(type) {
 
             // 🚨 닉네임이 없으면 닉네임 모달 띄우기, 있으면 플래너 진입
             if (!myNickname) {
+                document.getElementById('closeNicknameBtn').style.display = 'none'; // 👈 추가: 최초 입력 시 닫기 금지
                 document.getElementById('nicknameModal').style.display = 'flex';
             } else {
                 initPlanner(); 
@@ -2131,6 +2140,18 @@ async function fetchGroupStatus(type) {
             
             document.getElementById('nicknameModal').style.display = 'none';
             initPlanner(); // 저장 성공 시 비로소 플래너 진입!
+        }
+
+        // 💡 [추가] 닉네임 변경 모달 열기/닫기 함수
+        function openNicknameEdit() {
+            document.getElementById('nicknameInput').value = myNickname || ""; // 현재 닉네임 불러오기
+            document.getElementById('closeNicknameBtn').style.display = 'block'; // 수정할 땐 취소(X) 버튼 보이게!
+            document.getElementById('nicknameModal').style.display = 'flex';
+            document.getElementById('nicknameInput').focus();
+        }
+
+        function closeNicknameModal() {
+            document.getElementById('nicknameModal').style.display = 'none';
         }
 
         // ==========================================
