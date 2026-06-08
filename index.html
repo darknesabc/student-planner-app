@@ -130,6 +130,10 @@
         /* 플로팅 바 */
         body.dark-theme #floatingTaskBar { background: rgba(30, 41, 59, 0.95) !important; border-top-color: #334155 !important; }
         body.dark-theme #floatingTaskContent { color: #e2e8f0 !important; }
+        /* 탭 버튼 다크 모드 처리 */
+        body.dark-theme #groupModal div[style*="background: #f1f5f9"] { background: #0f172a !important; }
+        body.dark-theme #groupModal button[style*="background: white"] { background: #1e293b !important; color: #f8fafc !important; }
+        body.dark-theme #groupModal button[style*="background: transparent"] { color: #94a3b8 !important; }
     </style>
 </head>
 <body>
@@ -230,16 +234,22 @@
     <!-- 우리 반 열품타 모달 -->
 <div id="groupModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); z-index: 20002; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
     <div style="background: white; padding: 28px; border-radius: 20px; width: 90%; max-width: 360px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
-        <h3 id="groupModalTitle" style="margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: space-between;">
-            🔥 우리 반 접속 현황
+        <h3 id="groupModalTitle" style="margin-top: 0; margin-bottom: 16px; color: #0f172a; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: space-between;">
+            🔥 스터디 그룹 현황
             <button onclick="closeGroupModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">&times;</button>
         </h3>
-        <p style="color: #64748b; font-size: 13px; margin-bottom: 20px; font-weight: 500;">현재 타이머를 켜고 공부 중인 친구들입니다.</p>
+        
+        <!-- 💡 [추가] 3가지 스터디 그룹을 선택할 수 있는 탭(Tab) 영역 -->
+        <div style="display: flex; gap: 4px; margin-bottom: 16px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
+            <button id="tabGroupFloor" onclick="fetchGroupStatus('floor')" style="flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; background: transparent; color: #64748b; transition: all 0.2s;">🏢 같은 층</button>
+            <button id="tabGroupClass" onclick="fetchGroupStatus('class')" style="flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; background: transparent; color: #64748b; transition: all 0.2s;">🏫 같은 계열</button>
+            <button id="tabGroupTeacher" onclick="fetchGroupStatus('teacher')" style="flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; background: white; color: #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;">👨‍🏫 우리 반</button>
+        </div>
         
         <!-- 친구 목록이 들어갈 자리 -->
         <div id="groupListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto; padding-right: 4px;"></div>
         
-        <button onclick="fetchClassmatesStatus()" style="width: 100%; margin-top: 16px; padding: 12px; font-size: 13px; background-color: #f1f5f9; color: #475569; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: all 0.2s;" onmouseover="this.style.backgroundColor='#e2e8f0'">🔄 새로고침</button>
+        <button onclick="fetchGroupStatus(currentGroupTab)" style="width: 100%; margin-top: 16px; padding: 12px; font-size: 13px; background-color: #f1f5f9; color: #475569; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: all 0.2s;" onmouseover="this.style.backgroundColor='#e2e8f0'">🔄 새로고침</button>
     </div>
 </div>
 
@@ -1864,29 +1874,54 @@ async function setMyStudyState(isStudying) {
     if (error) console.error("상태 업데이트 에러:", error);
 }
 
-// 2. 모달 제어 함수 (그대로 유지)
+let currentGroupTab = 'teacher'; // 모달을 열었을 때 기본적으로 보여줄 탭 (우리 반)
+
 function openGroupModal() {
     document.getElementById('groupModal').style.display = 'flex';
-    fetchClassmatesStatus();
+    fetchGroupStatus(currentGroupTab); // 열 때 마지막으로 본 탭을 불러옴
 }
 
 function closeGroupModal() {
     document.getElementById('groupModal').style.display = 'none';
 }
 
-// 3. 친구 목록 불러오기 함수 (안전한 RPC 호출 방식으로 변경)
-async function fetchClassmatesStatus() {
+// 💡 [변경] 탭 클릭 시 해당 그룹의 데이터를 영리하게 불러오는 통합 함수
+async function fetchGroupStatus(type) {
+    currentGroupTab = type; // 현재 선택된 탭 기억
+    
+    // 1. 탭 버튼 디자인 변경 (선택된 탭 하얗게, 나머지는 투명하게)
+    const activeStyle = 'flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; background: white; color: #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;';
+    const inactiveStyle = 'flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; background: transparent; color: #64748b; transition: all 0.2s;';
+    
+    document.getElementById('tabGroupFloor').style.cssText = type === 'floor' ? activeStyle : inactiveStyle;
+    document.getElementById('tabGroupClass').style.cssText = type === 'class' ? activeStyle : inactiveStyle;
+    document.getElementById('tabGroupTeacher').style.cssText = type === 'teacher' ? activeStyle : inactiveStyle;
+
     const container = document.getElementById('groupListContainer');
     container.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8; font-size:14px;">데이터를 불러오는 중...</div>';
 
-    if (!myClassName) {
-        container.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444; font-size:14px; font-weight: 700;">소속 반 정보가 없습니다.</div>';
-        return;
+    let pVal = "";
+    let groupTitle = "";
+    
+    // 2. 탭의 종류에 따라 넘겨줄 값(pVal)과 제목 자동 세팅
+    if (type === 'floor') {
+        if (!mySeatNumber) return container.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444; font-size:14px; font-weight: 700;">좌석 정보가 없습니다.</div>';
+        pVal = mySeatNumber.split('-')[0]; // "3-1A01"에서 앞의 "3"만 똑 떼어냄
+        groupTitle = `🏢 ${pVal}층 접속 현황`;
+    } else if (type === 'class') {
+        if (!myClassName) return container.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444; font-size:14px; font-weight: 700;">소속 계열 정보가 없습니다.</div>';
+        pVal = myClassName; 
+        groupTitle = `🏫 ${myClassName.startsWith('HS') ? 'HS계열' : myClassName} 접속 현황`;
+    } else if (type === 'teacher') {
+        if (!myTeacherName) return container.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444; font-size:14px; font-weight: 700;">담임 선생님 정보가 없습니다.</div>';
+        pVal = myTeacherName;
+        groupTitle = `👨‍🏫 ${myTeacherName}T 반 접속 현황`;
     }
 
-    // 테이블 직접 조회(from.select) 대신, 만들어둔 안전한 함수(rpc)를 호출합니다.
-    const { data, error } = await adminDb.rpc('get_classmates_status', {
-        p_class_name: myClassName
+    // 3. 만들어둔 안전한 통합 DB 함수 호출
+    const { data, error } = await adminDb.rpc('get_study_group_status', {
+        p_type: type,
+        p_val: pVal
     });
 
     if (error) {
@@ -1895,17 +1930,17 @@ async function fetchClassmatesStatus() {
     }
 
     if (!data || data.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8; font-size:14px;">우리 반 학생 데이터가 없습니다.</div>';
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8; font-size:14px;">해당 그룹의 접속 데이터가 없습니다.</div>';
         return;
     }
 
     let html = '';
     let studyCount = 0;
 
+    // 4. 화면 리스트 생성 
     data.forEach(student => {
         const isMe = student.seat_no === mySeatNumber;
         const isStudying = student.is_studying;
-        
         if (isStudying) studyCount++;
 
         const statusColor = isStudying ? '#10b981' : '#cbd5e1'; 
@@ -1913,15 +1948,16 @@ async function fetchClassmatesStatus() {
         const statusText = isStudying ? '🔥 열공 중' : '휴식 중';
         const textColor = isStudying ? '#10b981' : '#94a3b8';
         const bgStyle = isMe ? 'background: #f0f9ff; border-color: #bae6fd;' : 'background: #f8fafc; border-color: #f1f5f9;';
-
-        const shortSeat = student.seat_no.split('-').pop(); 
+        
+        // 층이나 계열 전체를 볼 때는 앞의 호실(예: 1A01)까지 다 보여주는 것이 동선 파악에 유리함
+        const displaySeat = type === 'teacher' ? student.seat_no.split('-').pop() : student.seat_no;
 
         html += `
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid; border-radius: 12px; ${bgStyle}">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div style="width:12px; height:12px; border-radius:50%; background-color:${statusColor}; ${statusGlow}"></div>
                     <div style="font-size: 14px; font-weight: ${isMe ? '800' : '600'}; color: #1e293b;">
-                        ${shortSeat} ${student.name} ${isMe ? '<span style="font-size:11px; color:#3b82f6; margin-left:4px;">(나)</span>' : ''}
+                        <span style="color:#64748b; font-size:12px; font-weight:500;">${displaySeat}</span> ${student.name} ${isMe ? '<span style="font-size:11px; color:#3b82f6; margin-left:4px;">(나)</span>' : ''}
                     </div>
                 </div>
                 <div style="font-size: 12px; font-weight: 700; color: ${textColor};">
@@ -1931,8 +1967,7 @@ async function fetchClassmatesStatus() {
         `;
     });
 
-    document.getElementById('groupModalTitle').innerHTML = `🔥 우리 반 접속 현황 <span style="font-size:14px; color:#10b981; margin-left:8px;">(${studyCount}명 열공 중)</span> <button onclick="closeGroupModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8;">&times;</button>`;
-    
+    document.getElementById('groupModalTitle').innerHTML = `${groupTitle} <span style="font-size:14px; color:#10b981; margin-left:8px;">(${studyCount}명 열공 중)</span> <button onclick="closeGroupModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8;">&times;</button>`;
     container.innerHTML = html;
 }
 
