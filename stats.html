@@ -15,6 +15,8 @@
         .stat { text-align: center; }
         .stat .label { font-size: 13px; color: #64748b; }
         .stat .value { font-size: 26px; font-weight: 800; color: #1e293b; margin-top: 4px; }
+        .range-btn { padding: 8px 14px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+        .range-btn.on { background: #2563eb; border-color: #2563eb; color: #fff; }
         #grass { display: grid; grid-template-columns: repeat(10, 26px); gap: 8px; justify-content: center; padding: 10px 0; }
         #grass div { width: 26px; height: 26px; border-radius: 5px; }
         @media (max-width: 480px) { #grass { grid-template-columns: repeat(10, 22px); gap: 6px; } #grass div { width: 22px; height: 22px; } .stat .value { font-size: 20px; } }
@@ -35,11 +37,22 @@
                 <div class="stat"><div class="label">최근 7일 평균</div><div class="value" id="avg7">-</div></div>
                 <div class="stat"><div class="label">최근 30일 합계</div><div class="value" id="sum30">-</div></div>
             </div>
+            <div id="goalLine" style="display:none; text-align:center; margin-top: 14px; font-size: 14px; color: #475569; font-weight: 600;"></div>
         </div>
 
         <div class="card">
             <h3>🔥 오늘의 집중 모드 결과</h3>
             <div id="chartContainer" style="min-height: 300px;"></div>
+        </div>
+
+        <div class="card">
+            <h3>📚 과목별 공부 시간</h3>
+            <div style="display:flex; justify-content:center; gap:6px; margin-bottom: 12px;">
+                <button class="range-btn on" data-days="1">오늘</button>
+                <button class="range-btn" data-days="7">최근 7일</button>
+                <button class="range-btn" data-days="30">최근 30일</button>
+            </div>
+            <div id="subjectContainer" style="min-height: 220px;"></div>
         </div>
 
         <div class="card">
@@ -90,6 +103,17 @@
             document.getElementById('content').style.display = 'block';
 
             const today = rows[rows.length - 1];
+            todayStr = today.day;
+            const { data: info } = await db.rpc('my_info');
+            me = Array.isArray(info) ? info[0] : info;
+            const goalSec = (me?.daily_goal_min || 0) * 60;
+            if (goalSec > 0) {
+                const hit = rows.slice(-7).filter(r => r.seconds >= goalSec).length;
+                const gl = document.getElementById('goalLine');
+                gl.style.display = 'block';
+                gl.textContent = `🎯 하루 목표 ${+(goalSec / 3600).toFixed(1)}시간 · 최근 7일 중 ${hit}일 달성`;
+            }
+            loadSubjects(1);
             const last7 = rows.slice(-7);
             document.getElementById('todayTime').innerText = hm(today.seconds);
             document.getElementById('avg7').innerText = hm(last7.reduce((a, r) => a + r.seconds, 0) / last7.length);
@@ -111,6 +135,8 @@
                 xaxis: { categories: last14.map(r => r.day.slice(5).replace('-', '/')) },
                 yaxis: { labels: { formatter: v => `${v}h` } },
                 colors: ['#2563eb'],
+                annotations: goalSec > 0 ? { yaxis: [{ y: +(goalSec / 3600).toFixed(1), borderColor: '#f59e0b', strokeDashArray: 4,
+                    label: { text: `목표 ${+(goalSec / 3600).toFixed(1)}h`, style: { background: '#f59e0b', color: '#fff' } } }] } : {},
                 dataLabels: { enabled: false },
                 plotOptions: { bar: { borderRadius: 3, columnWidth: '60%' } },
                 tooltip: { y: { formatter: v => `${v}시간` } }
@@ -127,6 +153,39 @@
                 grass.appendChild(cell);
             });
         }
+
+        // 과목별 공부 시간
+        const SUBJECT_COLORS = { '국어': '#ef4444', '수학': '#3b82f6', '영어': '#f59e0b', '탐구1': '#8b5cf6', '탐구2': '#7c3aed',
+            '한국사': '#10b981', '논술': '#ec4899', '면접': '#06b6d4', '모의고사': '#1e293b', '자율학습': '#14b8a6', '집중 모드': '#0f172a', '과목 없음': '#94a3b8' };
+        let me = null, subjectChart = null, todayStr = null;
+        function addDays(d, n) { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
+        function subjectName(s) {
+            if (s === '탐구1' && me?.tam1_subject) return me.tam1_subject;
+            if (s === '탐구2' && me?.tam2_subject) return me.tam2_subject;
+            return s;
+        }
+        async function loadSubjects(days) {
+            document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('on', +b.dataset.days === days));
+            const { data, error } = await db.rpc('my_subject_totals', { p_from: addDays(todayStr, -(days - 1)), p_to: todayStr });
+            const box = document.getElementById('subjectContainer');
+            if (subjectChart) { subjectChart.destroy(); subjectChart = null; }
+            if (error) { box.textContent = '불러오지 못했어요.'; return; }
+            if (!data.length) { box.innerHTML = '<div style="text-align:center; color:#94a3b8; padding: 60px 0;">이 기간에는 기록이 없어요.</div>'; return; }
+            box.innerHTML = '';
+            const total = data.reduce((a, r) => a + r.seconds, 0);
+            subjectChart = new ApexCharts(box, {
+                chart: { type: 'bar', height: Math.max(180, data.length * 44 + 40), toolbar: { show: false }, fontFamily: 'Pretendard, sans-serif' },
+                series: [{ name: '공부 시간', data: data.map(r => +(r.seconds / 3600).toFixed(2)) }],
+                xaxis: { categories: data.map(r => subjectName(r.subject)), labels: { formatter: v => `${v}h` } },
+                plotOptions: { bar: { horizontal: true, borderRadius: 3, distributed: true, barHeight: '60%' } },
+                colors: data.map(r => SUBJECT_COLORS[r.subject] || '#64748b'),
+                legend: { show: false },
+                dataLabels: { enabled: true, formatter: (v, o) => `${hm(data[o.dataPointIndex].seconds)} (${Math.round(data[o.dataPointIndex].seconds / total * 100)}%)`, style: { fontSize: '12px' } },
+                tooltip: { y: { formatter: (v, o) => hm(data[o.dataPointIndex].seconds) } }
+            });
+            subjectChart.render();
+        }
+        document.querySelectorAll('.range-btn').forEach(b => b.onclick = () => loadSubjects(+b.dataset.days));
 
         loadStatistics();
     </script>
