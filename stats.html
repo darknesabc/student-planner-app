@@ -3,117 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>학습 통계 대시보드</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <title>학습 통계</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@4.7.0/dist/apexcharts.min.js"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; padding: 20px 16px; background-color: #f3f4f6; max-width: 800px; margin: 0 auto; color: #1e293b; }
+        .card { background: white; padding: 22px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.06); margin-bottom: 20px; }
+        .card h3 { margin-top: 0; color: #2c3e50; text-align: center; font-size: 16px; }
+        .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .stat { text-align: center; }
+        .stat .label { font-size: 13px; color: #64748b; }
+        .stat .value { font-size: 26px; font-weight: 800; color: #1e293b; margin-top: 4px; }
+        #grass { display: grid; grid-template-columns: repeat(10, 26px); gap: 8px; justify-content: center; padding: 10px 0; }
+        #grass div { width: 26px; height: 26px; border-radius: 5px; }
+        @media (max-width: 480px) { #grass { grid-template-columns: repeat(10, 22px); gap: 6px; } #grass div { width: 22px; height: 22px; } .stat .value { font-size: 20px; } }
+    </style>
 </head>
-<body style="font-family: sans-serif; padding: 20px; background-color: #f3f4f6; max-width: 800px; margin: 0 auto;">
-
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-        <h1 style="color: #333; margin: 0;">📊 학습 통계 리포트</h1>
-        <a href="index.html" style="padding: 10px 20px; background-color: #34495e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">📅 플래너로 돌아가기</a>
+<body>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 12px; flex-wrap: wrap;">
+        <h1 style="margin: 0; font-size: 24px;">📊 학습 통계 리포트</h1>
+        <a href="index.html" style="padding: 10px 16px; background-color: #34495e; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">📅 플래너로 돌아가기</a>
     </div>
 
-    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; text-align: center;">
-        <h3 style="margin-top: 0; color: #7f8c8d;">오늘 총 공부 시간</h3>
-        <div id="totalTimeDisplay" style="font-size: 40px; font-weight: bold; color: #2c3e50;">00시간 00분</div>
-    </div>
+    <div id="msg" style="display:none; text-align:center; padding: 30px; color:#64748b;"></div>
 
-    <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <h3 style="margin-top: 0; color: #2c3e50; text-align: center;">🔥 집중 모드 성과 분석 (성공 vs 실패)</h3>
-        <div id="chartContainer" style="min-height: 350px;"></div>
-    </div>
-
-    <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 25px;">
-        <h3 style="margin-top: 0; color: #2c3e50; text-align: center;">🌱 최근 30일 공부 잔디 (Contribution)</h3>
-        
-        <div id="grassCalendar" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 15px 0;">
+    <div id="content" style="display:none;">
+        <div class="card">
+            <div class="row">
+                <div class="stat"><div class="label">오늘 순공</div><div class="value" id="todayTime">-</div></div>
+                <div class="stat"><div class="label">최근 7일 평균</div><div class="value" id="avg7">-</div></div>
+                <div class="stat"><div class="label">최근 30일 합계</div><div class="value" id="sum30">-</div></div>
             </div>
-        
-        <div style="text-align: center; margin-top: 15px; font-size: 13px; color: #7f8c8d; display: flex; justify-content: center; align-items: center; gap: 10px;">
-            <span>안 함</span>
-            <div style="width: 15px; height: 15px; background-color: #ebedf0; border-radius: 3px;"></div>
-            <div style="width: 15px; height: 15px; background-color: #c6e48b; border-radius: 3px;"></div>
-            <div style="width: 15px; height: 15px; background-color: #7bc96f; border-radius: 3px;"></div>
-            <div style="width: 15px; height: 15px; background-color: #196127; border-radius: 3px;"></div>
-            <span>열공!</span>
+        </div>
+
+        <div class="card">
+            <h3>🔥 오늘의 집중 모드 결과</h3>
+            <div id="chartContainer" style="min-height: 300px;"></div>
+        </div>
+
+        <div class="card">
+            <h3>📈 최근 14일 순공 시간</h3>
+            <div id="barContainer" style="min-height: 260px;"></div>
+        </div>
+
+        <div class="card">
+            <h3>🌱 최근 30일 공부 잔디</h3>
+            <div id="grass"></div>
+            <div style="text-align: center; margin-top: 12px; font-size: 13px; color: #64748b; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span>안 함</span>
+                <span style="width: 14px; height: 14px; background-color: #ebedf0; border-radius: 3px;"></span>
+                <span style="width: 14px; height: 14px; background-color: #c6e48b; border-radius: 3px;"></span>
+                <span style="width: 14px; height: 14px; background-color: #7bc96f; border-radius: 3px;"></span>
+                <span style="width: 14px; height: 14px; background-color: #196127; border-radius: 3px;"></span>
+                <span>열공! (6시간 이상)</span>
+            </div>
         </div>
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://twdptukivwkkzwlzewrz.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3ZHB0dWtpdndra3p3bHpld3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3ODM5ODYsImV4cCI6MjA5NTM1OTk4Nn0.unQ8K0i_WEWsk5kORAEDfawCy5amGHLSEJ5Coo3DjaA';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        
-        // ★ 1. 공통 대한민국 KST 날짜 고정 ★
-        const now = new Date();
-        const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-        const today = koreaTime.toISOString().split('T')[0];
+        const SB_URL = "https://kqxhxrbpxwdmuvcyhcua.supabase.co";
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxeGh4cmJweHdkbXV2Y3loY3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDc4MzQsImV4cCI6MjA5MTcyMzgzNH0.Y_esLcGduxQteKUsbcwuqUKiGMMM8ItjyZFwpI2cu2A";
+        const db = supabase.createClient(SB_URL, SB_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true, storageKey: 'russel-planner-auth' }
+        });
+
+        function hm(sec) {
+            sec = Math.max(0, Math.floor(sec || 0));
+            return `${Math.floor(sec / 3600)}시간 ${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}분`;
+        }
+        function showMsg(text) {
+            const m = document.getElementById('msg');
+            m.style.display = 'block';
+            m.textContent = text;
+        }
 
         async function loadStatistics() {
-            const { data: logs, error } = await supabaseClient
-                .from('focus_logs')
-                .select('*')
-                .eq('seat_number', '105');
-
-            if (error) {
-                console.error(error);
+            const { data: s } = await db.auth.getSession();
+            if (!s.session || s.session.user?.app_metadata?.role !== 'student') {
+                showMsg('플래너에서 먼저 로그인해 주세요.');
                 return;
             }
+            // 날짜별 합계는 서버(DB 함수)에서 계산해서 받아옴 (새벽 3시 기준, 한국 시간)
+            const { data: rows, error } = await db.rpc('my_daily_totals', { p_days: 30 });
+            if (error || !rows) { showMsg('통계를 불러오지 못했어요: ' + (error?.message || '')); return; }
+            document.getElementById('content').style.display = 'block';
 
-            const todayLogs = (logs || []).filter(log => log.created_at.startsWith(today));
-            let todaySeconds = 0, successCount = 0, interruptedCount = 0, stopwatchCount = 0;
+            const today = rows[rows.length - 1];
+            const last7 = rows.slice(-7);
+            document.getElementById('todayTime').innerText = hm(today.seconds);
+            document.getElementById('avg7').innerText = hm(last7.reduce((a, r) => a + r.seconds, 0) / last7.length);
+            document.getElementById('sum30').innerText = `${Math.round(rows.reduce((a, r) => a + r.seconds, 0) / 3600)}시간`;
 
-            todayLogs.forEach(log => {
-                todaySeconds += log.actual_seconds;
-                if (log.status === 'SUCCESS') successCount++;
-                else if (log.status === 'INTERRUPTED') interruptedCount++;
-                else if (log.status === 'STOPWATCH') stopwatchCount++;
+            new ApexCharts(document.getElementById('chartContainer'), {
+                chart: { type: 'donut', width: '100%', fontFamily: 'Pretendard, sans-serif' },
+                series: [today.focus_success, today.focus_interrupted, today.free_sessions],
+                labels: ['목표 달성', '중도 종료', '과목 없이 순공'],
+                colors: ['#16a34a', '#dc2626', '#d97706'],
+                legend: { position: 'bottom' },
+                noData: { text: '오늘 기록이 없어요.' }
+            }).render();
+
+            const last14 = rows.slice(-14);
+            new ApexCharts(document.getElementById('barContainer'), {
+                chart: { type: 'bar', height: 260, toolbar: { show: false }, fontFamily: 'Pretendard, sans-serif' },
+                series: [{ name: '순공(시간)', data: last14.map(r => +(r.seconds / 3600).toFixed(1)) }],
+                xaxis: { categories: last14.map(r => r.day.slice(5).replace('-', '/')) },
+                yaxis: { labels: { formatter: v => `${v}h` } },
+                colors: ['#2563eb'],
+                dataLabels: { enabled: false },
+                plotOptions: { bar: { borderRadius: 3, columnWidth: '60%' } },
+                tooltip: { y: { formatter: v => `${v}시간` } }
+            }).render();
+
+            const grass = document.getElementById('grass');
+            grass.innerHTML = '';
+            rows.forEach(r => {
+                const h = r.seconds / 3600;
+                const color = h <= 0 ? '#ebedf0' : h < 3 ? '#c6e48b' : h < 6 ? '#7bc96f' : '#196127';
+                const cell = document.createElement('div');
+                cell.style.backgroundColor = color;
+                cell.title = `${r.day} : ${hm(r.seconds)}`;
+                grass.appendChild(cell);
             });
-
-            document.getElementById('totalTimeDisplay').innerText = 
-                `${Math.floor(todaySeconds / 3600)}시간 ${Math.floor((todaySeconds % 3600) / 60)}분`;
-
-            const chartOptions = {
-                chart: { type: 'donut', width: '100%', animations: { enabled: true, speed: 800 } },
-                series: [successCount, interruptedCount, stopwatchCount], 
-                labels: ['목표 달성 (SUCCESS)', '중도 포기 (INTERRUPTED)', '자유 스톱워치 (STOPWATCH)'], 
-                colors: ['#2ecc71', '#e74c3c', '#f1c40f'], 
-                noData: { text: "오늘 기록이 없습니다.", align: 'center', verticalAlign: 'middle' }
-            };
-            new ApexCharts(document.querySelector("#chartContainer"), chartOptions).render();
-
-
-            // --- 2. 새로 추가된 30일 잔디 달력 로직 ---
-            const dailyStats = {};
-            
-            (logs || []).forEach(log => {
-                const dateStr = log.created_at.split('T')[0]; 
-                if (!dailyStats[dateStr]) dailyStats[dateStr] = 0;
-                dailyStats[dateStr] += log.actual_seconds;
-            });
-
-            const grassContainer = document.getElementById('grassCalendar');
-            let grassHTML = '';
-
-            for(let i = 29; i >= 0; i--) {
-                // ★ 2. 잔디 달력 과거 날짜 구하기 KST 고정 ★
-                // 한국 시간(koreaTime) 기준으로 정확히 i일 치 밀리초(ms)를 빼서 계산합니다.
-                const targetTime = new Date(koreaTime.getTime() - (i * 24 * 60 * 60 * 1000));
-                const dateString = targetTime.toISOString().split('T')[0];
-                
-                const seconds = dailyStats[dateString] || 0;
-                const minutes = Math.floor(seconds / 60);
-                
-                let color = '#ebedf0';
-                if (minutes > 0 && minutes < 60) color = '#c6e48b';       
-                else if (minutes >= 60 && minutes < 120) color = '#7bc96f'; 
-                else if (minutes >= 120) color = '#196127';               
-
-                grassHTML += `<div title="${dateString} : ${minutes}분 공부함" style="width: 25px; height: 25px; background-color: ${color}; border-radius: 5px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>`;
-            }
-
-            grassContainer.innerHTML = grassHTML;
         }
 
         loadStatistics();
