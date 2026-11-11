@@ -71,6 +71,29 @@
         body.dark-theme .time-toggle { background: #0f172a !important; border-color: #334155 !important; color: #cbd5e1 !important; }
         body.dark-theme .time-toggle:has(input:checked) { background: #172554 !important; border-color: #1e3a8a !important; color: #93c5fd !important; }
         body.dark-theme #timetableTitle { color: #cbd5e1 !important; }
+        /* 반복 요일 버튼 */
+        .day-chip { min-width: 40px; min-height: 36px; padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+        .day-chip[aria-pressed="true"] { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+        .day-chip-all { color: #2563eb; border-style: dashed; }
+        .tool-btn { padding: 7px 10px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; font-family: inherit; white-space: nowrap; }
+        .tool-btn:hover { border-color: #3b82f6; color: #2563eb; }
+        .tool-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        /* 작은 모달 */
+        .simple-modal { position: fixed; inset: 0; background: rgba(15,23,42,0.7); z-index: 20003; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(4px); padding: 16px; box-sizing: border-box; }
+        .simple-modal-box { background: white; padding: 26px; border-radius: 18px; width: 100%; max-width: 360px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); box-sizing: border-box; }
+        .modal-btn { width: 100%; padding: 13px; border-radius: 10px; border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
+        .modal-btn.primary { background: #10b981; border-color: #10b981; color: #fff; }
+        .modal-btn.ghost { background: transparent; border-color: transparent; color: #94a3b8; }
+        .routine-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; font-size: 14px; }
+        body.dark-theme .day-chip { background: #0f172a !important; border-color: #475569 !important; color: #cbd5e1 !important; }
+        body.dark-theme .day-chip[aria-pressed="true"] { background: #3b82f6 !important; border-color: #3b82f6 !important; color: #fff !important; }
+        body.dark-theme #repeatArea { background-color: #0f172a !important; border-color: #334155 !important; }
+        body.dark-theme #repeatArea div { color: #cbd5e1 !important; }
+        body.dark-theme .tool-btn { background: #1e293b !important; border-color: #475569 !important; color: #cbd5e1 !important; }
+        body.dark-theme .simple-modal-box { background: #1e293b !important; }
+        body.dark-theme .simple-modal-box h3 { color: #f8fafc !important; }
+        body.dark-theme .modal-btn:not(.primary) { background: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+        body.dark-theme .routine-row { background: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
         /* 휴대폰에서 머리글 버튼·날짜 이동이 화면 밖으로 나가지 않게 */
         .header-container > div { flex-wrap: wrap; }
         .header-container > div:first-child > div { flex-wrap: wrap; row-gap: 6px; }
@@ -248,6 +271,29 @@
         </div>
     </div>
 
+    <!-- 다른 날 계획 가져오기 -->
+    <div id="copyModal" class="simple-modal" style="display: none;" onclick="if(event.target===this) closeCopyModal()">
+        <div class="simple-modal-box">
+            <h3 style="margin: 0 0 6px; font-size: 18px; font-weight: 800; color: #0f172a;">📥 계획 가져오기</h3>
+            <p id="copyModalDesc" style="color: #64748b; font-size: 13px; margin: 0 0 18px; line-height: 1.5;"></p>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="modal-btn primary" onclick="copyTasks(true)">못 끝낸 것만 가져오기</button>
+                <button class="modal-btn" onclick="copyTasks(false)">전부 가져오기</button>
+                <button class="modal-btn ghost" onclick="closeCopyModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 반복 계획 관리 -->
+    <div id="routineModal" class="simple-modal" style="display: none;" onclick="if(event.target===this) closeRoutineModal()">
+        <div class="simple-modal-box" style="max-width: 440px;">
+            <h3 style="margin: 0 0 6px; font-size: 18px; font-weight: 800; color: #0f172a; display: flex; justify-content: space-between; align-items: center;">🔁 반복 계획
+                <button onclick="closeRoutineModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8;" aria-label="닫기">&times;</button></h3>
+            <p style="color: #64748b; font-size: 13px; margin: 0 0 16px; line-height: 1.5;">할 일을 추가할 때 "🔁 매주 반복"을 켜면 여기에 생겨요. 멈추면 앞으로는 생기지 않고, 이미 만들어진 할 일은 그대로 남아요.</p>
+            <div id="routineList" style="display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
     <!-- 하단 플로팅 바 -->
     <div id="floatingTaskBar">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
@@ -361,7 +407,10 @@
                     <input type="text" id="contentInput" placeholder="✏️ 예: 뉴런 수1 3강 완강" style="flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-family: inherit;">
                 </div>
                 
-                <label class="time-toggle"><input type="checkbox" id="timeToggle" onchange="toggleTimeArea(this.checked)"><span class="sw" aria-hidden="true"></span>⏰ 시간 정하기 <span style="font-weight: 500; color: #94a3b8;">(선택)</span></label>
+                <div id="toggleRow" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <label class="time-toggle"><input type="checkbox" id="timeToggle" onchange="toggleTimeArea(this.checked)"><span class="sw" aria-hidden="true"></span>⏰ 시간 정하기 <span style="font-weight: 500; color: #94a3b8;">(선택)</span></label>
+                    <label class="time-toggle" id="repeatToggleLabel"><input type="checkbox" id="repeatToggle" onchange="toggleRepeatArea(this.checked)"><span class="sw" aria-hidden="true"></span>🔁 매주 반복 <span style="font-weight: 500; color: #94a3b8;">(선택)</span></label>
+                </div>
 
                 <div id="timeSettingArea" style="display: none; background: #f8fafc; padding: 16px; border-radius: 12px; margin-top: 10px; border: 1px solid #e2e8f0;">
                     <div style="margin-bottom: 12px; font-weight: 600; font-size: 13px; color: #475569;">
@@ -391,6 +440,20 @@
                     </div>
                 </div>
 
+                <div id="repeatArea" style="display: none; background: #f8fafc; padding: 14px 16px; border-radius: 12px; margin-top: 10px; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 10px;">반복할 요일을 골라 주세요. 그 요일마다 이 할 일이 자동으로 생겨요.</div>
+                    <div id="weekdayChips" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button type="button" class="day-chip" data-dow="1" aria-pressed="false">월</button>
+                        <button type="button" class="day-chip" data-dow="2" aria-pressed="false">화</button>
+                        <button type="button" class="day-chip" data-dow="3" aria-pressed="false">수</button>
+                        <button type="button" class="day-chip" data-dow="4" aria-pressed="false">목</button>
+                        <button type="button" class="day-chip" data-dow="5" aria-pressed="false">금</button>
+                        <button type="button" class="day-chip" data-dow="6" aria-pressed="false">토</button>
+                        <button type="button" class="day-chip" data-dow="0" aria-pressed="false">일</button>
+                        <button type="button" class="day-chip day-chip-all" onclick="selectAllDays()">매일</button>
+                    </div>
+                </div>
+
                 <button id="addBtn" onclick="addTask()" style="width: 100%; margin-top: 16px; padding: 16px; font-size: 15px; background-color: #10b981; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(16,185,129,0.15); transition: all 0.2s;">
                     추가하기
                 </button>
@@ -411,6 +474,10 @@
                 <div style="display: flex; gap: 2px; padding-left: 8px; flex-wrap: wrap;">
                     <button id="btnList" class="tab-btn active" onclick="switchOutputView('list')">📋 할 일 목록</button>
                     <button id="btnTimeTable" class="tab-btn" onclick="switchOutputView('timeTable')">📊 타임테이블 (계획 vs 실제)</button>
+                    <div style="margin-left: auto; display: flex; gap: 6px; align-items: center; padding: 4px 4px 6px;">
+                        <button id="copyBtn" class="tool-btn" onclick="openCopyModal()">📥 어제 계획 가져오기</button>
+                        <button class="tool-btn" onclick="openRoutineModal()">🔁 반복 계획</button>
+                    </div>
                 </div>
                 
                 <div style="background: white; padding: 24px; border-radius: 0 16px 16px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); min-height: 300px; border: 1px solid rgba(0,0,0,0.01);">
@@ -467,7 +534,18 @@
                 </div>
                 
                 <div style="margin-bottom: 20px; font-size: 12px; color: #64748b; font-weight: 500;">오늘 공부한 시간이 모두 합쳐져요</div>
-                <div id="stopwatchDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 32px; font-family: monospace; color: #00f5d4; letter-spacing: 0.01em; text-shadow: 0 0 12px rgba(0,245,212,0.15); white-space: nowrap;">00:00:00</div>
+                <div id="stopwatchDisplay" style="font-size: 44px; font-weight: 800; margin-bottom: 14px; font-family: monospace; color: #00f5d4; letter-spacing: 0.01em; text-shadow: 0 0 12px rgba(0,245,212,0.15); white-space: nowrap;">00:00:00</div>
+                <div id="goalArea" style="margin-bottom: 22px; text-align: left;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #94a3b8; font-weight: 600; margin-bottom: 6px;">
+                        <label for="goalHours" style="display: flex; align-items: center; gap: 6px;">🎯 하루 목표
+                            <input type="number" id="goalHours" min="0.5" max="20" step="0.5" placeholder="-" onchange="saveGoal(this.value)" style="width: 54px; padding: 3px 4px; font-size: 13px; text-align: center; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 4px; font-weight: 700; outline: none;"> 시간
+                        </label>
+                        <span id="goalPct">목표를 정해 보세요</span>
+                    </div>
+                    <div style="width: 100%; height: 6px; background-color: #0f172a; border-radius: 3px; overflow: hidden;">
+                        <div id="goalFill" style="width: 0%; height: 100%; background-color: #00f5d4; transition: width 0.5s;"></div>
+                    </div>
+                </div>
                 <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
                     <button id="swStartBtn" onclick="handleSwStartClick()" style="padding: 10px 20px; font-size: 13px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 12px rgba(59,130,246,0.2);">공부 시작</button>
                     <button id="swPauseBtn" onclick="pauseStopwatch()" style="padding: 10px 20px; font-size: 13px; background-color: #f59e0b; color: white; border: none; border-radius: 8px; cursor: pointer; display: none; font-weight: 700;">일시 정지</button>
@@ -511,6 +589,9 @@
         let pendingMockExam = null;
         let focusFinishing = false;
         let busy = false;
+        const appliedDays = new Set();   // 반복 계획을 이미 적용한 날짜 (이 화면에서)
+        let goalCelebratedDay = null;    // 하루 목표 달성 축하를 이미 보여준 날
+        const DOW_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
         let dayTodayTotalAtFetch = 0;  // 오늘 총 순공 중 '끝난 세션' 합계
         let todayTaskSeconds = {};
 
@@ -525,6 +606,10 @@
         const $ = (id) => document.getElementById(id);
         function esc(v) {
             return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        function remainText(sec) {
+            const m = Math.max(0, Math.ceil(sec / 60));
+            return m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ''}` : `${m}분`;
         }
         function serverNow() { return Date.now() + clockSkewMs; }
         function hms(totalSec) {
@@ -694,6 +779,11 @@
             if (b1 && me.tam1_subject) { b1.querySelector('span').innerText = `🧬 ${me.tam1_subject} 모의고사`; b1.onclick = () => prepareMockExam(30, me.tam1_subject); }
             if (b2 && me.tam2_subject) { b2.querySelector('span').innerText = `🧪 ${me.tam2_subject} 모의고사`; b2.onclick = () => prepareMockExam(30, me.tam2_subject); }
 
+            document.querySelectorAll('.day-chip[data-dow]').forEach(b => {
+                b.onclick = () => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+            });
+            $('goalHours').value = me.daily_goal_min ? +(me.daily_goal_min / 60).toFixed(1) : '';
+
             await loadDay(null);
             startTicker();
         }
@@ -712,6 +802,11 @@
                 html += ` <span style="font-size:11px; color:#ef4444; background:#fef2f2; padding:2px 6px; border-radius:4px; margin-left:4px; font-weight:800;">기록 열람 모드</span>`;
             }
             $('todayDateStr').innerHTML = html;
+            const prev = addDays(viewDateStr, -1);
+            const cb = $('copyBtn');
+            cb.innerText = `📥 ${isViewingToday() ? '어제' : `${+prev.slice(5, 7)}/${+prev.slice(8, 10)}`} 계획 가져오기`;
+            cb.disabled = viewDateStr < todayStr;
+            cb.title = cb.disabled ? '지난 날짜에는 가져올 수 없어요.' : '';
         }
 
         function changeDate(offset) { loadDay(addDays(viewDateStr, offset)); }
@@ -743,6 +838,12 @@
                     dayTodayTotalAtFetch = t.total_seconds - Math.min(openSecsAtFetch, SESSION_CAP_MS / 1000);
                     todayTaskSeconds = t.task_seconds || {};
                 }
+            }
+
+            // 반복 계획 → 오늘·미래 날짜의 할 일로 만들기 (날짜마다 한 번)
+            if (viewDateStr >= todayStr && !appliedDays.has(viewDateStr)) {
+                const made = await rpc('apply_my_routines', { p_day: viewDateStr });
+                if (made !== null) appliedDays.add(viewDateStr);
             }
 
             const { data, error } = await db.from('planner_tasks').select('*')
@@ -844,7 +945,7 @@
                 <li class="task-item">
                     <button class="status-btn" onclick="toggleTaskStatus('${task.id}')" aria-label="완료 상태 바꾸기">${statusIcon(status)}</button>
                     <div style="cursor: pointer; ${textStyle} flex-grow: 1; display: flex; align-items: center; flex-wrap: wrap;" onclick="toggleTaskStatus('${task.id}')">
-                        ${timeSpan} ${subjectSpan} <span style="font-weight: 600; color:#334155; margin-right: 8px;">${esc(task.content)}</span>
+                        ${timeSpan} ${subjectSpan} <span style="font-weight: 600; color:#334155; margin-right: 8px;">${task.routine_id ? '<span title="반복 계획" aria-label="반복 계획">🔁</span> ' : ''}${esc(task.content)}</span>
                         ${timerHtml}
                     </div>
                     <div style="display: flex; align-items: center;">
@@ -947,6 +1048,96 @@
         }
 
         // ---------------------------------------------------------------
+        // 🔁 반복 계획
+        // ---------------------------------------------------------------
+        function repeatOn() { return $('repeatToggle').checked; }
+        function selectedDays() {
+            return [...document.querySelectorAll('.day-chip[data-dow][aria-pressed="true"]')].map(b => +b.dataset.dow);
+        }
+        function dayNames(days) {
+            const order = [1, 2, 3, 4, 5, 6, 0];
+            if (days.length === 7) return '매일';
+            return order.filter(d => days.includes(d)).map(d => DOW_LABEL[d]).join('·') + '요일';
+        }
+        function toggleRepeatArea(on) {
+            $('repeatToggle').checked = on;
+            $('repeatArea').style.display = on ? 'block' : 'none';
+            if (on && !selectedDays().length && viewDateStr) {
+                const dow = new Date(viewDateStr + 'T00:00:00Z').getUTCDay();
+                const chip = document.querySelector(`.day-chip[data-dow="${dow}"]`);
+                if (chip) chip.setAttribute('aria-pressed', 'true');
+            }
+        }
+        function selectAllDays() {
+            const chips = [...document.querySelectorAll('.day-chip[data-dow]')];
+            const allOn = chips.every(b => b.getAttribute('aria-pressed') === 'true');
+            chips.forEach(b => b.setAttribute('aria-pressed', allOn ? 'false' : 'true'));
+        }
+
+        async function openRoutineModal() {
+            $('routineModal').style.display = 'flex';
+            const box = $('routineList');
+            box.innerHTML = '<div style="text-align:center; padding: 20px; color:#94a3b8;">불러오는 중...</div>';
+            const { data, error } = await db.from('planner_routines').select('*').eq('active', true).order('created_at', { ascending: true });
+            if (error) { box.innerHTML = '<div style="text-align:center; padding: 20px; color:#ef4444;">불러오지 못했어요.</div>'; return; }
+            if (!data.length) {
+                box.innerHTML = '<div style="text-align:center; padding: 24px 0; color:#94a3b8; font-size: 14px;">아직 반복 계획이 없어요.</div>';
+                return;
+            }
+            box.innerHTML = data.map(r => `
+                <div class="routine-row">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 700;"><span style="color: ${subjectColors[r.subject] || '#334155'};">[${esc(subjectLabel(r.subject))}]</span> ${esc(r.content)}</div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">🔁 ${esc(dayNames(r.weekdays))}${r.mode === 'time' ? ` · ⏰ ${esc(r.plan_start.slice(0, 5))}~${esc(r.plan_end.slice(0, 5))}` : ''}</div>
+                    </div>
+                    <button class="tool-btn" onclick="stopRoutine('${r.id}')" style="color: #dc2626;">멈추기</button>
+                </div>`).join('');
+        }
+        function closeRoutineModal() { $('routineModal').style.display = 'none'; }
+        async function stopRoutine(id) {
+            if (!confirm('이 반복 계획을 멈출까요? 이미 만들어진 할 일은 그대로 남아요.')) return;
+            const { error } = await db.from('planner_routines').delete().eq('id', id);
+            if (error) return toast('멈추지 못했어요: ' + error.message, 'error');
+            toast('반복을 멈췄어요.');
+            openRoutineModal();
+        }
+
+        // ---------------------------------------------------------------
+        // 📥 전날 계획 가져오기
+        // ---------------------------------------------------------------
+        function openCopyModal() {
+            if (viewDateStr < todayStr) return;
+            const from = addDays(viewDateStr, -1);
+            $('copyModalDesc').innerText = `${+from.slice(5, 7)}월 ${+from.slice(8, 10)}일 계획을 ${isViewingToday() ? '오늘' : `${+viewDateStr.slice(5, 7)}월 ${+viewDateStr.slice(8, 10)}일`}로 가져와요. 이미 있는 할 일과 모의고사 기록은 빼고 가져와요.`;
+            $('copyModal').style.display = 'flex';
+        }
+        function closeCopyModal() { $('copyModal').style.display = 'none'; }
+        async function copyTasks(onlyUnfinished) {
+            closeCopyModal();
+            const n = await rpc('copy_my_tasks', { p_from: addDays(viewDateStr, -1), p_to: viewDateStr, p_only_unfinished: onlyUnfinished });
+            if (n === null) return;
+            toast(n > 0 ? `📥 할 일 ${n}개를 가져왔어요.` : '가져올 새 할 일이 없어요.', n > 0 ? 'success' : 'info');
+            if (n > 0) loadDay(viewDateStr);
+        }
+
+        // ---------------------------------------------------------------
+        // 🎯 하루 목표 순공 시간
+        // ---------------------------------------------------------------
+        async function saveGoal(v) {
+            const hours = parseFloat(v);
+            const min = isNaN(hours) || hours <= 0 ? 0 : Math.round(hours * 60);
+            if (min !== 0 && (min < 30 || min > 1200)) {
+                $('goalHours').value = me.daily_goal_min ? +(me.daily_goal_min / 60).toFixed(1) : '';
+                return toast('하루 목표는 0.5~20시간으로 정해 주세요.', 'error');
+            }
+            const row = await rpc('set_my_profile', { p_daily_goal_min: min });
+            if (!row) return;
+            me.daily_goal_min = row.daily_goal_min;
+            toast(min ? `🎯 하루 목표를 ${+(min / 60).toFixed(1)}시간으로 정했어요.` : '하루 목표를 지웠어요.');
+            renderTimers();
+        }
+
+        // ---------------------------------------------------------------
         // 할 일 추가 · 수정 · 삭제 · 상태
         // ---------------------------------------------------------------
         async function addTask() {
@@ -969,6 +1160,17 @@
             const row = { subject, content, mode: withTime ? 'time' : 'simple',
                           plan_start: withTime ? startVal : null,
                           plan_end: withTime ? endVal : null };
+            // 🔁 매주 반복: 반복 계획으로 저장하고, 해당 요일이면 오늘(보고 있는 날) 할 일도 바로 생성
+            if (!editTaskId && repeatOn()) {
+                const days = selectedDays();
+                if (!days.length) return toast('반복할 요일을 하나 이상 골라 주세요.', 'error');
+                const { error: rErr } = await db.from('planner_routines').insert({ ...row, weekdays: days });
+                if (rErr) return toast('반복 계획을 저장하지 못했어요: ' + rErr.message, 'error');
+                $('contentInput').value = '';
+                toast(`🔁 매주 ${dayNames(days)}에 자동으로 생겨요.`, 'success');
+                appliedDays.delete(viewDateStr);
+                return loadDay(viewDateStr);
+            }
             let error;
             if (editTaskId) {
                 ({ error } = await db.from('planner_tasks').update({ ...row, updated_at: new Date().toISOString() }).eq('id', editTaskId));
@@ -994,6 +1196,8 @@
                 $('startTimeInput').value = (t.plan_start || '').slice(0, 5);
                 $('endTimeInput').value = (t.plan_end || '').slice(0, 5);
             } else toggleTimeArea(false);
+            toggleRepeatArea(false);
+            $('repeatToggleLabel').style.display = 'none';   // 수정할 때는 반복 설정 없음
             const b = $('addBtn');
             b.innerText = '✏️ 계획 수정 완료하기'; b.style.backgroundColor = '#2563eb';
             $('cancelEditArea').innerHTML = `<button onclick="cancelEdit()" style="width: 100%; margin-top: 6px; padding: 12px; font-size: 14px; background-color: #64748b; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; font-family: inherit;">수정 취소</button>`;
@@ -1006,6 +1210,7 @@
             const b = $('addBtn');
             b.innerText = '추가하기'; b.style.backgroundColor = '#10b981';
             toggleTimeArea(false);
+            $('repeatToggleLabel').style.display = '';
             document.querySelector('input[name="timeMode"][value="period"]').checked = true;
             toggleTimeInput();
             $('cancelEditArea').innerHTML = '';
@@ -1198,6 +1403,22 @@
             $('swStartBtn').style.backgroundColor = todayTotalSec() > 0 ? '#10b981' : '#3b82f6';
             $('swPauseBtn').style.display = running ? 'inline-block' : 'none';
             $('swStopBtn').style.display = 'none';
+
+            // 하루 목표
+            const goalMin = me?.daily_goal_min || 0;
+            if (goalMin > 0) {
+                const pctGoal = Math.floor(todayTotalSec() / (goalMin * 60) * 100);
+                $('goalFill').style.width = Math.min(100, pctGoal) + '%';
+                $('goalFill').style.backgroundColor = pctGoal >= 100 ? '#facc15' : '#00f5d4';
+                $('goalPct').innerText = pctGoal >= 100 ? `🏆 목표 달성! ${pctGoal}%` : `${pctGoal}% · ${remainText(goalMin * 60 - todayTotalSec())} 남음`;
+                if (pctGoal >= 100 && goalCelebratedDay !== todayStr && todayStr) {
+                    goalCelebratedDay = todayStr;
+                    try { if (localStorage.getItem('goalCelebrated') !== todayStr) { localStorage.setItem('goalCelebrated', todayStr); toast('🏆 오늘 목표 순공 시간을 달성했어요!', 'success'); playSuccessSound(); } } catch (e) {}
+                }
+            } else {
+                $('goalFill').style.width = '0%';
+                $('goalPct').innerText = '목표를 정해 보세요';
+            }
 
             // 할 일 타이머
             document.querySelectorAll('[data-task-timer]').forEach(el => {
