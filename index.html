@@ -93,6 +93,16 @@
         body.dark-theme .simple-modal-box { background: #1e293b !important; }
         body.dark-theme .simple-modal-box h3 { color: #f8fafc !important; }
         body.dark-theme .modal-btn:not(.primary) { background: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+        /* 3시간 확인: 화면 테두리가 천천히 밝아졌다 어두워짐 (초당 1번 미만) */
+        #keepAliveGlow { position: fixed; inset: 0; pointer-events: none; z-index: 30000; display: none; }
+        #keepAliveGlow.stage1 { display: block; box-shadow: inset 0 0 0 6px rgba(245,158,11,0.9), inset 0 0 60px rgba(245,158,11,0.45); animation: keepAlivePulse 2.4s ease-in-out infinite; }
+        #keepAliveGlow.stage2 { display: block; box-shadow: inset 0 0 0 8px rgba(239,68,68,0.95), inset 0 0 90px rgba(239,68,68,0.5); animation: keepAlivePulse 1.4s ease-in-out infinite; }
+        @keyframes keepAlivePulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+        #keepAliveModal.stage2 .simple-modal-box { box-shadow: 0 0 0 4px #ef4444, 0 20px 40px rgba(0,0,0,0.4); }
+        #keepAliveCountdown { color: #d97706; }
+        #keepAliveModal.stage2 #keepAliveCountdown { color: #dc2626; }
+        @media (prefers-reduced-motion: reduce) { #keepAliveGlow.stage1, #keepAliveGlow.stage2 { animation: none; opacity: 1; } }
+        body.dark-theme #keepAliveDesc { color: #cbd5e1 !important; }
         body.dark-theme .routine-row { background: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
         /* 휴대폰에서 머리글 버튼·날짜 이동이 화면 밖으로 나가지 않게 */
         .header-container > div { flex-wrap: wrap; }
@@ -291,6 +301,21 @@
                 <button onclick="closeRoutineModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8;" aria-label="닫기">&times;</button></h3>
             <p style="color: #64748b; font-size: 13px; margin: 0 0 16px; line-height: 1.5;">할 일을 추가할 때 "🔁 매주 반복"을 켜면 여기에 생겨요. 멈추면 앞으로는 생기지 않고, 이미 만들어진 할 일은 그대로 남아요.</p>
             <div id="routineList" style="display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <!-- 3시간 자동 멈춤 전 확인 -->
+    <div id="keepAliveGlow" aria-hidden="true"></div>
+    <div id="keepAliveModal" class="simple-modal" style="display: none; z-index: 30001;" role="alertdialog" aria-modal="true" aria-labelledby="keepAliveTitle" aria-describedby="keepAliveDesc">
+        <div class="simple-modal-box" style="max-width: 380px; text-align: center;">
+            <div style="font-size: 40px; line-height: 1; margin-bottom: 8px;" aria-hidden="true">⏰</div>
+            <h3 id="keepAliveTitle" style="margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #0f172a;">계속 공부 중인가요?</h3>
+            <p id="keepAliveDesc" style="color: #64748b; font-size: 14px; margin: 0 0 6px; line-height: 1.6;">한 번에 3시간까지 기록돼요.<br>계속 공부 중이면 아래 버튼을 눌러 주세요.</p>
+            <div id="keepAliveCountdown" style="font-family: monospace; font-size: 26px; font-weight: 800; margin: 10px 0 18px;">10:00</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="modal-btn primary" id="keepAliveYes" onclick="keepStudying()">네, 계속 공부 중이에요</button>
+                <button class="modal-btn" onclick="stopFromKeepAlive()">지금 멈출게요</button>
+            </div>
         </div>
     </div>
 
@@ -592,6 +617,10 @@
         const appliedDays = new Set();   // 반복 계획을 이미 적용한 날짜 (이 화면에서)
         let goalCelebratedDay = null;    // 하루 목표 달성 축하를 이미 보여준 날
         const DOW_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
+        const KEEPALIVE_FIRST_SEC = 10 * 60;     // 자동 멈춤 10분 전 첫 확인
+        const KEEPALIVE_SECOND_SEC = 5 * 60;     // 응답 없으면 5분 전 한 번 더 (더 강하게)
+        let keepAlive = { sessionId: null, stage: 0 };
+        const BASE_TITLE = document.title;
         let dayTodayTotalAtFetch = 0;  // 오늘 총 순공 중 '끝난 세션' 합계
         let todayTaskSeconds = {};
 
@@ -1460,12 +1489,63 @@
                 setTimeout(() => { if (!openSession) bar.style.display = 'none'; }, 350);
             }
 
+            // 3시간 자동 멈춤 전 확인 (집중 모드는 목표 시간에 맞춰 끝나므로 제외)
+            updateKeepAlive();
+
             // 3시간이 지나면 서버가 자동 마감 → 다시 불러와서 맞춤
             if (running && openElapsedSec() >= SESSION_CAP_MS / 1000) {
                 openSession = null;
+                hideKeepAlive();
                 toast('3시간이 지나 자동으로 멈췄어요. 계속하려면 다시 시작해 주세요.');
                 loadDay(viewDateStr);
             }
+        }
+
+        // ---------------------------------------------------------------
+        // ⏰ "계속 공부 중인가요?" (3시간 자동 멈춤 10분 전 · 5분 전)
+        // ---------------------------------------------------------------
+        function updateKeepAlive() {
+            const s = openSession;
+            if (!s || s.kind === 'focus') { hideKeepAlive(); return; }
+            if (keepAlive.sessionId !== s.id) keepAlive = { sessionId: s.id, stage: 0 };
+            // 새벽 3시(하루 끝)가 3시간보다 먼저 오면 그 시각 기준
+            const capMs = Math.min(Date.parse(s.started_at) + SESSION_CAP_MS, dayEndMs(todayStr));
+            const left = Math.max(0, Math.floor((capMs - serverNow()) / 1000));
+            if (left > KEEPALIVE_FIRST_SEC) { hideKeepAlive(); return; }
+
+            if (keepAlive.stage < 1) { keepAlive.stage = 1; showKeepAlive(1); }
+            if (left <= KEEPALIVE_SECOND_SEC && keepAlive.stage < 2) { keepAlive.stage = 2; showKeepAlive(2); }
+            $('keepAliveCountdown').innerText = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')} 뒤 자동 멈춤`;
+            document.title = (left % 2 === 0) ? '⏰ 계속 공부 중인가요?' : BASE_TITLE;
+        }
+        function dayEndMs(dayStr) {   // 그 공부일이 끝나는 시각 = 다음 날 새벽 3시(한국)
+            return Date.parse(addDays(dayStr, 1) + 'T03:00:00+09:00');
+        }
+        function showKeepAlive(stage) {
+            $('keepAliveModal').style.display = 'flex';
+            $('keepAliveModal').classList.toggle('stage2', stage === 2);
+            $('keepAliveGlow').className = stage === 2 ? 'stage2' : 'stage1';
+            try { if (navigator.vibrate) navigator.vibrate(stage === 2 ? [300, 150, 300, 150, 300] : [250]); } catch (e) {}
+            setTimeout(() => { try { $('keepAliveYes').focus(); } catch (e) {} }, 50);
+        }
+        function hideKeepAlive() {
+            if ($('keepAliveModal').style.display !== 'none') $('keepAliveModal').style.display = 'none';
+            $('keepAliveGlow').className = '';
+            if (document.title !== BASE_TITLE) document.title = BASE_TITLE;
+        }
+        function keepStudying() {
+            guarded(async () => {
+                const row = await rpc('continue_study');
+                hideKeepAlive();
+                if (!row) { toast('이미 자동으로 멈췄어요. 다시 시작해 주세요.'); }
+                else toast('👍 계속 기록할게요. 다시 3시간이 주어졌어요.', 'success');
+                await loadDay(viewDateStr);
+            });
+        }
+        function stopFromKeepAlive() {
+            hideKeepAlive();
+            keepAlive.stage = 9;   // 이 세션에서는 더 묻지 않음
+            pauseStudy();
         }
 
         let tickerId = null, syncId = null;
