@@ -293,6 +293,9 @@
         .modal-icon { width: 48px; height: 48px; border-radius: 14px; background: var(--accent-soft); color: var(--accent-text); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
         .modal-icon svg { width: 26px; height: 26px; }
         .center { text-align: center; }
+        .subj-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        .subj-grid button { min-height: 48px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); font-weight: 700; font-size: 14px; padding: 0 6px; }
+        .subj-grid button:hover { border-color: currentColor; }
         .center h3 { justify-content: center; }
         .routine-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); font-size: 14px; }
         .pick-btn { padding: 14px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); text-align: left; display: flex; flex-direction: column; gap: 4px; width: 100%; }
@@ -523,6 +526,16 @@
                 <button class="modal-btn" onclick="doFinish(null)">완료 표시 없이 멈추기</button>
                 <button class="modal-btn ghost" onclick="closeFinishModal()">취소</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 과목 없이 한 공부: 어떤 과목이었나요? -->
+    <div id="subjectAskModal" class="simple-modal" style="display: none; z-index: 20004;" onclick="if(event.target===this) closeSubjectAsk()">
+        <div class="simple-modal-box">
+            <h3>어떤 과목을 공부했나요?</h3>
+            <p id="subjectAskDesc" class="desc"></p>
+            <div id="subjectAskGrid" class="subj-grid"></div>
+            <button class="modal-btn ghost" style="margin-top: 10px;" onclick="closeSubjectAsk()">건너뛰기</button>
         </div>
     </div>
 
@@ -1713,9 +1726,39 @@
 
         function pauseStudy() {
             guarded(async () => {
+                const prev = untaggedOf(openSession);
                 await rpc('stop_study', { p_reason: 'pause' });
                 await loadDay(viewDateStr);
+                askSubjectAfterStop(prev);
             });
+        }
+
+        // ---------------------------------------------------------------
+        // 과목 없이 한 공부(자유 공부 · 집중 모드)를 멈추면 과목을 물어봄
+        //   고르면 목록에 '자유 공부'(같은 날 같은 과목은 한 줄) 할 일로 남고 통계에도 반영
+        // ---------------------------------------------------------------
+        const ASK_SUBJECTS = ['국어', '수학', '영어', '한국사', '탐구1', '탐구2', '논술', '면접', '자율학습'];
+        let subjectAskId = null;
+        function untaggedOf(s) { return s && !s.task_id && (s.kind === 'free' || s.kind === 'focus') ? { ...s } : null; }
+        function askSubjectAfterStop(prev) {
+            if (!prev) return;
+            const sess = (day?.sessions || []).find(x => x.id === prev.id);
+            if (!sess || sess.task_id || !sess.ended_at || (sess.seconds || 0) < 60) return;   // 1분 미만은 묻지 않음
+            subjectAskId = prev.id;
+            $('subjectAskDesc').innerText = `방금 ${prev.kind === 'focus' ? '집중 모드로' : '자유 공부로'} ${durText(sess.seconds)} 공부했어요. 과목을 고르면 할 일 목록과 과목별 통계에 남아요.`;
+            $('subjectAskGrid').innerHTML = ASK_SUBJECTS.map(sj => {
+                const [fg, bg] = subjectTagColors(sj);
+                return `<button style="color: ${fg}; background: ${bg};" onclick="labelSubject('${sj}')">${esc(subjectLabel(sj))}</button>`;
+            }).join('');
+            $('subjectAskModal').style.display = 'flex';
+        }
+        function closeSubjectAsk() { $('subjectAskModal').style.display = 'none'; subjectAskId = null; }
+        async function labelSubject(subject) {
+            const id = subjectAskId;
+            closeSubjectAsk();
+            if (!id) return;
+            const r = await rpc('label_free_session', { p_session_id: id, p_subject: subject });
+            if (r) { toast(`${subjectLabel(subject)} 공부로 기록했어요.`, 'success'); await loadDay(viewDateStr); }
         }
 
         // 끝내기: 다 했는지 물어봄
@@ -1830,9 +1873,11 @@
         function stopFocus() {
             if (!confirm('집중 모드를 끝낼까요? 목표 전에 끝내면 중도 종료로 기록돼요.')) return;
             guarded(async () => {
+                const prev = untaggedOf(openSession);
                 await rpc('stop_study', { p_reason: 'stop' });
                 toast('집중 모드를 끝냈어요. 수고했어요!');
                 await loadDay(viewDateStr);
+                askSubjectAfterStop(prev);
             });
         }
 
@@ -1840,6 +1885,7 @@
             if (focusFinishing) return;
             focusFinishing = true;
             const hadTask = !!openSession?.task_id;
+            const prev = untaggedOf(openSession);
             await rpc('stop_study', { p_reason: 'focus_done', p_mark_task: hadTask ? 'DONE' : null });
             playSuccessSound();
             const overlay = $('fullscreenOverlay');
@@ -1849,6 +1895,7 @@
             }
             toast('목표 시간 달성! 하던 것을 마무리해 주세요.', 'success');
             await loadDay(viewDateStr);
+            askSubjectAfterStop(prev);
         }
         function focusRemainMs() {
             if (openSession?.kind !== 'focus') return 0;
