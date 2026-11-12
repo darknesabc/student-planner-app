@@ -2,77 +2,204 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>학습 통계</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <title>러셀 플래너 · 통계</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts@4.7.0/dist/apexcharts.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
     <style>
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
-        body { font-family: 'Pretendard', sans-serif; padding: 20px 16px; background-color: #f3f4f6; max-width: 800px; margin: 0 auto; color: #1e293b; }
-        .card { background: white; padding: 22px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.06); margin-bottom: 20px; }
-        .card h3 { margin-top: 0; color: #2c3e50; text-align: center; font-size: 16px; }
-        .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-        .stat { text-align: center; }
-        .stat .label { font-size: 13px; color: #64748b; }
-        .stat .value { font-size: 26px; font-weight: 800; color: #1e293b; margin-top: 4px; }
-        .range-btn { padding: 8px 14px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
-        .range-btn.on { background: #2563eb; border-color: #2563eb; color: #fff; }
-        #grass { display: grid; grid-template-columns: repeat(10, 26px); gap: 8px; justify-content: center; padding: 10px 0; }
-        #grass div { width: 26px; height: 26px; border-radius: 5px; }
-        @media (max-width: 480px) { #grass { grid-template-columns: repeat(10, 22px); gap: 6px; } #grass div { width: 22px; height: 22px; } .stat .value { font-size: 20px; } }
+        :root {
+            --bg: #f4f6fa; --surface: #ffffff; --surface-2: #f7f9fc;
+            --border: #e2e8f0; --border-strong: #d5dce8;
+            --text: #0f172a; --text-2: #475569; --text-3: #5b6577;
+            --accent: #0b2a68; --accent-ink: #ffffff; --accent-soft: #e8eef9; --accent-text: #0b2a68; --accent-line: #c3cfe6;
+            --bar: #9fb3d9; --bar-today: #0b2a68; --goal: #b4470b; --grid: #edf0f5; --track: #e8edf5;
+            --ok-text: #15803d; --warn-text: #b4470b; --danger: #b91c1c;
+            --g0: #e8edf5; --g1: #c9d6ef; --g2: #8aa4d6; --g3: #3d5fa8; --g4: #0b2a68;
+            --shadow: 0 1px 2px rgba(15,23,42,.05);
+            color-scheme: light;
+        }
+        body.dark-theme {
+            --bg: #0d1220; --surface: #161d2e; --surface-2: #1b2336;
+            --border: #273149; --border-strong: #2f3a55;
+            --text: #e6eaf2; --text-2: #b4bdcf; --text-3: #8d97ab;
+            --accent: #4a6fc4; --accent-ink: #ffffff; --accent-soft: #1e2a48; --accent-text: #9db7ff; --accent-line: #3b4d78;
+            --bar: #3b4d78; --bar-today: #7d9cf0; --goal: #fb9a52; --grid: #222b40; --track: #263049;
+            --ok-text: #4ade80; --warn-text: #fb9a52; --danger: #f87171;
+            --g0: #222b40; --g1: #2c3d66; --g2: #3f5a99; --g3: #6385d6; --g4: #a9c0ff;
+            --shadow: none;
+            color-scheme: dark;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Pretendard', 'Noto Sans KR', system-ui, sans-serif; letter-spacing: -0.01em; background: var(--bg); color: var(--text);
+               font-size: 15px; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
+        button { font: inherit; color: inherit; cursor: pointer; }
+        a { color: var(--accent-text); }
+        :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+        [hidden] { display: none !important; }
+        svg.i { width: 18px; height: 18px; flex: none; }
+
+        .topbar { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 900; }
+        .topbar-in { max-width: 1000px; margin: 0 auto; padding: 8px 20px; display: flex; align-items: center; gap: 12px; min-height: 60px; }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; }
+        .logo { width: 34px; height: 34px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font-weight: 800; }
+        .topnav { display: flex; gap: 4px; margin-left: auto; }
+        .topnav a { text-decoration: none; font-size: 14px; font-weight: 600; color: var(--text-2); padding: 11px 16px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; }
+        .topnav a.active { color: var(--accent-text); background: var(--accent-soft); font-weight: 700; }
+
+        main { max-width: 1000px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); padding: 20px 22px; min-width: 0; }
+        .card.wide { grid-column: 1 / -1; }
+        .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .card-title { font-size: 16px; font-weight: 800; margin: 0; }
+        .card-sub { font-size: 13px; color: var(--text-2); }
+        .empty { color: var(--text-3); font-size: 14px; padding: 18px 0; text-align: center; }
+        .msg { grid-column: 1 / -1; text-align: center; color: var(--text-2); padding: 60px 0; }
+
+        /* 요약 숫자 */
+        .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .kpi { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+        .kpi .label { font-size: 13px; font-weight: 600; color: var(--text-2); }
+        .kpi .value { font-size: 28px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .kpi .value small { font-size: 16px; font-weight: 700; color: var(--text-2); margin-left: 2px; }
+        .goal-line { margin-top: 14px; font-size: 14px; color: var(--text-2); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .goal-line b { color: var(--text); }
+        .goal-dots { display: inline-flex; gap: 4px; }
+        .goal-dots span { width: 12px; height: 12px; border-radius: 50%; background: var(--track); }
+        .goal-dots span.hit { background: var(--accent-text); }
+
+        /* 14일 막대 */
+        .bars { position: relative; height: 220px; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; align-items: end; padding-left: 34px; border-bottom: 1px solid var(--border); }
+        .bars .ylab { position: absolute; left: 0; width: 30px; text-align: right; font-size: 11px; color: var(--text-3); transform: translateY(50%); }
+        .bars .yline { position: absolute; left: 34px; right: 0; border-top: 1px solid var(--grid); }
+        .bars .goal { position: absolute; left: 34px; right: 0; border-top: 2px dashed var(--goal); z-index: 2; }
+        .bars .goal span { position: absolute; right: 0; top: -22px; font-size: 12px; font-weight: 700; color: var(--goal); background: var(--surface); padding: 0 4px; }
+        .bar { position: relative; z-index: 3; background: var(--bar); border-radius: 6px 6px 2px 2px; min-height: 2px; }
+        .bar.today { background: var(--bar-today); }
+        .bar .v { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 3px; font-size: 11px; font-weight: 800; color: var(--accent-text); white-space: nowrap; background: var(--surface); padding: 0 3px; border-radius: 4px; }
+        .xlabs { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; padding-left: 34px; margin-top: 6px; }
+        .xlabs span { font-size: 11px; color: var(--text-3); text-align: center; white-space: nowrap; }
+        .xlabs span.today { color: var(--accent-text); font-weight: 800; }
+
+        /* 과목별 */
+        .seg { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 3px; }
+        .seg button { min-height: 40px; padding: 0 14px; border: none; border-radius: 9px; background: transparent; font-weight: 600; font-size: 14px; color: var(--text-2); }
+        .seg button.on { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+        .subj { display: flex; flex-direction: column; gap: 12px; }
+        .subj-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; }
+        .subj-name { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .subj-track { position: relative; height: 30px; background: var(--track); border-radius: 8px; overflow: hidden; }
+        .subj-fill { height: 100%; border-radius: 8px; min-width: 4px; }
+        .subj-val { position: absolute; top: 50%; transform: translateY(-50%); left: 10px; font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
+        .subj-val.out { color: #fff; }
+
+        /* 집중 모드 */
+        .focus-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .focus-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+        .focus-item .label { font-size: 13px; color: var(--text-2); font-weight: 600; }
+        .focus-item .value { font-size: 24px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+        .focus-item .value small { font-size: 14px; color: var(--text-2); font-weight: 700; margin-left: 2px; }
+
+        /* 잔디 */
+        .grass { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; max-width: 420px; }
+        .grass div { aspect-ratio: 1; border-radius: 6px; background: var(--g0); }
+        .grass div.today { outline: 2px solid var(--accent-text); outline-offset: 1px; }
+        .legend { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 12px; color: var(--text-3); flex-wrap: wrap; }
+        .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+
+        .bottom-nav { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 940; background: var(--surface); border-top: 1px solid var(--border);
+                      grid-template-columns: repeat(4, minmax(0, 1fr)); padding-bottom: env(safe-area-inset-bottom); }
+        .bottom-nav a { text-decoration: none; color: var(--text-3); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; min-height: 60px; }
+        .bottom-nav a.active { color: var(--accent-text); font-weight: 800; }
+        .bottom-nav svg { width: 22px; height: 22px; }
+
+        @media (max-width: 760px) {
+            main { grid-template-columns: minmax(0, 1fr); }
+        }
+        @media (max-width: 649px) {
+            body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+            .topbar { position: static; }
+            .topbar-in { padding: 8px 16px; }
+            .topnav { display: none; }
+            main { padding: 12px; gap: 12px; }
+            .card { padding: 16px; }
+            .kpis { gap: 8px; }
+            .kpi { padding: 12px; }
+            .kpi .label { font-size: 12px; }
+            .kpi .value { font-size: 18px; white-space: nowrap; }
+            .kpi .value small { font-size: 12px; margin-left: 1px; }
+            .bars { height: 180px; gap: 3px; padding-left: 30px; }
+            .bars .yline, .bars .goal { left: 30px; }
+            .xlabs { gap: 3px; padding-left: 30px; }
+            .xlabs span:nth-child(odd) { visibility: hidden; }
+            .bar .v { display: none; }
+            .subj-row { grid-template-columns: 80px minmax(0, 1fr); }
+            .focus-item .value { font-size: 20px; }
+            .bottom-nav { display: grid; }
+        }
     </style>
 </head>
 <body>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 12px; flex-wrap: wrap;">
-        <h1 style="margin: 0; font-size: 24px;">📊 학습 통계 리포트</h1>
-        <a href="index.html" style="padding: 10px 16px; background-color: #34495e; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">📅 플래너로 돌아가기</a>
-    </div>
+    <header class="topbar">
+        <div class="topbar-in">
+            <div class="brand"><span class="logo" aria-hidden="true">R</span><span>학습 통계</span></div>
+            <nav class="topnav" aria-label="메뉴">
+                <a href="index.html"><span data-icon="chevL"></span>플래너로</a>
+                <a href="stats.html" class="active" aria-current="page">통계</a>
+            </nav>
+        </div>
+    </header>
 
-    <div id="msg" style="display:none; text-align:center; padding: 30px; color:#64748b;"></div>
+    <main id="main">
+        <div id="msg" class="msg">불러오는 중</div>
 
-    <div id="content" style="display:none;">
-        <div class="card">
-            <div class="row">
-                <div class="stat"><div class="label">오늘 순공</div><div class="value" id="todayTime">-</div></div>
-                <div class="stat"><div class="label">최근 7일 평균</div><div class="value" id="avg7">-</div></div>
-                <div class="stat"><div class="label">최근 30일 합계</div><div class="value" id="sum30">-</div></div>
+        <section class="card wide" id="summaryCard" hidden aria-label="요약">
+            <div class="kpis">
+                <div class="kpi"><div class="label">오늘 순공</div><div class="value" id="todayTime">-</div></div>
+                <div class="kpi"><div class="label">최근 7일 하루 평균</div><div class="value" id="avg7">-</div></div>
+                <div class="kpi"><div class="label">최근 30일 합계</div><div class="value" id="sum30">-</div></div>
             </div>
-            <div id="goalLine" style="display:none; text-align:center; margin-top: 14px; font-size: 14px; color: #475569; font-weight: 600;"></div>
-        </div>
+            <div class="goal-line" id="goalLine" hidden></div>
+        </section>
 
-        <div class="card">
-            <h3>🔥 오늘의 집중 모드 결과</h3>
-            <div id="chartContainer" style="min-height: 300px;"></div>
-        </div>
+        <section class="card wide" id="barsCard" hidden aria-labelledby="barsTitle">
+            <div class="card-head"><h2 class="card-title" id="barsTitle">최근 14일 순공 시간</h2><span class="card-sub" id="barsSub"></span></div>
+            <div class="bars" id="bars" role="img"></div>
+            <div class="xlabs" id="xlabs" aria-hidden="true"></div>
+        </section>
 
-        <div class="card">
-            <h3>📚 과목별 공부 시간</h3>
-            <div style="display:flex; justify-content:center; gap:6px; margin-bottom: 12px;">
-                <button class="range-btn on" data-days="1">오늘</button>
-                <button class="range-btn" data-days="7">최근 7일</button>
-                <button class="range-btn" data-days="30">최근 30일</button>
+        <section class="card wide" id="subjCard" hidden aria-labelledby="subjTitle">
+            <div class="card-head">
+                <h2 class="card-title" id="subjTitle">과목별 공부 시간</h2>
+                <div class="seg" role="tablist">
+                    <button role="tab" data-days="1" class="on" aria-selected="true">오늘</button>
+                    <button role="tab" data-days="7" aria-selected="false">7일</button>
+                    <button role="tab" data-days="30" aria-selected="false">30일</button>
+                </div>
             </div>
-            <div id="subjectContainer" style="min-height: 220px;"></div>
-        </div>
+            <div class="subj" id="subj"></div>
+        </section>
 
-        <div class="card">
-            <h3>📈 최근 14일 순공 시간</h3>
-            <div id="barContainer" style="min-height: 260px;"></div>
-        </div>
+        <section class="card" id="focusCard" hidden aria-labelledby="focusTitle">
+            <div class="card-head"><h2 class="card-title" id="focusTitle">오늘의 집중 모드</h2></div>
+            <div id="focusBody"></div>
+        </section>
 
-        <div class="card">
-            <h3>🌱 최근 30일 공부 잔디</h3>
-            <div id="grass"></div>
-            <div style="text-align: center; margin-top: 12px; font-size: 13px; color: #64748b; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <span>안 함</span>
-                <span style="width: 14px; height: 14px; background-color: #ebedf0; border-radius: 3px;"></span>
-                <span style="width: 14px; height: 14px; background-color: #c6e48b; border-radius: 3px;"></span>
-                <span style="width: 14px; height: 14px; background-color: #7bc96f; border-radius: 3px;"></span>
-                <span style="width: 14px; height: 14px; background-color: #196127; border-radius: 3px;"></span>
-                <span>열공! (6시간 이상)</span>
+        <section class="card" id="grassCard" hidden aria-labelledby="grassTitle">
+            <div class="card-head"><h2 class="card-title" id="grassTitle">최근 30일 공부 잔디</h2><span class="card-sub" id="grassSub"></span></div>
+            <div class="grass" id="grass"></div>
+            <div class="legend" aria-hidden="true">
+                <span>안 함</span><i style="background: var(--g0);"></i><i style="background: var(--g1);"></i><i style="background: var(--g2);"></i><i style="background: var(--g3);"></i><i style="background: var(--g4);"></i><span>8시간 이상</span>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="메뉴">
+        <a href="index.html"><span data-icon="listCheck"></span>할 일</a>
+        <a href="index.html#timetable"><span data-icon="clock"></span>타임테이블</a>
+        <a href="index.html#group"><span data-icon="users"></span>그룹</a>
+        <a href="stats.html" class="active" aria-current="page"><span data-icon="chart"></span>통계</a>
+    </nav>
 
     <script>
         const SB_URL = "https://kqxhxrbpxwdmuvcyhcua.supabase.co";
@@ -80,16 +207,53 @@
         const db = supabase.createClient(SB_URL, SB_KEY, {
             auth: { persistSession: true, autoRefreshToken: true, storageKey: 'russel-planner-auth' }
         });
+        const $ = (id) => document.getElementById(id);
+        const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+        let me = null, todayStr = null;
 
-        function hm(sec) {
+        // 아이콘
+        const ICON_PATHS = {
+            chevL: '<path d="M15 18l-6-6 6-6"/>',
+            clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+            users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
+            chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+            listCheck: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'
+        };
+        document.querySelectorAll('[data-icon]').forEach(el => {
+            el.innerHTML = `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[el.dataset.icon] || ''}</svg>`;
+        });
+
+        // 플래너와 같은 밝기 설정
+        try { if (localStorage.getItem('appTheme') === 'dark') { document.body.classList.add('dark-theme'); document.querySelector('meta[name="theme-color"]').content = '#121a2b'; } } catch (e) {}
+        function isDark() { return document.body.classList.contains('dark-theme'); }
+
+        // 과목 색 (플래너와 같음)
+        const SUBJECT_FILL = {
+            '국어': '#c43030', '수학': '#2f5fd0', '영어': '#b35a0c', '탐구1': '#0f7a55', '탐구2': '#6d3fd6',
+            '한국사': '#0e7490', '논술': '#be185d', '면접': '#4d7c0f', '모의고사': '#475569', '자율학습': '#0f766e',
+            '집중 모드': '#0b2a68', '과목 없음': '#64748b'
+        };
+
+        function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function hmText(sec) {               // "3시간 28분"
             sec = Math.max(0, Math.floor(sec || 0));
-            return `${Math.floor(sec / 3600)}시간 ${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}분`;
+            const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+            if (!h) return `${m}분`;
+            return `${h}시간${m ? ` ${m}분` : ''}`;
         }
-        function showMsg(text) {
-            const m = document.getElementById('msg');
-            m.style.display = 'block';
-            m.textContent = text;
+        function hmHtml(sec) {               // 큰 숫자용: 3<small>시간</small> 28<small>분</small>
+            sec = Math.max(0, Math.floor(sec || 0));
+            const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+            return (h ? `${h}<small>시간</small> ` : '') + `${m}<small>분</small>`;
         }
+        function addDays(d, n) { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
+        function md(d) { return `${+d.slice(5, 7)}/${+d.slice(8, 10)}`; }
+        function subjectName(s) {
+            if (s === '탐구1' && me?.tam1_subject) return me.tam1_subject;
+            if (s === '탐구2' && me?.tam2_subject) return me.tam2_subject;
+            return s;
+        }
+        function showMsg(text) { $('msg').hidden = false; $('msg').textContent = text; }
 
         async function loadStatistics() {
             const { data: s } = await db.auth.getSession();
@@ -97,95 +261,114 @@
                 showMsg('플래너에서 먼저 로그인해 주세요.');
                 return;
             }
-            // 날짜별 합계는 서버(DB 함수)에서 계산해서 받아옴 (새벽 3시 기준, 한국 시간)
-            const { data: rows, error } = await db.rpc('my_daily_totals', { p_days: 30 });
-            if (error || !rows) { showMsg('통계를 불러오지 못했어요: ' + (error?.message || '')); return; }
-            document.getElementById('content').style.display = 'block';
+            // 날짜별 합계는 서버에서 계산 (새벽 3시 기준, 한국 시간)
+            const [{ data: rows, error }, { data: info }] = await Promise.all([
+                db.rpc('my_daily_totals', { p_days: 30 }),
+                db.rpc('my_info')
+            ]);
+            if (error || !rows || !rows.length) { showMsg('통계를 불러오지 못했어요. ' + (error?.message || '')); return; }
+            me = Array.isArray(info) ? info[0] : info;
+            $('msg').hidden = true;
+            ['summaryCard', 'barsCard', 'subjCard', 'focusCard', 'grassCard'].forEach(id => $(id).hidden = false);
 
             const today = rows[rows.length - 1];
             todayStr = today.day;
-            const { data: info } = await db.rpc('my_info');
-            me = Array.isArray(info) ? info[0] : info;
             const goalSec = (me?.daily_goal_min || 0) * 60;
-            if (goalSec > 0) {
-                const hit = rows.slice(-7).filter(r => r.seconds >= goalSec).length;
-                const gl = document.getElementById('goalLine');
-                gl.style.display = 'block';
-                gl.textContent = `🎯 하루 목표 ${+(goalSec / 3600).toFixed(1)}시간 · 최근 7일 중 ${hit}일 달성`;
-            }
-            loadSubjects(1);
             const last7 = rows.slice(-7);
-            document.getElementById('todayTime').innerText = hm(today.seconds);
-            document.getElementById('avg7').innerText = hm(last7.reduce((a, r) => a + r.seconds, 0) / last7.length);
-            document.getElementById('sum30').innerText = `${Math.round(rows.reduce((a, r) => a + r.seconds, 0) / 3600)}시간`;
 
-            new ApexCharts(document.getElementById('chartContainer'), {
-                chart: { type: 'donut', width: '100%', fontFamily: 'Pretendard, sans-serif' },
-                series: [today.focus_success, today.focus_interrupted, today.free_sessions],
-                labels: ['목표 달성', '중도 종료', '과목 없이 순공'],
-                colors: ['#16a34a', '#dc2626', '#d97706'],
-                legend: { position: 'bottom' },
-                noData: { text: '오늘 기록이 없어요.' }
-            }).render();
+            // 요약
+            $('todayTime').innerHTML = hmHtml(today.seconds);
+            $('avg7').innerHTML = hmHtml(last7.reduce((a, r) => a + r.seconds, 0) / last7.length);
+            const sum30 = rows.reduce((a, r) => a + r.seconds, 0);
+            $('sum30').innerHTML = `${Math.round(sum30 / 3600)}<small>시간</small>`;
+            if (goalSec > 0) {
+                const hit = last7.filter(r => r.seconds >= goalSec).length;
+                $('goalLine').hidden = false;
+                $('goalLine').innerHTML = `하루 목표 <b>${+(goalSec / 3600).toFixed(1)}시간</b> · 최근 7일 중 <b>${hit}일</b> 달성
+                    <span class="goal-dots" aria-hidden="true">${last7.map(r => `<span class="${r.seconds >= goalSec ? 'hit' : ''}" title="${md(r.day)} ${hmText(r.seconds)}"></span>`).join('')}</span>`;
+            }
 
-            const last14 = rows.slice(-14);
-            new ApexCharts(document.getElementById('barContainer'), {
-                chart: { type: 'bar', height: 260, toolbar: { show: false }, fontFamily: 'Pretendard, sans-serif' },
-                series: [{ name: '순공(시간)', data: last14.map(r => +(r.seconds / 3600).toFixed(1)) }],
-                xaxis: { categories: last14.map(r => r.day.slice(5).replace('-', '/')) },
-                yaxis: { labels: { formatter: v => `${v}h` } },
-                colors: ['#2563eb'],
-                annotations: goalSec > 0 ? { yaxis: [{ y: +(goalSec / 3600).toFixed(1), borderColor: '#f59e0b', strokeDashArray: 4,
-                    label: { text: `목표 ${+(goalSec / 3600).toFixed(1)}h`, style: { background: '#f59e0b', color: '#fff' } } }] } : {},
-                dataLabels: { enabled: false },
-                plotOptions: { bar: { borderRadius: 3, columnWidth: '60%' } },
-                tooltip: { y: { formatter: v => `${v}시간` } }
-            }).render();
+            renderBars(rows.slice(-14), goalSec);
+            renderFocus(today);
+            renderGrass(rows, goalSec);
+            loadSubjects(1);
+        }
 
-            const grass = document.getElementById('grass');
-            grass.innerHTML = '';
-            rows.forEach(r => {
-                const h = r.seconds / 3600;
-                const color = h <= 0 ? '#ebedf0' : h < 3 ? '#c6e48b' : h < 6 ? '#7bc96f' : '#196127';
-                const cell = document.createElement('div');
-                cell.style.backgroundColor = color;
-                cell.title = `${r.day} : ${hm(r.seconds)}`;
-                grass.appendChild(cell);
-            });
+        // 최근 14일 막대
+        function renderBars(days, goalSec) {
+            const maxSec = Math.max(goalSec * 1.15, ...days.map(r => r.seconds), 3600);
+            const maxH = Math.ceil(maxSec / 3600);
+            const step = maxH <= 4 ? 1 : maxH <= 8 ? 2 : maxH <= 12 ? 3 : 4;
+            const top = Math.ceil(maxH / step) * step;
+            let html = '';
+            for (let v = 0; v <= top; v += step) {
+                const pct = v / top * 100;
+                html += `<div class="yline" style="bottom: ${pct}%;"></div><div class="ylab" style="bottom: ${pct}%;">${v}h</div>`;
+            }
+            if (goalSec > 0) html += `<div class="goal" style="bottom: ${goalSec / 3600 / top * 100}%;"></div>`;
+            html += days.map(r => {
+                const isToday = r.day === todayStr;
+                const h = r.seconds / 3600 / top * 100;
+                return `<div class="bar ${isToday ? 'today' : ''}" style="height: ${h}%;" title="${md(r.day)} ${hmText(r.seconds)}">${r.seconds > 0 ? `<span class="v">${hmText(r.seconds)}</span>` : ''}</div>`;
+            }).join('');
+            $('bars').innerHTML = html;
+            $('bars').setAttribute('aria-label', '최근 14일 순공 시간: ' + days.map(r => `${md(r.day)} ${hmText(r.seconds)}`).join(', '));
+            $('xlabs').innerHTML = days.map(r => {
+                const isToday = r.day === todayStr;
+                return `<span class="${isToday ? 'today' : ''}">${isToday ? '오늘' : md(r.day)}</span>`;
+            }).join('');
+            const avg = days.reduce((a, r) => a + r.seconds, 0) / days.length;
+            $('barsSub').innerHTML = `하루 평균 ${hmText(avg)}` + (goalSec > 0 ? ` · <span style="color: var(--goal); font-weight: 700;">점선 = 목표 ${+(goalSec / 3600).toFixed(1)}시간</span>` : '');
+        }
+
+        // 오늘의 집중 모드
+        function renderFocus(today) {
+            const ok = today.focus_success || 0, stop = today.focus_interrupted || 0, free = today.free_sessions || 0;
+            if (!ok && !stop) {
+                $('focusBody').innerHTML = `<div class="empty">오늘은 집중 모드 기록이 없어요.<br>플래너에서 "집중 모드"로 목표 시간을 정해 공부해 보세요.</div>`;
+                return;
+            }
+            $('focusBody').innerHTML = `<div class="focus-row">
+                <div class="focus-item"><div class="label">목표 달성</div><div class="value" style="color: var(--ok-text);">${ok}<small>번</small></div></div>
+                <div class="focus-item"><div class="label">중도 종료</div><div class="value" style="color: var(--danger);">${stop}<small>번</small></div></div>
+                <div class="focus-item"><div class="label">자유 공부</div><div class="value">${free}<small>번</small></div></div>
+            </div>`;
+        }
+
+        // 30일 잔디
+        function renderGrass(rows, goalSec) {
+            const lv = (sec) => { const h = sec / 3600; return h <= 0 ? 0 : h < 2 ? 1 : h < 4 ? 2 : h < 8 ? 3 : 4; };
+            $('grass').innerHTML = rows.map(r => {
+                const d = new Date(r.day + 'T00:00:00Z');
+                return `<div class="${r.day === todayStr ? 'today' : ''}" style="background: var(--g${lv(r.seconds)});" title="${md(r.day)}(${DOW[d.getUTCDay()]}) ${hmText(r.seconds)}"></div>`;
+            }).join('');
+            const studied = rows.filter(r => r.seconds > 0).length;
+            $('grassSub').textContent = `30일 중 ${studied}일 공부`;
         }
 
         // 과목별 공부 시간
-        const SUBJECT_COLORS = { '국어': '#ef4444', '수학': '#3b82f6', '영어': '#f59e0b', '탐구1': '#8b5cf6', '탐구2': '#7c3aed',
-            '한국사': '#10b981', '논술': '#ec4899', '면접': '#06b6d4', '모의고사': '#1e293b', '자율학습': '#14b8a6', '집중 모드': '#0f172a', '과목 없음': '#94a3b8' };
-        let me = null, subjectChart = null, todayStr = null;
-        function addDays(d, n) { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
-        function subjectName(s) {
-            if (s === '탐구1' && me?.tam1_subject) return me.tam1_subject;
-            if (s === '탐구2' && me?.tam2_subject) return me.tam2_subject;
-            return s;
-        }
         async function loadSubjects(days) {
-            document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('on', +b.dataset.days === days));
+            document.querySelectorAll('.seg button').forEach(b => { const on = +b.dataset.days === days; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+            const box = $('subj');
             const { data, error } = await db.rpc('my_subject_totals', { p_from: addDays(todayStr, -(days - 1)), p_to: todayStr });
-            const box = document.getElementById('subjectContainer');
-            if (subjectChart) { subjectChart.destroy(); subjectChart = null; }
-            if (error) { box.textContent = '불러오지 못했어요.'; return; }
-            if (!data.length) { box.innerHTML = '<div style="text-align:center; color:#94a3b8; padding: 60px 0;">이 기간에는 기록이 없어요.</div>'; return; }
-            box.innerHTML = '';
+            if (error) { box.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; return; }
+            if (!data.length) { box.innerHTML = '<div class="empty">이 기간에는 기록이 없어요.</div>'; return; }
             const total = data.reduce((a, r) => a + r.seconds, 0);
-            subjectChart = new ApexCharts(box, {
-                chart: { type: 'bar', height: Math.max(180, data.length * 44 + 40), toolbar: { show: false }, fontFamily: 'Pretendard, sans-serif' },
-                series: [{ name: '공부 시간', data: data.map(r => +(r.seconds / 3600).toFixed(2)) }],
-                xaxis: { categories: data.map(r => subjectName(r.subject)), labels: { formatter: v => `${v}h` } },
-                plotOptions: { bar: { horizontal: true, borderRadius: 3, distributed: true, barHeight: '60%' } },
-                colors: data.map(r => SUBJECT_COLORS[r.subject] || '#64748b'),
-                legend: { show: false },
-                dataLabels: { enabled: true, formatter: (v, o) => `${hm(data[o.dataPointIndex].seconds)} (${Math.round(data[o.dataPointIndex].seconds / total * 100)}%)`, style: { fontSize: '12px' } },
-                tooltip: { y: { formatter: (v, o) => hm(data[o.dataPointIndex].seconds) } }
-            });
-            subjectChart.render();
+            const max = Math.max(...data.map(r => r.seconds));
+            box.innerHTML = data.map(r => {
+                const w = r.seconds / max * 100;
+                const color = SUBJECT_FILL[r.subject] || '#64748b';
+                const label = `${hmText(r.seconds)} · ${Math.round(r.seconds / total * 100)}%`;
+                return `<div class="subj-row">
+                    <div class="subj-name" title="${esc(subjectName(r.subject))}">${esc(subjectName(r.subject))}</div>
+                    <div class="subj-track" title="${esc(subjectName(r.subject))} ${label}">
+                        <div class="subj-fill" style="width: ${w}%; background: ${color};"></div>
+                        <span class="subj-val ${w >= 45 ? 'out' : ''}" style="${w >= 45 ? '' : `left: calc(${w}% + 8px);`}">${label}</span>
+                    </div>
+                </div>`;
+            }).join('');
         }
-        document.querySelectorAll('.range-btn').forEach(b => b.onclick = () => loadSubjects(+b.dataset.days));
+        document.querySelectorAll('.seg button').forEach(b => b.onclick = () => loadSubjects(+b.dataset.days));
 
         loadStatistics();
     </script>
