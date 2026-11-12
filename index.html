@@ -422,6 +422,17 @@
         #fsTaskInfo { font-size: clamp(16px, 3vw, 22px); font-weight: 700; color: #c3d3ff; margin-bottom: 24px; display: none; padding: 8px 20px;
                       background: rgba(74,111,196,.18); border-radius: 20px; border: 1px solid rgba(157,183,255,.25); text-align: center; }
         #fsTimerDisplay { font-size: clamp(64px, 12vw, 170px); font-weight: 800; letter-spacing: 0.01em; line-height: 1; font-variant-numeric: tabular-nums; }
+        .fs-face-switch { position: absolute; top: 20px; left: 20px; display: flex; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 3px; z-index: 2; }
+        .fs-face-switch button { min-height: 40px; padding: 0 16px; border: none; border-radius: 9px; background: transparent; color: #8d97ab; font-size: 14px; font-weight: 600; }
+        .fs-face-switch button[aria-pressed="true"] { background: rgba(255,255,255,.14); color: #ffffff; font-weight: 700; }
+        #fsFace svg { width: min(58vh, 82vw, 460px); height: min(58vh, 82vw, 460px); display: block; }
+        #fsFaceInfo { text-align: center; margin-top: 18px; }
+        #fsFaceInfo .fi-label { font-size: 14px; color: #8d97ab; font-weight: 600; }
+        #fsFaceInfo .fi-main { font-size: clamp(30px, 5vw, 48px); font-weight: 800; color: #ffffff; line-height: 1.15; font-variant-numeric: tabular-nums; }
+        #fsFaceInfo .fi-sub { font-size: 15px; color: #b4bdcf; margin-top: 6px; font-variant-numeric: tabular-nums; }
+        #fsFaceInfo .fi-sub b { color: #ffffff; }
+        #fullscreenOverlay.face-on #fsTimerDisplay { display: none; }
+        #fullscreenOverlay.face-on #fsModeLabel { margin-top: 14px; }
         #fsModeLabel { font-size: 15px; font-weight: 600; color: #8d97ab; margin-top: 26px; letter-spacing: 0.15em; }
         .fs-btn { min-height: 52px; padding: 0 28px; border-radius: 12px; font-size: 16px; font-weight: 700; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; }
         .fs-btn.primary { background: #4a6fc4; border-color: #4a6fc4; }
@@ -467,8 +478,15 @@
     <!-- 집중/순공 전체화면 -->
     <div id="fullscreenOverlay" ondblclick="closeFullscreen()">
         <button class="fs-close" onclick="closeFullscreen()" aria-label="전체화면 닫기" data-icon="x"></button>
+        <div id="fsFaceSwitch" class="fs-face-switch" role="group" aria-label="시계 모양" ondblclick="event.stopPropagation()">
+            <button data-face="digital" onclick="setFace('digital')">숫자</button>
+            <button data-face="clock" onclick="setFace('clock')">시계</button>
+            <button data-face="timer" onclick="setFace('timer')">타이머</button>
+        </div>
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
             <div id="fsTaskInfo"></div>
+            <div id="fsFace" hidden></div>
+            <div id="fsFaceInfo" hidden></div>
             <div id="fsTimerDisplay">00:00:00</div>
             <div id="fsModeLabel">집중 모드</div>
             <div id="fsFocusControls" style="display: none; flex-direction: column; align-items: center; gap: 22px; margin-top: 24px;">
@@ -1900,6 +1918,7 @@
                 return;
             }
             pendingMockExam = { mins, subject: subjectName };
+            faceBuilt = null;
             $('targetMinutes').value = mins; syncTargetTime('main');
             info.style.display = 'block';
             info.innerHTML = `${esc(subjectName)} 모의고사 ${mins}분 준비 완료<br><span style="font-size: 15px; color:#b4bdcf; font-weight:600; margin-top:8px; display:block;">준비되면 [집중 시작]을 누르세요. (한 번 더 누르면 취소돼요)</span>`;
@@ -2064,6 +2083,7 @@
                     if (pr) pr.style.width = Math.min(100, Math.max(0, (1 - remain / total) * 100)) + '%';
                     const pt = $('nowProgText');
                     if (pt) { const done = Math.min(openSession.focus_target_min, Math.floor((total - Math.max(0, remain)) / 60000)); const txt = `${openSession.focus_target_min}분 중 ${done}분`; if (pt.innerText !== txt) pt.innerText = txt; }
+                    checkFocusWarnings();
                     if (remain <= 0) finishFocusByTime();
                 } else if (running) {
                     const task = taskById(openSession.task_id);
@@ -2291,7 +2311,136 @@
             } else {
                 info.style.display = 'none'; ctl.style.display = 'none';
             }
+            renderFace();
         }
+        // ---------------------------------------------------------------
+        // 전체화면 시계 모양: 숫자 / 시계(지금 시각, 시험장처럼) / 타이머(남은 시간 부채꼴)
+        //   기본값: 모의고사 = 시계, 집중 모드 = 타이머, 순공 = 숫자 · 고른 모양은 기기에 기억
+        // ---------------------------------------------------------------
+        const FACE_KEY = { focus: 'fsFaceFocus', mock: 'fsFaceMock', stopwatch: 'fsFaceSw' };
+        let faceBuilt = null;
+        function faceCtx() {
+            if (fsMode !== 'focus') return 'stopwatch';
+            const t = taskById(openSession?.task_id);
+            return pendingMockExam || (openSession?.kind === 'focus' && t?.subject === '모의고사') ? 'mock' : 'focus';
+        }
+        function getFace() {
+            const c = faceCtx();
+            let v = null;
+            try { v = localStorage.getItem(FACE_KEY[c]); } catch (e) {}
+            if (c === 'stopwatch' && v === 'timer') v = null;
+            return v || (c === 'mock' ? 'clock' : c === 'focus' ? 'timer' : 'digital');
+        }
+        function setFace(v) {
+            try { localStorage.setItem(FACE_KEY[faceCtx()], v); } catch (e) {}
+            faceBuilt = null;
+            fsSync();
+        }
+        function polar(r, deg) { const a = deg * Math.PI / 180; return [200 + r * Math.sin(a), 200 - r * Math.cos(a)]; }
+        function kstParts(ms) { const d = new Date(ms + 9 * 3600 * 1000); return [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()]; }
+        function ampm(ms) { const [h, m] = kstParts(ms); return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`; }
+
+        function clockSvg() {
+            let nums = '';
+            for (let k = 1; k <= 12; k++) { const [x, y] = polar(132, k * 30); nums += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}">${k}</text>`; }
+            return `<svg viewBox="0 0 400 400" role="img" aria-label="벽시계">
+                <circle cx="200" cy="200" r="190" fill="#0c1222" stroke="#273149" stroke-width="2"/>
+                <circle cx="200" cy="200" r="170" fill="none" stroke="#5b6577" stroke-width="10" stroke-dasharray="1.5 16.30" stroke-dashoffset="0.75" transform="rotate(-90 200 200)"/>
+                <circle cx="200" cy="200" r="168" fill="none" stroke="#e6eaf2" stroke-width="14" stroke-dasharray="4 83.96" stroke-dashoffset="2" transform="rotate(-90 200 200)"/>
+                <g font-size="26" font-weight="700" fill="#e6eaf2" text-anchor="middle" dominant-baseline="central" font-family="Pretendard, sans-serif">${nums}</g>
+                <line id="fsHourHand" x1="200" y1="200" x2="200" y2="112" stroke="#ffffff" stroke-width="9" stroke-linecap="round"/>
+                <line id="fsMinHand" x1="200" y1="214" x2="200" y2="58" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+                <line id="fsSecHand" x1="200" y1="226" x2="200" y2="48" stroke="#f87171" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="200" cy="200" r="8" fill="#ffffff"/><circle cx="200" cy="200" r="3" fill="#f87171"/>
+            </svg>`;
+        }
+        function timerSvg(target) {
+            const step = target <= 30 ? 5 : target <= 120 ? 10 : 30;
+            let labels = '';
+            for (let v = 0; v < target; v += step) {
+                if (v > 0 && target - v < step * 0.6) continue;     // 끝 눈금과 0이 겹치지 않게
+                const [x, y] = polar(176, 360 - v / target * 360);
+                labels += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}">${v}</text>`;
+            }
+            const c = 2 * Math.PI * 158, n = Math.max(1, Math.round(target / step));
+            return `<svg viewBox="0 0 400 400" role="img" aria-label="남은 시간 타이머 (0~${target}분)">
+                <circle cx="200" cy="200" r="194" fill="#0c1222" stroke="#273149" stroke-width="2"/>
+                <circle cx="200" cy="200" r="158" fill="none" stroke="#e6eaf2" stroke-width="10" stroke-dasharray="3 ${(c / n - 3).toFixed(2)}" stroke-dashoffset="1.5" transform="rotate(-90 200 200)"/>
+                <g font-size="19" font-weight="700" fill="#b4bdcf" text-anchor="middle" dominant-baseline="central" font-family="Pretendard, sans-serif">${labels}</g>
+                <path id="fsWedge" d="" fill="#c43030" opacity="0.92"/>
+                <circle cx="200" cy="200" r="72" fill="#0c1222"/>
+                <text id="fsWedgeText" x="200" y="190" font-size="34" font-weight="800" fill="#ffffff" text-anchor="middle" dominant-baseline="central" font-family="Pretendard, sans-serif"></text>
+                <text x="200" y="226" font-size="15" font-weight="600" fill="#8d97ab" text-anchor="middle" dominant-baseline="central" font-family="Pretendard, sans-serif">남음</text>
+            </svg>`;
+        }
+        function wedgePath(f) {
+            f = Math.max(0, Math.min(1, f));
+            if (f >= 0.9999) return 'M200 50 A150 150 0 1 1 199.99 50 Z';
+            if (f <= 0.0001) return '';
+            const a = f * 360;
+            const [x, y] = polar(150, 360 - a);
+            return `M200 200 L${x.toFixed(2)} ${y.toFixed(2)} A150 150 0 ${a > 180 ? 1 : 0} 1 200 50 Z`;
+        }
+        function mmText(sec) { sec = Math.max(0, Math.ceil(sec)); const h = Math.floor(sec / 3600), m = Math.ceil((sec % 3600) / 60); return h ? `${h}:${String(m).padStart(2, '0')}` : `${m}분`; }
+
+        function renderFace() {
+            const ov = $('fullscreenOverlay');
+            const ctx = faceCtx();
+            const face = getFace();
+            $('fsFaceSwitch').querySelectorAll('button').forEach(b => {
+                b.setAttribute('aria-pressed', b.dataset.face === face ? 'true' : 'false');
+                b.hidden = b.dataset.face === 'timer' && ctx === 'stopwatch';
+            });
+            const on = face !== 'digital';
+            ov.classList.toggle('face-on', on);
+            $('fsFace').hidden = !on; $('fsFaceInfo').hidden = !on;
+            if (!on) { faceBuilt = null; return; }
+
+            const focusing = openSession?.kind === 'focus';
+            const target = focusing ? openSession.focus_target_min : (parseInt($('targetMinutes').value) || 1);
+            const key = `${face}:${target}`;
+            if (faceBuilt !== key) { $('fsFace').innerHTML = face === 'clock' ? clockSvg() : timerSvg(target); faceBuilt = key; }
+
+            const now = serverNow();
+            const remainSec = focusing ? Math.max(0, focusRemainMs() / 1000) : target * 60;
+            const endMs = focusing ? Date.parse(openSession.started_at) + target * 60000 : now + target * 60000;
+            const doneMin = Math.min(target, Math.floor((target * 60 - remainSec) / 60));
+            if (face === 'clock') {
+                const [h, m, sec] = kstParts(now);
+                $('fsHourHand').setAttribute('transform', `rotate(${((h % 12) + m / 60) * 30} 200 200)`);
+                $('fsMinHand').setAttribute('transform', `rotate(${(m + sec / 60) * 6} 200 200)`);
+                $('fsSecHand').setAttribute('transform', `rotate(${sec * 6} 200 200)`);
+            } else {
+                $('fsWedge').setAttribute('d', wedgePath(remainSec / (target * 60)));
+                $('fsWedgeText').textContent = mmText(remainSec);
+            }
+            let html;
+            if (fsMode === 'focus' && focusing) {
+                html = face === 'clock'
+                    ? `<div class="fi-label">끝나는 시각</div><div class="fi-main">${ampm(endMs)}</div><div class="fi-sub">남은 시간 <b>${hms(remainSec)}</b> · ${target}분 중 ${doneMin}분</div>`
+                    : `<div class="fi-main">${hms(remainSec)}</div><div class="fi-sub">${ampm(endMs)}에 끝나요 · ${target}분 중 ${doneMin}분</div>`;
+            } else if (fsMode === 'focus') {
+                html = `<div class="fi-label">목표 ${target}분</div><div class="fi-sub">지금 시작하면 <b>${ampm(endMs)}</b>에 끝나요</div>`;
+            } else {
+                html = `<div class="fi-label">오늘 총 순공</div><div class="fi-main" style="color: #9db7ff;">${hms(todayTotalSec())}</div>`;
+            }
+            if ($('fsFaceInfo').dataset.v !== html) { $('fsFaceInfo').innerHTML = html; $('fsFaceInfo').dataset.v = html; }
+        }
+
+        // 집중 모드: 끝나기 10분 전 · 5분 전 알림
+        let focusWarn = { id: null, ten: false, five: false };
+        function checkFocusWarnings() {
+            const s = openSession;
+            if (!s || s.kind !== 'focus') return;
+            if (focusWarn.id !== s.id) {
+                const left0 = focusRemainMs() / 1000;
+                focusWarn = { id: s.id, ten: left0 <= 600, five: left0 <= 300 };   // 시작할 때 이미 지난 알림은 건너뜀
+            }
+            const left = focusRemainMs() / 1000;
+            if (!focusWarn.ten && left <= 600 && left > 300) { focusWarn.ten = true; toast('끝나기 10분 전이에요.'); try { navigator.vibrate && navigator.vibrate([200]); } catch (e) {} }
+            if (!focusWarn.five && left <= 300 && left > 0) { focusWarn.five = true; focusWarn.ten = true; toast('끝나기 5분 전이에요. 마무리해 주세요.'); try { navigator.vibrate && navigator.vibrate([200, 120, 200]); } catch (e) {} }
+        }
+
         function handleFsTaskStop() { if (openSession?.task_id) finishTask(openSession.task_id); }
 
         // ---------------------------------------------------------------
