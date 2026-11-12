@@ -1153,6 +1153,10 @@
             loadDdays();
             loadGroupPreview();
             startTicker();
+            // 통계 페이지 아래쪽 메뉴에서 넘어온 경우
+            if (location.hash === '#timetable') navTo('timeTable');
+            else if (location.hash === '#group') openGroupModal();
+            if (location.hash) history.replaceState(null, '', location.pathname + location.search);
         }
 
         function isViewingToday() { return viewDateStr === todayStr; }
