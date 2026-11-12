@@ -1720,17 +1720,57 @@
             if (t && t.status === 'DONE') return toast('이미 완료한 계획이에요. 체크를 풀면 다시 시작할 수 있어요.', 'error');
             if (openSession?.kind === 'focus') return toast('집중 모드 중에는 다른 계획을 시작할 수 없어요. 집중 모드를 먼저 끝내 주세요.', 'error');
             guarded(async () => {
-                if (await rpc('start_study', { p_kind: 'task', p_task_id: taskId })) await loadDay(todayStr);
+                if (await rpc('start_study', { p_kind: 'task', p_task_id: taskId })) { await loadDay(todayStr); closeFreeRun(); }
             });
         }
 
         function pauseStudy() {
             guarded(async () => {
-                const prev = untaggedOf(openSession);
+                const wasFree = openSession?.kind === 'free';
+                if (wasFree) addToFreeRun(openSession.id);
                 await rpc('stop_study', { p_reason: 'pause' });
                 await loadDay(viewDateStr);
-                askSubjectAfterStop(prev);
+                if (wasFree) nowKey = null;     // '자유 공부 쉬는 중'으로 다시 그림
             });
+        }
+
+        // ---------------------------------------------------------------
+        // 자유 공부 묶음: '잠깐 쉬기' 후 '이어서 하기'로 다시 시작해도 한 번의 자유 공부로 봄
+        //   (서버 기록은 여러 개, 화면 시계와 과목 묻기는 묶어서) · '끝내기'를 눌러야 과목을 물어봄
+        // ---------------------------------------------------------------
+        let freeRun = { day: null, ids: [] };
+        try { freeRun = JSON.parse(localStorage.getItem('freeRun') || 'null') || freeRun; } catch (e) {}
+        function saveFreeRun() { try { localStorage.setItem('freeRun', JSON.stringify(freeRun)); } catch (e) {} }
+        function addToFreeRun(id) {
+            if (freeRun.day !== todayStr) freeRun = { day: todayStr, ids: [] };
+            if (!freeRun.ids.includes(id)) freeRun.ids.push(id);
+            saveFreeRun();
+        }
+        // 아직 과목이 안 붙은 묶음 기록들 (오늘 것만)
+        function freeRunSessions() {
+            if (freeRun.day !== todayStr || !day || day.day !== todayStr) return [];
+            return (day.sessions || []).filter(x => freeRun.ids.includes(x.id) && !x.task_id && x.kind === 'free');
+        }
+        function freeRunPausedSecs() { return freeRunSessions().filter(x => x.ended_at).reduce((a, x) => a + (x.seconds || 0), 0); }
+        function freeRunPaused() { return !openSession && freeRunSessions().length > 0; }
+        function freeRunTotalSecs() {
+            const running = openSession?.kind === 'free' && freeRun.ids.includes(openSession.id) ? openElapsedSec() : 0;
+            return freeRunPausedSecs() + running;
+        }
+        // 끝내기: 진행 중이면 멈추고, 묶음 전체에 과목을 물어봄
+        function endFree() {
+            guarded(async () => {
+                if (openSession?.kind === 'free') { addToFreeRun(openSession.id); await rpc('stop_study', { p_reason: 'stop' }); await loadDay(viewDateStr); }
+                closeFreeRun();
+                nowKey = null; renderTimers();
+            });
+        }
+        // 묶음 마무리: 과목 묻기 창을 띄우고 묶음은 비움
+        function closeFreeRun() {
+            const list = freeRunSessions().filter(x => x.ended_at);
+            freeRun = { day: todayStr, ids: [] }; saveFreeRun();
+            const secs = list.reduce((a, x) => a + (x.seconds || 0), 0);
+            if (list.length && secs >= 60) openSubjectAsk(list.map(x => x.id), 'free', secs);
         }
 
         // ---------------------------------------------------------------
@@ -1738,27 +1778,31 @@
         //   고르면 목록에 '자유 공부'(같은 날 같은 과목은 한 줄) 할 일로 남고 통계에도 반영
         // ---------------------------------------------------------------
         const ASK_SUBJECTS = ['국어', '수학', '영어', '한국사', '탐구1', '탐구2', '논술', '면접', '자율학습'];
-        let subjectAskId = null;
+        let subjectAskIds = [];
         function untaggedOf(s) { return s && !s.task_id && (s.kind === 'free' || s.kind === 'focus') ? { ...s } : null; }
         function askSubjectAfterStop(prev) {
             if (!prev) return;
             const sess = (day?.sessions || []).find(x => x.id === prev.id);
             if (!sess || sess.task_id || !sess.ended_at || (sess.seconds || 0) < 60) return;   // 1분 미만은 묻지 않음
-            subjectAskId = prev.id;
-            $('subjectAskDesc').innerText = `방금 ${prev.kind === 'focus' ? '집중 모드로' : '자유 공부로'} ${durText(sess.seconds)} 공부했어요. 과목을 고르면 할 일 목록과 과목별 통계에 남아요.`;
+            openSubjectAsk([prev.id], prev.kind, sess.seconds);
+        }
+        function openSubjectAsk(ids, kind, secs) {
+            subjectAskIds = ids;
+            $('subjectAskDesc').innerText = `방금 ${kind === 'focus' ? '집중 모드로' : '자유 공부로'} ${durText(secs)} 공부했어요. 과목을 고르면 할 일 목록과 과목별 통계에 남아요.`;
             $('subjectAskGrid').innerHTML = ASK_SUBJECTS.map(sj => {
                 const [fg, bg] = subjectTagColors(sj);
                 return `<button style="color: ${fg}; background: ${bg};" onclick="labelSubject('${sj}')">${esc(subjectLabel(sj))}</button>`;
             }).join('');
             $('subjectAskModal').style.display = 'flex';
         }
-        function closeSubjectAsk() { $('subjectAskModal').style.display = 'none'; subjectAskId = null; }
+        function closeSubjectAsk() { $('subjectAskModal').style.display = 'none'; subjectAskIds = []; }
         async function labelSubject(subject) {
-            const id = subjectAskId;
+            const ids = subjectAskIds;
             closeSubjectAsk();
-            if (!id) return;
-            const r = await rpc('label_free_session', { p_session_id: id, p_subject: subject });
-            if (r) { toast(`${subjectLabel(subject)} 공부로 기록했어요.`, 'success'); await loadDay(viewDateStr); }
+            if (!ids.length) return;
+            let okCount = 0;
+            for (const id of ids) { if (await rpc('label_free_session', { p_session_id: id, p_subject: subject })) okCount++; }
+            if (okCount) { toast(`${subjectLabel(subject)} 공부로 기록했어요.`, 'success'); await loadDay(viewDateStr); }
         }
 
         // 끝내기: 다 했는지 물어봄
@@ -1815,7 +1859,8 @@
             if (!isViewingToday()) return;
             if (openSession?.kind === 'focus') return toast('집중 모드를 먼저 끝내 주세요.', 'error');
             guarded(async () => {
-                if (await rpc('start_study', { p_kind: 'free' })) await loadDay(todayStr);
+                const row = await rpc('start_study', { p_kind: 'free' });
+                if (row && row.id) { addToFreeRun(row.id); await loadDay(todayStr); }
             });
         }
 
@@ -1866,7 +1911,7 @@
                     pendingMockExam = null;
                 }
                 const row = await rpc('start_study', { p_kind: 'focus', p_task_id: taskId, p_focus_min: mins });
-                if (row) { focusFinishing = false; await loadDay(todayStr); }
+                if (row) { focusFinishing = false; await loadDay(todayStr); closeFreeRun(); }
             });
         }
 
@@ -1915,6 +1960,15 @@
                 html = `<div class="now-label">지난 기록을 보고 있어요</div>
                         <div class="now-text">공부 시작과 타이머는 오늘 날짜에서 쓸 수 있어요.</div>
                         <div class="now-actions"><button class="btn primary" onclick="goToToday()">오늘로 돌아가기</button></div>`;
+            } else if (!s && freeRunPaused()) {
+                box.className = 'now-box idle';
+                html = `<div class="now-label">자유 공부 쉬는 중</div>
+                        <div class="now-timer" id="nowTimer">${hms(freeRunPausedSecs())}</div>
+                        <div class="now-text">이어서 하면 이 시간에 더해져요.</div>
+                        <div class="now-actions">
+                            <button class="btn primary" onclick="startPureStopwatch()">${icon('play')}이어서 하기</button>
+                            <button class="btn" onclick="endFree()">${icon('check')}끝내기</button>
+                        </div>`;
             } else if (!s) {
                 box.className = 'now-box idle';
                 html = `<div class="now-label">쉬는 중</div>
@@ -1940,7 +1994,7 @@
                         <div class="now-actions">
                             <button class="btn soft" onclick="pauseStudy()">${icon('pause')}잠깐 쉬기</button>
                             ${task ? `<button class="btn primary" onclick="finishTask('${task.id}')">${icon('check')}끝내기</button>`
-                                   : `<button class="btn primary" onclick="pauseStudy()">${icon('check')}끝내기</button>`}
+                                   : `<button class="btn primary" onclick="endFree()">${icon('check')}끝내기</button>`}
                         </div>`;
             }
             box.innerHTML = html;
@@ -1986,7 +2040,7 @@
             });
 
             // '지금' 상자
-            const key = !isViewingToday() ? 'past' : !openSession ? 'idle' : `${openSession.kind}:${openSession.id}`;
+            const key = !isViewingToday() ? 'past' : !openSession ? (freeRunPaused() ? 'freePaused' : 'idle') : `${openSession.kind}:${openSession.id}`;
             if (key !== nowKey) { nowKey = key; renderNowBox(); }
             const nt = $('nowTimer');
             if (nt) {
@@ -1999,7 +2053,7 @@
                     if (remain <= 0) finishFocusByTime();
                 } else if (running) {
                     const task = taskById(openSession.task_id);
-                    nt.innerText = hms(task ? taskSeconds(task.id) : openElapsedSec());
+                    nt.innerText = hms(task ? taskSeconds(task.id) : openSession.kind === 'free' ? freeRunTotalSecs() || openElapsedSec() : openElapsedSec());
                 }
             }
 
@@ -2012,10 +2066,10 @@
                 if (task) { const [fg, bg] = subjectTagColors(task.subject); subj.style.color = fg; subj.style.background = bg; subj.innerText = subjectLabel(task.subject); subj.hidden = false; }
                 else subj.hidden = true;
                 $('floatingTaskContent').innerText = task ? task.content : (focusing ? `집중 모드 ${openSession.focus_target_min}분` : '자유 공부');
-                $('floatingTaskTimer').innerText = focusing ? hms(Math.ceil(Math.max(0, focusRemainMs()) / 1000)) + ' 남음' : hms(task ? taskSeconds(task.id) : openElapsedSec());
+                $('floatingTaskTimer').innerText = focusing ? hms(Math.ceil(Math.max(0, focusRemainMs()) / 1000)) + ' 남음' : hms(task ? taskSeconds(task.id) : freeRunTotalSecs() || openElapsedSec());
                 $('floatingPauseBtn').hidden = focusing;
                 $('floatingPauseBtn').onclick = pauseStudy;
-                $('floatingStopBtn').onclick = focusing ? stopFocus : task ? () => finishTask(task.id) : pauseStudy;
+                $('floatingStopBtn').onclick = focusing ? stopFocus : task ? () => finishTask(task.id) : endFree;
                 if (bar.style.display !== 'flex') { bar.style.display = 'flex'; document.body.classList.add('bar-on'); setTimeout(() => bar.classList.add('active'), 30); }
             } else if (bar.style.display === 'flex') {
                 bar.classList.remove('active');
@@ -2101,7 +2155,9 @@
         function resolveIdle(studied, cont) {
             guarded(async () => {
                 hideIdle();
+                if (day?.pending_idle?.kind === 'free') addToFreeRun(day.pending_idle.id);
                 const row = await rpc('resolve_idle', { p_studied: studied, p_continue: cont });
+                if (row && row.id && row.kind === 'free') addToFreeRun(row.id);
                 if (studied) toast('그 시간도 공부로 넣었어요. (직접 확인)', 'success');
                 else if (cont) toast('그 시간은 빼고, 지금부터 다시 기록해요.');
                 else toast('그 시간은 빼고 기록을 멈췄어요.');
