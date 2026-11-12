@@ -356,6 +356,7 @@
         }
         @media (max-width: 649px) {
             body { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+            .topbar { position: static; }
             .topbar-in { padding: 6px 8px; gap: 4px; flex-wrap: nowrap; }
             .brand { display: none; }
             .datenav { margin-left: 0; flex: 1; justify-content: center; flex-wrap: nowrap; }
@@ -1866,7 +1867,7 @@
             } else if (!s) {
                 box.className = 'now-box idle';
                 html = `<div class="now-label">쉬는 중</div>
-                        <div class="now-text">할 일 옆 ${icon('play')} 를 누르거나 바로 시작해 보세요.</div>
+                        <div class="now-text">할 일 옆의 재생 버튼을 누르거나, 아래에서 바로 시작해 보세요.</div>
                         <div class="now-actions">
                             <button class="btn primary" onclick="handleSwStartClick()">${icon('play')}공부 시작</button>
                             <button class="btn" onclick="openFullscreen('focus')">${icon('target')}집중 모드</button>
