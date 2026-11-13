@@ -244,7 +244,11 @@
         .task-time { font-size: 13px; font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; min-width: 48px; }
         .task-time.live { color: var(--accent-text); background: var(--accent-soft); border-radius: 8px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
         .act-spacer { width: 44px; flex: none; }
-        .empty-list { text-align: center; color: var(--text-3); font-size: 14px; padding: 36px 12px; list-style: none; }
+        .empty-list { text-align: center; color: var(--text-3); font-size: 14px; padding: 32px 12px; list-style: none; }
+        .empty-title { font-size: 16px; font-weight: 800; color: var(--text); }
+        .empty-sub { margin-top: 6px; color: var(--text-2); }
+        .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+        .tt-empty { margin: 10px 0 0; padding: 10px 12px; border: 1px dashed var(--accent-line); border-radius: 10px; font-size: 13px; color: var(--text-2); }
 
         .quick-start { margin: 12px 10px 0; padding: 12px 14px; border: 1px dashed var(--accent-line); border-radius: 12px;
                        display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--text-2); font-size: 14px; }
@@ -418,6 +422,15 @@
             .fab { display: flex; }
             #floatingTaskBar { bottom: calc(72px + env(safe-area-inset-bottom)); }
         }
+        @media (max-width: 649px) {
+            #toastBox { top: calc(12px + env(safe-area-inset-top)) !important; bottom: auto !important; }
+            body.offline #toastBox { top: calc(52px + env(safe-area-inset-top)) !important; }
+            .net-more { display: none; }
+        }
+        .net-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; min-height: 40px; padding: 8px 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
+                      background: #b4470b; color: #ffffff; font-size: 14px; font-weight: 700; text-align: center; }
+        body.offline { padding-top: 40px; }
+        body.offline .topbar { top: 40px; }
         .date-dday { display: none; font-size: 12px; font-weight: 700; color: var(--accent-text); }
 
         /* =========================================================
@@ -682,6 +695,9 @@
             </button>
         </div>
     </header>
+    <div id="netBanner" class="net-banner" role="status" hidden>
+        <span data-icon="wifiOff"></span><span>인터넷 연결이 끊겼어요<span class="net-more">. 다시 연결되면 기록이 서버와 맞춰져요.</span></span>
+    </div>
 
     <main class="layout">
         <div class="col-main">
@@ -798,6 +814,7 @@
                 <div id="ttSlotTab">
                     <div id="timeTableContainer" class="tt" style="display: none;">
                         <div class="tt-legend"><span><i class="lg-plan" aria-hidden="true"></i>계획한 시간</span><span><i class="lg-act" aria-hidden="true"></i>실제 공부한 시간</span></div>
+                        <div id="ttEmptyNote" class="tt-empty" hidden>시간을 정한 할 일이 왼쪽 '계획' 줄에 점선으로 표시돼요. 할 일을 추가할 때 "시간 정하기"를 켜 보세요.</div>
                         <div class="tt-head" aria-hidden="true"><span>계획</span><span>실제</span></div>
                         <div id="timelineScrollWrapper">
                             <div class="tt-body" id="timelineVisualsSimple"></div>
@@ -916,7 +933,8 @@
             logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
             target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
             half: '<path d="M6 12h12"/>',
-            undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>'
+            undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+            wifiOff: '<path d="M2 2l20 20"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 12.9a10 10 0 0 1 5.2-2.8M14.5 10.3A10 10 0 0 1 19 12.9"/><path d="M2 8.8a15 15 0 0 1 4.2-2.6M10.7 5a15 15 0 0 1 11.3 3.8"/><circle cx="12" cy="20" r="1" fill="currentColor"/>'
         };
         function icon(name) {
             return `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ''}</svg>`;
@@ -1029,13 +1047,29 @@
         }
 
         // 서버 함수 호출 (오류는 안내로 보여주고 null 반환)
+        // 인터넷 끊김 표시
+        let netOk = true;
+        function isNetErr(e) { return !navigator.onLine || /fetch|network|load failed|timeout/i.test(String(e?.message || e || '')); }
+        function setNet(ok) {
+            if (ok === netOk) return;
+            netOk = ok;
+            $('netBanner').hidden = ok;
+            document.body.classList.toggle('offline', !ok);
+            if (ok && me && viewDateStr) { toast('인터넷이 다시 연결됐어요.'); beat().then(() => loadDay(viewDateStr)); }
+        }
+        window.addEventListener('offline', () => setNet(false));
+        window.addEventListener('online', () => setNet(true));
+
         async function rpc(name, args = {}) {
-            const { data, error } = await db.rpc(name, args);
+            let data, error;
+            try { ({ data, error } = await db.rpc(name, args)); } catch (e) { error = e; }
             if (error) {
                 console.error(name, error);
-                toast(error.message || '서버 오류가 났어요. 잠시 뒤 다시 시도해 주세요.', 'error');
+                if (isNetErr(error)) { setNet(false); toast('인터넷 연결을 확인해 주세요. 연결된 뒤 다시 눌러 주세요.', 'error'); }
+                else toast(error.message || '서버 오류가 났어요. 잠시 뒤 다시 시도해 주세요.', 'error');
                 return null;
             }
+            setNet(true);
             return data;
         }
 
@@ -1440,10 +1474,20 @@
             const list = [...timed, ...untimed].map(taskItemHtml).join('');
             $('simpleListContainer').innerHTML = list || emptyListHtml();
             renderTimetable(timed);
+            $('ttEmptyNote').hidden = timed.length > 0 || viewDateStr < todayStr;
         }
 
         function emptyListHtml() {
-            return `<li class="empty-list">아직 할 일이 없어요.<br>"할 일 추가"를 눌러 오늘 계획을 세워 보세요.</li>`;
+            if (viewDateStr < todayStr) return `<li class="empty-list">이 날은 적어 둔 할 일이 없어요.</li>`;
+            return `<li class="empty-list">
+                <div class="empty-title">${isViewingToday() ? '오늘' : '이 날'} 할 일을 적어 볼까요?</div>
+                <div class="empty-sub">할 일을 적어 두면 ▶ 버튼으로 바로 공부를 시작하고, 과목별로 시간이 쌓여요.</div>
+                <div class="empty-actions">
+                    <button class="btn primary" onclick="openAddPanel(true)">${icon('plus')}할 일 추가</button>
+                    <button class="btn" onclick="openCopyModal()">${icon('copy')}어제 계획 가져오기</button>
+                    <button class="btn" onclick="openAddPanel(true); toggleRepeatArea(true);">${icon('repeat')}매주 반복 계획 만들기</button>
+                </div>
+            </li>`;
         }
 
         // ---------------------------------------------------------------
@@ -2234,8 +2278,10 @@
         // 1분마다 '화면이 켜져 있어요' 신호 (집중 모드는 목표 시간에 맞춰 끝나므로 제외)
         async function beat() {
             if (!openSession || openSession.kind === 'focus') return;
-            const { data, error } = await db.rpc('heartbeat_study');
-            if (error) return;                 // 인터넷이 잠깐 끊긴 경우: 다음 신호 때 다시
+            let data, error;
+            try { ({ data, error } = await db.rpc('heartbeat_study')); } catch (e) { error = e; }
+            if (error) { if (isNetErr(error)) setNet(false); return; }   // 인터넷이 잠깐 끊긴 경우: 다음 신호 때 다시
+            setNet(true);
             if (!data || !data.id) await loadDay(viewDateStr);   // 서버에서 이미 멈춤 → 화면 맞춤
         }
 
