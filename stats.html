@@ -230,11 +230,12 @@
         // 과목 색 (플래너와 같음)
         const SUBJECT_FILL = {
             '국어': '#c43030', '수학': '#2f5fd0', '영어': '#b35a0c', '탐구1': '#0f7a55', '탐구2': '#6d3fd6',
-            '한국사': '#0e7490', '논술': '#be185d', '면접': '#4d7c0f', '모의고사': '#475569', '자율학습': '#0f766e',
+            '한국사': '#a16207', '논술': '#be185d', '면접': '#4d7c0f', '모의고사': '#475569', '자율학습': '#0f766e',
             '집중 모드': '#0b2a68', '과목 없음': '#64748b'
         };
 
         function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function goalText(min) { const h = Math.floor(min / 60), m = min % 60; return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`; }
         function hmText(sec) {               // "3시간 28분"
             sec = Math.max(0, Math.floor(sec || 0));
             const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
@@ -284,7 +285,7 @@
             if (goalSec > 0) {
                 const hit = last7.filter(r => r.seconds >= goalSec).length;
                 $('goalLine').hidden = false;
-                $('goalLine').innerHTML = `하루 목표 <b>${+(goalSec / 3600).toFixed(1)}시간</b> · 최근 7일 중 <b>${hit}일</b> 달성
+                $('goalLine').innerHTML = `하루 목표 <b>${goalText(goalSec / 60)}</b> · 최근 7일 중 <b>${hit}일</b> 달성
                     <span class="goal-dots" aria-hidden="true">${last7.map(r => `<span class="${r.seconds >= goalSec ? 'hit' : ''}" title="${md(r.day)} ${hmText(r.seconds)}"></span>`).join('')}</span>`;
             }
 
@@ -318,7 +319,7 @@
                 return `<span class="${isToday ? 'today' : ''}">${isToday ? '오늘' : md(r.day)}</span>`;
             }).join('');
             const avg = days.reduce((a, r) => a + r.seconds, 0) / days.length;
-            $('barsSub').innerHTML = `하루 평균 ${hmText(avg)}` + (goalSec > 0 ? ` · <span style="color: var(--goal); font-weight: 700;">점선 = 목표 ${+(goalSec / 3600).toFixed(1)}시간</span>` : '');
+            $('barsSub').innerHTML = `하루 평균 ${hmText(avg)}` + (goalSec > 0 ? ` · <span style="color: var(--goal); font-weight: 700;">점선 = 목표 ${goalText(goalSec / 60)}</span>` : '');
         }
 
         // 오늘의 집중 모드
