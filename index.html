@@ -152,7 +152,11 @@
 
         .now-box { flex: 1 1 290px; min-width: 0; background: var(--running-bg); border: 1px solid var(--running-border); border-radius: 14px;
                    padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; position: relative; }
-        .now-box.idle { background: var(--surface-2); border-color: var(--border); }
+        .now-box.idle { background: var(--surface-2); border-color: var(--border); align-self: center; gap: 8px; }
+        .now-box.idle .now-text { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .now-actions.three { flex-wrap: wrap; }
+        .now-actions.three .btn { flex: 1 1 0; min-width: 0; padding: 0 10px; }
+        .now-actions.three .btn.primary { flex-grow: 1.3; }
         .now-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--accent-text); padding-right: 40px; }
         .now-box.idle .now-label { color: var(--text-2); }
         .now-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -221,6 +225,12 @@
         .check.s-PARTIAL .box { border-color: var(--accent-text); }
         .check.s-PARTIAL .box::after { content: ''; width: 10px; height: 3px; border-radius: 2px; background: var(--accent-text); }
         .check svg { width: 14px; height: 14px; }
+        .check.pop .box { animation: checkPop .35s ease-out; }
+        .check.pop svg { animation: checkDraw .35s ease-out; }
+        .task-row:has(.check.pop) .task-content { transition: color .3s; }
+        @keyframes checkPop { 0% { transform: scale(.7); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        @keyframes checkDraw { 0% { opacity: 0; transform: scale(.4); } 100% { opacity: 1; transform: scale(1); } }
+        @media (prefers-reduced-motion: reduce) { .check.pop .box, .check.pop svg { animation: none; } }
         .task-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         .task-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
         .task-content { font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
@@ -394,6 +404,7 @@
             .task-row { padding: 4px 4px; gap: 4px; min-height: 58px; }
             .task-time { min-width: 0; font-size: 12px; }
             .task-time.live { display: none; }
+            .now-actions.three .btn svg { display: none; }
             .task-content { font-size: 14px; }
             .add-panel { margin: 0 6px 10px; padding: 12px; }
             .add-row { flex-direction: column; }
@@ -794,11 +805,6 @@
                     </div>
                 </div>
 
-                <div id="quickStart" class="quick-start">
-                    <span class="qs-text"><span data-icon="clock"></span>계획 없이 공부할 때는</span>
-                    <button class="btn soft" onclick="startPureStopwatch()">자유 공부 시작</button>
-                    <button class="btn soft" onclick="openFullscreen('focus')">집중 모드</button>
-                </div>
             </section>
         </div>
 
@@ -925,18 +931,18 @@
         const SUBJECT_TAG = {
             light: {
                 '국어': ['#b91c1c', '#fdecec'], '수학': ['#1d4ed8', '#e9f0fe'], '영어': ['#a14a05', '#fdf1e3'],
-                '탐구1': ['#047857', '#e3f6ee'], '탐구2': ['#6d28d9', '#f1ebfe'], '한국사': ['#0e7490', '#e0f4f8'],
+                '탐구1': ['#047857', '#e3f6ee'], '탐구2': ['#6d28d9', '#f1ebfe'], '한국사': ['#8a5a00', '#fbf1d6'],
                 '논술': ['#be185d', '#fce7f3'], '면접': ['#4d7c0f', '#ecf5dc'], '모의고사': ['#334155', '#e9edf3'], '자율학습': ['#0f766e', '#dff5f2']
             },
             dark: {
                 '국어': ['#fca5a5', '#3a1f25'], '수학': ['#93b4fd', '#1d2a4a'], '영어': ['#fcc98a', '#3a2a17'],
-                '탐구1': ['#6ee7b7', '#163329'], '탐구2': ['#c4b5fd', '#2a2148'], '한국사': ['#67e8f9', '#13303a'],
+                '탐구1': ['#6ee7b7', '#163329'], '탐구2': ['#c4b5fd', '#2a2148'], '한국사': ['#fcd34d', '#3a2f10'],
                 '논술': ['#f9a8d4', '#3a1c2e'], '면접': ['#bef264', '#26311a'], '모의고사': ['#cbd5e1', '#2a3244'], '자율학습': ['#5eead4', '#12312d']
             }
         };
         const SUBJECT_FILL = {
             '국어': '#c43030', '수학': '#2f5fd0', '영어': '#b35a0c', '탐구1': '#0f7a55', '탐구2': '#6d3fd6',
-            '한국사': '#0e7490', '논술': '#be185d', '면접': '#4d7c0f', '모의고사': '#475569', '자율학습': '#0f766e'
+            '한국사': '#a16207', '논술': '#be185d', '면접': '#4d7c0f', '모의고사': '#475569', '자율학습': '#0f766e'
         };
         function isDark() { return document.body.classList.contains('dark-theme'); }
         function subjectTagColors(s) { return SUBJECT_TAG[isDark() ? 'dark' : 'light'][s] || (isDark() ? ['#cbd5e1', '#2a3244'] : ['#334155', '#e9edf3']); }
@@ -957,6 +963,10 @@
         function remainText(sec) {
             const m = Math.max(0, Math.ceil(sec / 60));
             return m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ''}` : `${m}분`;
+        }
+        function goalText(min) {             // 하루 목표: "30분", "9시간", "7시간 30분"
+            const h = Math.floor(min / 60), m = min % 60;
+            return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`;
         }
         function durText(sec) {             // 공부한 시간: "28분", "1시간 5분"
             sec = Math.max(0, Math.floor(sec));
@@ -1225,7 +1235,6 @@
             note.hidden = isViewingToday();
             note.innerText = past ? '지난 날짜예요. 계획은 고칠 수 있지만 타이머는 오늘만 쓸 수 있어요.'
                                   : '미리 세우는 계획이에요. 타이머는 그날 쓸 수 있어요.';
-            $('quickStart').hidden = !isViewingToday();
 
             const prev = addDays(viewDateStr, -1);
             const label = `${isViewingToday() ? '어제' : shortDate(prev)} 계획 가져오기`;
@@ -1369,10 +1378,12 @@
         // ---------------------------------------------------------------
         // 할 일 한 줄
         // ---------------------------------------------------------------
+        let justChecked = null;
         function checkHtml(task) {
             const inner = task.status === 'DONE' ? icon('check') : '';
+            const pop = justChecked === task.id && task.status === 'DONE' ? ' pop' : '';
             const label = task.status === 'DONE' ? '완료 표시 풀기' : '완료로 표시';
-            return `<button class="check s-${task.status}" onclick="toggleTaskStatus('${task.id}')" aria-label="${label}: ${esc(task.content)}"><span class="box">${inner}</span></button>`;
+            return `<button class="check s-${task.status}${pop}" onclick="toggleTaskStatus('${task.id}')" aria-label="${label}: ${esc(task.content)}"><span class="box">${inner}</span></button>`;
         }
 
         function taskItemHtml(task) {
@@ -1629,7 +1640,7 @@
             me.daily_goal_min = row.daily_goal_min;
             $('goalEditRow').hidden = true;
             refreshStreak(true);
-            toast(min ? `하루 목표를 ${+(min / 60).toFixed(1)}시간으로 정했어요.` : '하루 목표를 지웠어요.');
+            toast(min ? `하루 목표를 ${goalText(min)}으로 정했어요.` : '하루 목표를 지웠어요.');
             renderTimers();
         }
 
@@ -1725,7 +1736,9 @@
         function toggleTaskStatus(taskId) {
             const t = tasks.find(x => x.id === taskId);
             if (!t) return;
+            justChecked = taskId;
             setTaskStatus(taskId, t.status === 'DONE' ? 'NONE' : 'DONE');
+            setTimeout(() => { if (justChecked === taskId) justChecked = null; }, 800);
         }
         async function setTaskStatus(taskId, next) {
             const t = tasks.find(x => x.id === taskId);
@@ -1987,6 +2000,15 @@
         // ---------------------------------------------------------------
         // '지금' 상자 (공부 중 / 집중 모드 / 쉬는 중)
         // ---------------------------------------------------------------
+        // 쉬는 중 상자에 보여 줄 '마지막 공부' 한 줄
+        function lastStudyText() {
+            const done = (day?.day === todayStr ? day.sessions : []).filter(x => x.ended_at && (x.seconds || 0) >= 60);
+            if (!done.length) return '오늘은 아직 공부 기록이 없어요. 할 일을 골라 시작해 보세요.';
+            const last = done[done.length - 1];
+            const t = taskById(last.task_id);
+            const what = t ? `${subjectLabel(t.subject)} · ${t.content}` : last.kind === 'focus' ? '집중 모드' : '자유 공부';
+            return `마지막 공부 ${kstHHMM(Date.parse(last.ended_at))} · ${what} (${durText(last.seconds)})`;
+        }
         function renderNowBox() {
             const box = $('nowBox');
             const s = openSession;
@@ -2009,9 +2031,10 @@
             } else if (!s) {
                 box.className = 'now-box idle';
                 html = `<div class="now-label">쉬는 중</div>
-                        <div class="now-text hide-phone">할 일 옆의 재생 버튼을 누르거나, 아래에서 바로 시작해 보세요.</div>
-                        <div class="now-actions">
+                        <div class="now-text">${esc(lastStudyText())}</div>
+                        <div class="now-actions three">
                             <button class="btn primary" onclick="handleSwStartClick()">${icon('play')}공부 시작</button>
+                            <button class="btn" onclick="startPureStopwatch()">${icon('clock')}자유 공부</button>
                             <button class="btn" onclick="openFullscreen('focus')">${icon('target')}집중 모드</button>
                         </div>`;
             } else if (s.kind === 'focus') {
@@ -2058,9 +2081,9 @@
                 const pctGoal = Math.floor(todayTotalSec() / (goalMin * 60) * 100);
                 $('goalFill').style.width = Math.min(100, pctGoal) + '%';
                 $('goalFill').classList.toggle('done', pctGoal >= 100);
-                const h = +(goalMin / 60).toFixed(1);
-                $('goalPct').innerHTML = pctGoal >= 100 ? `목표 ${h}시간 달성! <b>${pctGoal}%</b>`
-                    : `목표 ${h}시간 중 <b>${pctGoal}%</b> · ${remainText(goalMin * 60 - todayTotalSec())} 남음`;
+                const g = goalText(goalMin);
+                $('goalPct').innerHTML = pctGoal >= 100 ? `목표 ${g} 달성! <b>${pctGoal}%</b>`
+                    : `목표 ${g} 중 <b>${pctGoal}%</b> · ${remainText(goalMin * 60 - todayTotalSec())} 남음`;
                 $('goalEditBtn').innerText = '바꾸기';
                 if (pctGoal >= 100 && goalCelebratedDay !== todayStr && todayStr) {
                     goalCelebratedDay = todayStr;
