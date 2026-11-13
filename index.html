@@ -432,6 +432,16 @@
         #fsFaceInfo .fi-sub { font-size: 15px; color: #b4bdcf; margin-top: 6px; font-variant-numeric: tabular-nums; }
         #fsFaceInfo .fi-sub b { color: #ffffff; }
         #fullscreenOverlay.face-on #fsTimerDisplay { display: none; }
+        /* 모의고사 진행 중 + 시계: 시계만 보이게 (한 번 누르면 3초 동안 정보 보임) */
+        #fullscreenOverlay.exam-quiet #fsFaceInfo, #fullscreenOverlay.exam-quiet #fsTaskInfo, #fullscreenOverlay.exam-quiet #fsModeLabel,
+        #fullscreenOverlay.exam-quiet #fsFocusControls, #fullscreenOverlay.exam-quiet #fsTaskControls { opacity: 0; pointer-events: none; transition: opacity .4s; }
+        #fullscreenOverlay.exam-quiet .fs-close, #fullscreenOverlay.exam-quiet .fs-face-switch { opacity: .15; transition: opacity .4s; }
+        #fullscreenOverlay.exam-quiet .fs-close:hover, #fullscreenOverlay.exam-quiet .fs-close:focus-visible,
+        #fullscreenOverlay.exam-quiet .fs-face-switch:hover, #fullscreenOverlay.exam-quiet .fs-face-switch:focus-within { opacity: 1; }
+        #fullscreenOverlay.exam-quiet.peek #fsFaceInfo, #fullscreenOverlay.exam-quiet.peek #fsTaskInfo,
+        #fullscreenOverlay.exam-quiet.peek #fsFocusControls { opacity: 1; pointer-events: auto; }
+        #fullscreenOverlay.exam-quiet.peek .fs-close, #fullscreenOverlay.exam-quiet.peek .fs-face-switch { opacity: 1; }
+        #fullscreenOverlay.exam-quiet #fsFace { cursor: pointer; }
         #fullscreenOverlay.face-on #fsModeLabel { margin-top: 14px; }
         #fsModeLabel { font-size: 15px; font-weight: 600; color: #8d97ab; margin-top: 26px; letter-spacing: 0.15em; }
         .fs-btn { min-height: 52px; padding: 0 28px; border-radius: 12px; font-size: 16px; font-weight: 700; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; }
@@ -476,9 +486,9 @@
     </div>
 
     <!-- 집중/순공 전체화면 -->
-    <div id="fullscreenOverlay" ondblclick="closeFullscreen()">
+    <div id="fullscreenOverlay">
         <button class="fs-close" onclick="closeFullscreen()" aria-label="전체화면 닫기" data-icon="x"></button>
-        <div id="fsFaceSwitch" class="fs-face-switch" role="group" aria-label="시계 모양" ondblclick="event.stopPropagation()">
+        <div id="fsFaceSwitch" class="fs-face-switch" role="group" aria-label="시계 모양">
             <button data-face="digital" onclick="setFace('digital')">숫자</button>
             <button data-face="clock" onclick="setFace('clock')">시계</button>
             <button data-face="timer" onclick="setFace('timer')">타이머</button>
@@ -2336,6 +2346,28 @@
             faceBuilt = null;
             fsSync();
         }
+        // 모의고사는 시계를 실제 수능 시간표 시각으로 맞춤 (2027학년도 수능 기준)
+        const EXAM_SLOTS = {
+            '국어': ['08:40', '1교시 국어'], '수학': ['10:30', '2교시 수학'],
+            '영어(듣기포함)': ['13:10', '3교시 영어'], '영어(듣기제외)': ['13:30', '3교시 영어 (듣기 뒤)'],
+            '탐구1': ['15:35', '4교시 탐구 제1과목'], '탐구2': ['16:07', '4교시 탐구 제2과목']
+        };
+        function mockSlot() {
+            let name = pendingMockExam?.subject || null;
+            if (!name && openSession?.kind === 'focus') {
+                const t = taskById(openSession.task_id);
+                if (t?.subject === '모의고사') name = (t.content.match(/^(.+?) 모의고사/) || [])[1] || null;
+            }
+            if (!name) return null;
+            if (me?.tam1_subject && name === me.tam1_subject) name = '탐구1';
+            else if (me?.tam2_subject && name === me.tam2_subject) name = '탐구2';
+            const v = EXAM_SLOTS[name];
+            if (!v) return null;
+            const [h, m] = v[0].split(':').map(Number);
+            return { startMin: h * 60 + m, label: v[1] };
+        }
+        function ampmMin(totalMin) { totalMin = ((Math.floor(totalMin) % 1440) + 1440) % 1440; const h = Math.floor(totalMin / 60), m = totalMin % 60; return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`; }
+
         function polar(r, deg) { const a = deg * Math.PI / 180; return [200 + r * Math.sin(a), 200 - r * Math.cos(a)]; }
         function kstParts(ms) { const d = new Date(ms + 9 * 3600 * 1000); return [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()]; }
         function ampm(ms) { const [h, m] = kstParts(ms); return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`; }
@@ -2393,6 +2425,9 @@
             });
             const on = face !== 'digital';
             ov.classList.toggle('face-on', on);
+            const quiet = on && face === 'clock' && ctx === 'mock' && openSession?.kind === 'focus';
+            ov.classList.toggle('exam-quiet', quiet);
+            if (!quiet) ov.classList.remove('peek');
             $('fsFace').hidden = !on; $('fsFaceInfo').hidden = !on;
             if (!on) { faceBuilt = null; return; }
 
@@ -2405,8 +2440,14 @@
             const remainSec = focusing ? Math.max(0, focusRemainMs() / 1000) : target * 60;
             const endMs = focusing ? Date.parse(openSession.started_at) + target * 60000 : now + target * 60000;
             const doneMin = Math.min(target, Math.floor((target * 60 - remainSec) / 60));
+            const slot = ctx === 'mock' ? mockSlot() : null;
             if (face === 'clock') {
-                const [h, m, sec] = kstParts(now);
+                let [h, m, sec] = kstParts(now);
+                if (slot) {   // 시험 시각 = 수능 시작 시각 + 지금까지 지난 시간
+                    const el = focusing ? Math.max(0, target * 60 - remainSec) : 0;
+                    const vs = slot.startMin * 60 + Math.floor(el);
+                    h = Math.floor(vs / 3600) % 24; m = Math.floor((vs % 3600) / 60); sec = vs % 60;
+                }
                 $('fsHourHand').setAttribute('transform', `rotate(${((h % 12) + m / 60) * 30} 200 200)`);
                 $('fsMinHand').setAttribute('transform', `rotate(${(m + sec / 60) * 6} 200 200)`);
                 $('fsSecHand').setAttribute('transform', `rotate(${sec * 6} 200 200)`);
@@ -2415,7 +2456,12 @@
                 $('fsWedgeText').textContent = mmText(remainSec);
             }
             let html;
-            if (fsMode === 'focus' && focusing) {
+            if (slot && face === 'clock') {
+                const endTxt = ampmMin(slot.startMin + target);
+                html = focusing
+                    ? `<div class="fi-label">${slot.label} · 수능 시간표 기준 시각</div><div class="fi-main">${endTxt}에 끝나요</div><div class="fi-sub">남은 시간 <b>${hms(remainSec)}</b> · 실제 시각 ${ampm(now)}</div>`
+                    : `<div class="fi-label">${slot.label} · 수능 시간표 기준</div><div class="fi-sub">시계가 <b>${ampmMin(slot.startMin)}</b>부터 시작해서 <b>${endTxt}</b>에 끝나요</div>`;
+            } else if (fsMode === 'focus' && focusing) {
                 html = face === 'clock'
                     ? `<div class="fi-label">끝나는 시각</div><div class="fi-main">${ampm(endMs)}</div><div class="fi-sub">남은 시간 <b>${hms(remainSec)}</b> · ${target}분 중 ${doneMin}분</div>`
                     : `<div class="fi-main">${hms(remainSec)}</div><div class="fi-sub">${ampm(endMs)}에 끝나요 · ${target}분 중 ${doneMin}분</div>`;
@@ -2440,6 +2486,24 @@
             if (!focusWarn.ten && left <= 600 && left > 300) { focusWarn.ten = true; toast('끝나기 10분 전이에요.'); try { navigator.vibrate && navigator.vibrate([200]); } catch (e) {} }
             if (!focusWarn.five && left <= 300 && left > 0) { focusWarn.five = true; focusWarn.ten = true; toast('끝나기 5분 전이에요. 마무리해 주세요.'); try { navigator.vibrate && navigator.vibrate([200, 120, 200]); } catch (e) {} }
         }
+
+        // 모의고사 시계만 보일 때: 한 번 누르면 3초 동안 정보(끝나는 시각 · 실제 시각 · 그만하기) 보임
+        let peekTimer = null;
+        $('fullscreenOverlay').addEventListener('click', (e) => {
+            const ov = $('fullscreenOverlay');
+            if (!ov.classList.contains('exam-quiet')) return;
+            if (e.target.closest('button, input, label, a, #fsMockPanel, .fs-face-switch')) return;
+            ov.classList.add('peek');
+            clearTimeout(peekTimer);
+            peekTimer = setTimeout(() => ov.classList.remove('peek'), 3000);
+        });
+
+        // 전체화면: 빈 공간을 두 번 누르면 닫기 (집중 모드·모의고사 진행 중에는 X 버튼으로만)
+        $('fullscreenOverlay').addEventListener('dblclick', (e) => {
+            if (e.target.closest('button, input, label, a, #fsMockPanel, .fs-face-switch')) return;
+            if (openSession?.kind === 'focus') { toast('닫으려면 오른쪽 위 X를 눌러 주세요.'); return; }
+            closeFullscreen();
+        });
 
         function handleFsTaskStop() { if (openSession?.task_id) finishTask(openSession.task_id); }
 
