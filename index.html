@@ -1384,7 +1384,6 @@
             if (hasTime) meta.push(`${task.plan_start.slice(0, 5)} – ${task.plan_end.slice(0, 5)}`);
             if (running) meta.push(openSession.kind === 'focus' ? '집중 모드 중' : '공부 중');
             else if (task.status === 'PARTIAL') meta.push('일부 했어요');
-            if (task.subject === '모의고사') meta.push('달성률에서 빠져요');
 
             const timeHtml = running
                 ? `<span class="task-time live" data-task-timer="${task.id}" data-live="1"><span class="dot"></span><span class="t">${hms(secs)}</span></span>`
