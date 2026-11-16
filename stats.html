@@ -13,8 +13,8 @@
             --border: #e2e8f0; --border-strong: #d5dce8;
             --text: #0f172a; --text-2: #475569; --text-3: #5b6577;
             --accent: #0b2a68; --accent-ink: #ffffff; --accent-soft: #e8eef9; --accent-text: #0b2a68; --accent-line: #c3cfe6;
-            --bar: #9fb3d9; --bar-today: #0b2a68; --goal: #b4470b; --grid: #edf0f5; --track: #e8edf5;
-            --ok-text: #15803d; --warn-text: #b4470b; --danger: #b91c1c;
+            --bar: #3d5fa8; --bar-today: #0b2a68; --bar-prev: #d3dcec; --goal: #b4470b; --grid: #edf0f5; --track: #e8edf5;
+            --up: #15803d; --down: #b4470b; --ok-text: #15803d; --danger: #b91c1c;
             --g0: #e8edf5; --g1: #c9d6ef; --g2: #8aa4d6; --g3: #3d5fa8; --g4: #0b2a68;
             --shadow: 0 1px 2px rgba(15,23,42,.05);
             color-scheme: light;
@@ -24,8 +24,8 @@
             --border: #273149; --border-strong: #2f3a55;
             --text: #e6eaf2; --text-2: #b4bdcf; --text-3: #8d97ab;
             --accent: #4a6fc4; --accent-ink: #ffffff; --accent-soft: #1e2a48; --accent-text: #9db7ff; --accent-line: #3b4d78;
-            --bar: #3b4d78; --bar-today: #7d9cf0; --goal: #fb9a52; --grid: #222b40; --track: #263049;
-            --ok-text: #4ade80; --warn-text: #fb9a52; --danger: #f87171;
+            --bar: #6385d6; --bar-today: #a9c0ff; --bar-prev: #2c3652; --goal: #fb9a52; --grid: #222b40; --track: #263049;
+            --up: #4ade80; --down: #fb9a52; --ok-text: #4ade80; --danger: #f87171;
             --g0: #222b40; --g1: #2c3d66; --g2: #3f5a99; --g3: #6385d6; --g4: #a9c0ff;
             --shadow: none;
             color-scheme: dark;
@@ -34,10 +34,12 @@
         body { margin: 0; font-family: 'Pretendard', 'Noto Sans KR', system-ui, sans-serif; letter-spacing: -0.01em; background: var(--bg); color: var(--text);
                font-size: 15px; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
         button { font: inherit; color: inherit; cursor: pointer; }
+        button:disabled { cursor: not-allowed; opacity: .35; }
         a { color: var(--accent-text); }
         :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
         [hidden] { display: none !important; }
         svg.i { width: 18px; height: 18px; flex: none; }
+        .num { font-variant-numeric: tabular-nums; }
 
         .topbar { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 900; }
         .topbar-in { max-width: 1000px; margin: 0 auto; padding: 8px 20px; display: flex; align-items: center; gap: 12px; min-height: 60px; }
@@ -47,7 +49,15 @@
         .topnav a { text-decoration: none; font-size: 14px; font-weight: 600; color: var(--text-2); padding: 11px 16px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; }
         .topnav a.active { color: var(--accent-text); background: var(--accent-soft); font-weight: 700; }
 
-        main { max-width: 1000px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+        /* 주 이동 */
+        .weeknav { max-width: 1000px; margin: 0 auto; padding: 16px 20px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .icon-btn { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-strong);
+                    background: var(--surface); color: var(--text-2); border-radius: 12px; padding: 0; }
+        .week-label { font-size: 20px; font-weight: 800; min-width: 0; padding: 0 6px; }
+        .week-tag { font-size: 13px; font-weight: 700; color: var(--accent-text); background: var(--accent-soft); border-radius: 999px; padding: 5px 12px; }
+        .chip-btn { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--accent-line); background: var(--surface); color: var(--accent-text); font-weight: 700; font-size: 13px; margin-left: auto; }
+
+        main { max-width: 1000px; margin: 0 auto; padding: 14px 20px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); padding: 20px 22px; min-width: 0; }
         .card.wide { grid-column: 1 / -1; }
         .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -56,35 +66,62 @@
         .empty { color: var(--text-3); font-size: 14px; padding: 18px 0; text-align: center; }
         .msg { grid-column: 1 / -1; text-align: center; color: var(--text-2); padding: 60px 0; }
 
-        /* 요약 숫자 */
+        /* 요약 */
         .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-        .kpi { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+        .kpi { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; min-width: 0; }
         .kpi .label { font-size: 13px; font-weight: 600; color: var(--text-2); }
-        .kpi .value { font-size: 28px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .kpi .value { font-size: 28px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; white-space: nowrap; }
         .kpi .value small { font-size: 16px; font-weight: 700; color: var(--text-2); margin-left: 2px; }
-        .goal-line { margin-top: 14px; font-size: 14px; color: var(--text-2); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .delta { font-size: 13px; font-weight: 700; margin-top: 4px; color: var(--text-3); }
+        .delta.up { color: var(--up); }
+        .delta.down { color: var(--down); }
+        .cmp-note { margin-top: 10px; font-size: 12px; color: var(--text-3); }
+        .goal-line { margin-top: 10px; font-size: 14px; color: var(--text-2); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .goal-line b { color: var(--text); }
         .goal-dots { display: inline-flex; gap: 4px; }
         .goal-dots span { width: 12px; height: 12px; border-radius: 50%; background: var(--track); }
         .goal-dots span.hit { background: var(--accent-text); }
+        .goal-dots span.future { background: transparent; border: 1px dashed var(--border-strong); }
 
-        /* 14일 막대 */
-        .bars { position: relative; height: 220px; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; align-items: end; padding-left: 34px; border-bottom: 1px solid var(--border); }
-        .bars .ylab { position: absolute; left: 0; width: 30px; text-align: right; font-size: 11px; color: var(--text-3); transform: translateY(50%); }
-        .bars .yline { position: absolute; left: 34px; right: 0; border-top: 1px solid var(--grid); }
-        .bars .goal { position: absolute; left: 34px; right: 0; border-top: 2px dashed var(--goal); z-index: 2; }
-        .bars .goal span { position: absolute; right: 0; top: -22px; font-size: 12px; font-weight: 700; color: var(--goal); background: var(--surface); padding: 0 4px; }
-        .bar { position: relative; z-index: 3; background: var(--bar); border-radius: 6px 6px 2px 2px; min-height: 2px; }
-        .bar.today { background: var(--bar-today); }
-        .bar .v { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 3px; font-size: 11px; font-weight: 800; color: var(--accent-text); white-space: nowrap; background: var(--surface); padding: 0 3px; border-radius: 4px; }
-        .xlabs { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; padding-left: 34px; margin-top: 6px; }
-        .xlabs span { font-size: 11px; color: var(--text-3); text-align: center; white-space: nowrap; }
-        .xlabs span.today { color: var(--accent-text); font-weight: 800; }
+        /* 요일별 막대 (이번 주 + 지난주 흐리게) */
+        .legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); flex-wrap: wrap; }
+        .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+        .legend .lg-goal { width: 16px; height: 0; border-top: 2px dashed var(--goal); border-radius: 0; vertical-align: 3px; }
+        .wbars { position: relative; height: 230px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; padding-left: 34px; border-bottom: 1px solid var(--border); margin-top: 54px; }
+        .wbars .ylab { position: absolute; left: 0; width: 30px; text-align: right; font-size: 11px; color: var(--text-3); transform: translateY(50%); }
+        .wbars .yline { position: absolute; left: 34px; right: 0; border-top: 1px solid var(--grid); }
+        .wbars .goal { position: absolute; left: 34px; right: 0; border-top: 2px dashed var(--goal); z-index: 4; pointer-events: none; }
+        .wcol { position: relative; height: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 3px; border: none; background: none; padding: 0; border-radius: 8px; }
+        .wcol:hover, .wcol.sel { background: var(--surface-2); }
+        .wbar { width: 42%; max-width: 30px; border-radius: 6px 6px 2px 2px; min-height: 2px; background: var(--bar); position: relative; z-index: 3; }
+        .wbar.prev { background: var(--bar-prev); z-index: 2; }
+        .wcol.today .wbar.cur { background: var(--bar-today); }
+        .wcol.future .wbar.cur { background: transparent; border: 1px dashed var(--border-strong); border-bottom: none; }
+        .wx { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding-left: 34px; margin-top: 6px; }
+        .wx span { font-size: 12px; color: var(--text-3); text-align: center; white-space: nowrap; }
+        .wx span.today { color: var(--accent-text); font-weight: 800; }
+        .tip { position: absolute; z-index: 10; bottom: calc(100% + 6px); transform: translateX(-50%); background: var(--text); color: var(--surface); font-size: 12px; font-weight: 600;
+               padding: 7px 10px; border-radius: 8px; white-space: nowrap; pointer-events: none; line-height: 1.5; }
+        .tip b { font-weight: 800; }
+
+        /* 계획 완료율 */
+        .plan-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+        .plan-pct { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+        .plan-pct small { font-size: 20px; color: var(--text-2); }
+        .plan-sub { font-size: 14px; color: var(--text-2); }
+        .plan-sub b { color: var(--text); }
+        .plan-row { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 14px; color: var(--text-2); }
+        .plan-row b { color: var(--text); }
+        .track { height: 8px; background: var(--track); border-radius: 999px; overflow: hidden; margin-top: 8px; }
+        .track > div { height: 100%; background: var(--accent-text); border-radius: 999px; }
+        .pdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
+        .pday { text-align: center; font-size: 11px; color: var(--text-3); }
+        .pday .pbar { height: 56px; background: var(--track); border-radius: 6px; position: relative; overflow: hidden; margin-bottom: 4px; }
+        .pday .pbar > div { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent-text); opacity: .85; }
+        .pday b { display: block; font-size: 12px; color: var(--text); }
+        .pday.none b { color: var(--text-3); font-weight: 600; }
 
         /* 과목별 */
-        .seg { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 3px; }
-        .seg button { min-height: 40px; padding: 0 14px; border: none; border-radius: 9px; background: transparent; font-weight: 600; font-size: 14px; color: var(--text-2); }
-        .seg button.on { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
         .subj { display: flex; flex-direction: column; gap: 12px; }
         .subj-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; }
         .subj-name { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -93,7 +130,7 @@
         .subj-val { position: absolute; top: 50%; transform: translateY(-50%); left: 10px; font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
         .subj-val.out { color: #fff; }
 
-        /* 집중 모드 */
+        /* 집중 · 모의고사 */
         .focus-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
         .focus-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
         .focus-item .label { font-size: 13px; color: var(--text-2); font-weight: 600; }
@@ -104,8 +141,8 @@
         .grass { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; max-width: 420px; }
         .grass div { aspect-ratio: 1; border-radius: 6px; background: var(--g0); }
         .grass div.today { outline: 2px solid var(--accent-text); outline-offset: 1px; }
-        .legend { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 12px; color: var(--text-3); flex-wrap: wrap; }
-        .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+        .glegend { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 12px; color: var(--text-3); flex-wrap: wrap; }
+        .glegend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
 
         .bottom-nav { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 940; background: var(--surface); border-top: 1px solid var(--border);
                       grid-template-columns: repeat(4, minmax(0, 1fr)); padding-bottom: env(safe-area-inset-bottom); }
@@ -121,19 +158,21 @@
             .topbar { position: static; }
             .topbar-in { padding: 8px 16px; }
             .topnav { display: none; }
-            main { padding: 12px; gap: 12px; }
+            .weeknav { padding: 12px 12px 0; }
+            .week-label { font-size: 17px; }
+            main { padding: 10px 12px 12px; gap: 12px; }
             .card { padding: 16px; }
             .kpis { gap: 8px; }
-            .kpi { padding: 12px; }
+            .kpi { padding: 12px 10px; }
             .kpi .label { font-size: 12px; }
-            .kpi .value { font-size: 18px; white-space: nowrap; }
+            .kpi .value { font-size: 18px; }
             .kpi .value small { font-size: 12px; margin-left: 1px; }
-            .bars { height: 180px; gap: 3px; padding-left: 30px; }
-            .bars .yline, .bars .goal { left: 30px; }
-            .xlabs { gap: 3px; padding-left: 30px; }
-            .xlabs span:nth-child(odd) { visibility: hidden; }
-            .bar .v { display: none; }
+            .delta { font-size: 11px; }
+            .wbars { height: 190px; gap: 4px; padding-left: 30px; }
+            .wbars .yline, .wbars .goal { left: 30px; }
+            .wx { gap: 4px; padding-left: 30px; }
             .subj-row { grid-template-columns: 80px minmax(0, 1fr); }
+            .focus-item { padding: 10px; }
             .focus-item .value { font-size: 20px; }
             .bottom-nav { display: grid; }
         }
@@ -150,45 +189,56 @@
         </div>
     </header>
 
+    <div class="weeknav" id="weeknav" hidden>
+        <button class="icon-btn" id="prevWeek" onclick="moveWeek(-1)" aria-label="지난주" data-icon="chevL"></button>
+        <div class="week-label" id="weekLabel" aria-live="polite"></div>
+        <button class="icon-btn" id="nextWeek" onclick="moveWeek(1)" aria-label="다음 주" data-icon="chevR"></button>
+        <span class="week-tag" id="weekTag"></span>
+        <button class="chip-btn" id="thisWeekBtn" onclick="goThisWeek()" hidden>이번 주로</button>
+    </div>
+
     <main id="main">
         <div id="msg" class="msg">불러오는 중</div>
 
-        <section class="card wide" id="summaryCard" hidden aria-label="요약">
+        <section class="card wide" id="summaryCard" hidden aria-label="이번 주 요약">
             <div class="kpis">
-                <div class="kpi"><div class="label">오늘 순공</div><div class="value" id="todayTime">-</div></div>
-                <div class="kpi"><div class="label">최근 7일 하루 평균</div><div class="value" id="avg7">-</div></div>
-                <div class="kpi"><div class="label">최근 30일 합계</div><div class="value" id="sum30">-</div></div>
+                <div class="kpi"><div class="label" id="kTotalLabel">이번 주 공부</div><div class="value" id="kTotal">-</div><div class="delta" id="dTotal"></div></div>
+                <div class="kpi"><div class="label">하루 평균</div><div class="value" id="kAvg">-</div><div class="delta" id="dAvg"></div></div>
+                <div class="kpi"><div class="label">할 일 완료율</div><div class="value" id="kPlan">-</div><div class="delta" id="dPlan"></div></div>
             </div>
+            <div class="cmp-note" id="cmpNote"></div>
             <div class="goal-line" id="goalLine" hidden></div>
         </section>
 
         <section class="card wide" id="barsCard" hidden aria-labelledby="barsTitle">
-            <div class="card-head"><h2 class="card-title" id="barsTitle">최근 14일 순공 시간</h2><span class="card-sub" id="barsSub"></span></div>
-            <div class="bars" id="bars" role="img"></div>
-            <div class="xlabs" id="xlabs" aria-hidden="true"></div>
+            <div class="card-head">
+                <h2 class="card-title" id="barsTitle">요일별 공부 시간</h2>
+                <div class="legend"><span><i style="background: var(--bar);"></i>이 주</span><span><i style="background: var(--bar-prev);"></i>그 전 주</span><span id="lgGoal" hidden><i class="lg-goal"></i>하루 목표</span></div>
+            </div>
+            <div class="wbars" id="wbars"></div>
+            <div class="wx" id="wx" aria-hidden="true"></div>
+            <div class="card-sub" style="margin-top: 10px;">막대를 누르면 그날 시간이 보여요.</div>
         </section>
 
-        <section class="card wide" id="subjCard" hidden aria-labelledby="subjTitle">
-            <div class="card-head">
-                <h2 class="card-title" id="subjTitle">과목별 공부 시간</h2>
-                <div class="seg" role="tablist">
-                    <button role="tab" data-days="1" class="on" aria-selected="true">오늘</button>
-                    <button role="tab" data-days="7" aria-selected="false">7일</button>
-                    <button role="tab" data-days="30" aria-selected="false">30일</button>
-                </div>
-            </div>
+        <section class="card" id="planCard" hidden aria-labelledby="planTitle">
+            <div class="card-head"><h2 class="card-title" id="planTitle">계획 완료율</h2><span class="card-sub">모의고사 · 과목만 고른 기록은 빼고 셈</span></div>
+            <div id="planBody"></div>
+        </section>
+
+        <section class="card" id="subjCard" hidden aria-labelledby="subjTitle">
+            <div class="card-head"><h2 class="card-title" id="subjTitle">과목별 공부 시간</h2><span class="card-sub" id="subjSub"></span></div>
             <div class="subj" id="subj"></div>
         </section>
 
         <section class="card" id="focusCard" hidden aria-labelledby="focusTitle">
-            <div class="card-head"><h2 class="card-title" id="focusTitle">오늘의 집중 모드</h2></div>
+            <div class="card-head"><h2 class="card-title" id="focusTitle">집중 모드 · 모의고사</h2></div>
             <div id="focusBody"></div>
         </section>
 
         <section class="card" id="grassCard" hidden aria-labelledby="grassTitle">
             <div class="card-head"><h2 class="card-title" id="grassTitle">최근 30일 공부 잔디</h2><span class="card-sub" id="grassSub"></span></div>
             <div class="grass" id="grass"></div>
-            <div class="legend" aria-hidden="true">
+            <div class="glegend" aria-hidden="true">
                 <span>안 함</span><i style="background: var(--g0);"></i><i style="background: var(--g1);"></i><i style="background: var(--g2);"></i><i style="background: var(--g3);"></i><i style="background: var(--g4);"></i><span>8시간 이상</span>
             </div>
         </section>
@@ -209,11 +259,12 @@
         });
         const $ = (id) => document.getElementById(id);
         const DOW = ['일', '월', '화', '수', '목', '금', '토'];
-        let me = null, todayStr = null;
+        const WEEK = ['월', '화', '수', '목', '금', '토', '일'];
+        let me = null, todayStr = null, weekStart = null, thisWeekStart = null;
 
         // 아이콘
         const ICON_PATHS = {
-            chevL: '<path d="M15 18l-6-6 6-6"/>',
+            chevL: '<path d="M15 18l-6-6 6-6"/>', chevR: '<path d="M9 18l6-6-6-6"/>',
             clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
             users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
             chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
@@ -225,7 +276,6 @@
 
         // 플래너와 같은 밝기 설정
         try { if (localStorage.getItem('appTheme') === 'dark') { document.body.classList.add('dark-theme'); document.querySelector('meta[name="theme-color"]').content = '#121a2b'; } } catch (e) {}
-        function isDark() { return document.body.classList.contains('dark-theme'); }
 
         // 과목 색 (플래너와 같음)
         const SUBJECT_FILL = {
@@ -233,73 +283,151 @@
             '한국사': '#a16207', '논술': '#be185d', '면접': '#4d7c0f', '모의고사': '#475569', '자율학습': '#0f766e',
             '집중 모드': '#0b2a68', '과목 없음': '#64748b'
         };
-
         const CUSTOM_FILL = ['#4f46e5', '#be123c', '#0369a1', '#a21caf', '#4d7c0f', '#92400e', '#57534e', '#1e40af'];
         function subjectFillOf(s) { const i = (me?.custom_subjects || []).indexOf(s); return SUBJECT_FILL[s] || (i >= 0 ? CUSTOM_FILL[i % 8] : '#64748b'); }
+
+        // ---------------------------------------------------------------
+        // 도우미
+        // ---------------------------------------------------------------
         function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-        function goalText(min) { const h = Math.floor(min / 60), m = min % 60; return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`; }
-        function hmText(sec) {               // "3시간 28분"
-            sec = Math.max(0, Math.floor(sec || 0));
+        function hmText(sec) {
+            sec = Math.max(0, Math.round(sec || 0));
             const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
-            if (!h) return `${m}분`;
-            return `${h}시간${m ? ` ${m}분` : ''}`;
+            return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`;
         }
-        function hmHtml(sec) {               // 큰 숫자용: 3<small>시간</small> 28<small>분</small>
-            sec = Math.max(0, Math.floor(sec || 0));
+        function hmHtml(sec) {
+            sec = Math.max(0, Math.round(sec || 0));
             const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
             return (h ? `${h}<small>시간</small> ` : '') + `${m}<small>분</small>`;
         }
+        function goalText(min) { const h = Math.floor(min / 60), m = min % 60; return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`; }
         function addDays(d, n) { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
+        function dow(d) { return new Date(d + 'T00:00:00Z').getUTCDay(); }
         function md(d) { return `${+d.slice(5, 7)}/${+d.slice(8, 10)}`; }
+        function mondayOf(d) { return addDays(d, -((dow(d) + 6) % 7)); }
+        // 공부 날짜는 새벽 3시 기준 (한국 시각)
+        function studyToday() { return new Date(Date.now() + 9 * 3600e3 - 3 * 3600e3).toISOString().slice(0, 10); }
         function subjectName(s) {
             if (s === '탐구1' && me?.tam1_subject) return me.tam1_subject;
             if (s === '탐구2' && me?.tam2_subject) return me.tam2_subject;
             return s;
         }
         function showMsg(text) { $('msg').hidden = false; $('msg').textContent = text; }
-
-        async function loadStatistics() {
-            const { data: s } = await db.auth.getSession();
-            if (!s.session || s.session.user?.app_metadata?.role !== 'student') {
-                showMsg('플래너에서 먼저 로그인해 주세요.');
-                return;
-            }
-            // 날짜별 합계는 서버에서 계산 (새벽 3시 기준, 한국 시간)
-            const [{ data: rows, error }, { data: info }] = await Promise.all([
-                db.rpc('my_daily_totals', { p_days: 30 }),
-                db.rpc('my_info')
-            ]);
-            if (error || !rows || !rows.length) { showMsg('통계를 불러오지 못했어요. ' + (error?.message || '')); return; }
-            me = Array.isArray(info) ? info[0] : info;
-            $('msg').hidden = true;
-            ['summaryCard', 'barsCard', 'subjCard', 'focusCard', 'grassCard'].forEach(id => $(id).hidden = false);
-
-            const today = rows[rows.length - 1];
-            todayStr = today.day;
-            const goalSec = (me?.daily_goal_min || 0) * 60;
-            const last7 = rows.slice(-7);
-
-            // 요약
-            $('todayTime').innerHTML = hmHtml(today.seconds);
-            $('avg7').innerHTML = hmHtml(last7.reduce((a, r) => a + r.seconds, 0) / last7.length);
-            const sum30 = rows.reduce((a, r) => a + r.seconds, 0);
-            $('sum30').innerHTML = `${Math.round(sum30 / 3600)}<small>시간</small>`;
-            if (goalSec > 0) {
-                const hit = last7.filter(r => r.seconds >= goalSec).length;
-                $('goalLine').hidden = false;
-                $('goalLine').innerHTML = `하루 목표 <b>${goalText(goalSec / 60)}</b> · 최근 7일 중 <b>${hit}일</b> 달성
-                    <span class="goal-dots" aria-hidden="true">${last7.map(r => `<span class="${r.seconds >= goalSec ? 'hit' : ''}" title="${md(r.day)} ${hmText(r.seconds)}"></span>`).join('')}</span>`;
-            }
-
-            renderBars(rows.slice(-14), goalSec);
-            renderFocus(today);
-            renderGrass(rows, goalSec);
-            loadSubjects(1);
+        async function rpc(name, args) {
+            const { data, error } = await db.rpc(name, args);
+            if (error) throw error;
+            return data;
+        }
+        // 비교 문구: "지난주보다 ↑ 3시간 20분"
+        function deltaHtml(el, diff, kind) {
+            el.className = 'delta';
+            if (diff === null || !isFinite(diff)) { el.textContent = ''; return; }
+            const abs = Math.abs(diff);
+            const small = kind === 'pct' ? abs < 1 : abs < 60;
+            if (small) { el.textContent = '= 비슷해요'; return; }
+            el.classList.add(diff > 0 ? 'up' : 'down');
+            const v = kind === 'pct' ? `${Math.round(abs)}%p` : hmText(abs);
+            el.textContent = `${diff > 0 ? '↑' : '↓'} ${v}`;
         }
 
-        // 최근 14일 막대
-        function renderBars(days, goalSec) {
-            const maxSec = Math.max(goalSec * 1.15, ...days.map(r => r.seconds), 3600);
+        // ---------------------------------------------------------------
+        // 불러오기
+        // ---------------------------------------------------------------
+        async function init() {
+            const { data: s } = await db.auth.getSession();
+            if (!s.session || s.session.user?.app_metadata?.role !== 'student') { showMsg('플래너에서 먼저 로그인해 주세요.'); return; }
+            try {
+                const info = await rpc('my_info', {});
+                me = Array.isArray(info) ? info[0] : info;
+            } catch (e) { showMsg('통계를 불러오지 못했어요. ' + (e.message || '')); return; }
+            todayStr = studyToday();
+            thisWeekStart = mondayOf(todayStr);
+            weekStart = thisWeekStart;
+            $('weeknav').hidden = false;
+            loadGrass();
+            await loadWeek();
+        }
+
+        function moveWeek(n) {
+            const next = addDays(weekStart, n * 7);
+            if (next > thisWeekStart) return;
+            if (next < addDays(thisWeekStart, -7 * 51)) return;
+            weekStart = next;
+            loadWeek();
+        }
+        function goThisWeek() { weekStart = thisWeekStart; loadWeek(); }
+
+        let weekRows = null, prevRows = null;
+        async function loadWeek() {
+            const from = addDays(weekStart, -7), to = addDays(weekStart, 6);
+            const isThis = weekStart === thisWeekStart;
+            const end = addDays(weekStart, 6);
+            $('weekLabel').textContent = weekStart.slice(5, 7) === end.slice(5, 7)
+                ? `${+weekStart.slice(5, 7)}월 ${+weekStart.slice(8, 10)}일 ~ ${+end.slice(8, 10)}일`
+                : `${+weekStart.slice(5, 7)}월 ${+weekStart.slice(8, 10)}일 ~ ${+end.slice(5, 7)}월 ${+end.slice(8, 10)}일`;
+            const weeksAgo = Math.round((Date.parse(thisWeekStart) - Date.parse(weekStart)) / (7 * 86400e3));
+            $('weekTag').textContent = weeksAgo === 0 ? '이번 주' : weeksAgo === 1 ? '지난주' : `${weeksAgo}주 전`;
+            $('nextWeek').disabled = isThis;
+            $('thisWeekBtn').hidden = isThis;
+
+            let rows;
+            try { rows = await rpc('my_period_stats', { p_from: from, p_to: to }); }
+            catch (e) { showMsg('통계를 불러오지 못했어요. ' + (e.message || '')); return; }
+            prevRows = rows.slice(0, 7);
+            weekRows = rows.slice(7, 14);
+            $('msg').hidden = true;
+            ['summaryCard', 'barsCard', 'planCard', 'subjCard', 'focusCard', 'grassCard'].forEach(id => $(id).hidden = false);
+
+            renderSummary();
+            renderBars();
+            renderPlan();
+            renderFocus();
+            loadSubjects();
+        }
+
+        // 이번 주는 오늘까지만 비교 (지난주도 같은 요일까지)
+        function elapsedDays() {
+            if (weekStart !== thisWeekStart) return 7;
+            return Math.min(7, Math.round((Date.parse(todayStr) - Date.parse(weekStart)) / 86400e3) + 1);
+        }
+        const sum = (rows, k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
+
+        // ---------------------------------------------------------------
+        // 요약
+        // ---------------------------------------------------------------
+        function renderSummary() {
+            const n = elapsedDays();
+            const cur = weekRows.slice(0, n), prev = prevRows.slice(0, n);
+            $('cmpNote').textContent = n === 1 ? `↑↓는 지난주 ${WEEK[0]}요일과 비교한 값이에요.`
+                : n < 7 ? `↑↓는 지난주 같은 기간(${WEEK[0]}~${WEEK[n - 1]}요일)과 비교한 값이에요.`
+                : '↑↓는 그 전 주와 비교한 값이에요.';
+            $('kTotalLabel').textContent = weekStart === thisWeekStart ? '이번 주 공부' : '이 주 공부';
+            const tCur = sum(cur, 'seconds'), tPrev = sum(prev, 'seconds');
+            $('kTotal').innerHTML = hmHtml(tCur);
+            deltaHtml($('dTotal'), tCur - tPrev, 'time');
+            $('kAvg').innerHTML = hmHtml(tCur / n);
+            deltaHtml($('dAvg'), (tCur - tPrev) / n, 'time');
+            const pc = rate(cur), pp = rate(prev);
+            $('kPlan').innerHTML = pc === null ? '<small>할 일 없음</small>' : `${Math.round(pc)}<small>%</small>`;
+            deltaHtml($('dPlan'), pc === null || pp === null ? null : pc - pp, 'pct');
+
+            const goalSec = (me?.daily_goal_min || 0) * 60;
+            if (goalSec > 0) {
+                const hit = cur.filter(r => r.seconds >= goalSec).length;
+                $('goalLine').hidden = false;
+                $('goalLine').innerHTML = `하루 목표 <b>${goalText(me.daily_goal_min)}</b> · ${n < 7 ? `${n}일 중` : '7일 중'} <b>${hit}일</b> 달성
+                    <span class="goal-dots" aria-hidden="true">${weekRows.map((r, i) => `<span class="${i >= n ? 'future' : r.seconds >= goalSec ? 'hit' : ''}" title="${md(r.day)} ${hmText(r.seconds)}"></span>`).join('')}</span>`;
+            } else $('goalLine').hidden = true;
+        }
+        function rate(rows) { const t = sum(rows, 'tasks_total'); return t ? sum(rows, 'tasks_done') / t * 100 : null; }
+
+        // ---------------------------------------------------------------
+        // 요일별 막대
+        // ---------------------------------------------------------------
+        let selDay = null;
+        function renderBars() {
+            const goalSec = (me?.daily_goal_min || 0) * 60;
+            const maxSec = Math.max(goalSec * 1.15, ...weekRows.map(r => r.seconds), ...prevRows.map(r => r.seconds), 3600);
             const maxH = Math.ceil(maxSec / 3600);
             const step = maxH <= 4 ? 1 : maxH <= 8 ? 2 : maxH <= 12 ? 3 : 4;
             const top = Math.ceil(maxH / step) * step;
@@ -309,71 +437,127 @@
                 html += `<div class="yline" style="bottom: ${pct}%;"></div><div class="ylab" style="bottom: ${pct}%;">${v}h</div>`;
             }
             if (goalSec > 0) html += `<div class="goal" style="bottom: ${goalSec / 3600 / top * 100}%;"></div>`;
-            html += days.map(r => {
-                const isToday = r.day === todayStr;
-                const h = r.seconds / 3600 / top * 100;
-                return `<div class="bar ${isToday ? 'today' : ''}" style="height: ${h}%;" title="${md(r.day)} ${hmText(r.seconds)}">${r.seconds > 0 ? `<span class="v">${hmText(r.seconds)}</span>` : ''}</div>`;
+            $('lgGoal').hidden = !(goalSec > 0);
+            html += weekRows.map((r, i) => {
+                const p = prevRows[i];
+                const future = r.day > todayStr, today = r.day === todayStr;
+                const label = `${md(r.day)} ${WEEK[i]}요일 ${future ? '아직 안 온 날' : hmText(r.seconds)}, 그 전 주 ${hmText(p.seconds)}`;
+                return `<button class="wcol ${today ? 'today' : ''} ${future ? 'future' : ''}" data-i="${i}" aria-label="${label}" onclick="pickDay(${i})" onmouseenter="pickDay(${i}, true)">
+                    <div class="wbar prev" style="height: ${p.seconds / 3600 / top * 100}%;"></div>
+                    <div class="wbar cur" style="height: ${future ? 0 : r.seconds / 3600 / top * 100}%;"></div>
+                </button>`;
             }).join('');
-            $('bars').innerHTML = html;
-            $('bars').setAttribute('aria-label', '최근 14일 순공 시간: ' + days.map(r => `${md(r.day)} ${hmText(r.seconds)}`).join(', '));
-            $('xlabs').innerHTML = days.map(r => {
-                const isToday = r.day === todayStr;
-                return `<span class="${isToday ? 'today' : ''}">${isToday ? '오늘' : md(r.day)}</span>`;
-            }).join('');
-            const avg = days.reduce((a, r) => a + r.seconds, 0) / days.length;
-            $('barsSub').innerHTML = `하루 평균 ${hmText(avg)}` + (goalSec > 0 ? ` · <span style="color: var(--goal); font-weight: 700;">점선 = 목표 ${goalText(goalSec / 60)}</span>` : '');
+            $('wbars').innerHTML = html;
+            $('wbars').onmouseleave = () => { if (selDay === null) hideTip(); };
+            $('wx').innerHTML = weekRows.map((r, i) => `<span class="${r.day === todayStr ? 'today' : ''}">${r.day === todayStr ? '오늘' : WEEK[i]}</span>`).join('');
+            selDay = null;
+        }
+        function hideTip() { const t = $('wbars').querySelector('.tip'); if (t) t.remove(); $('wbars').querySelectorAll('.wcol.sel').forEach(c => c.classList.remove('sel')); }
+        function pickDay(i, hover) {
+            if (!hover) selDay = selDay === i ? null : i;
+            hideTip();
+            if (!hover && selDay === null) return;
+            const r = weekRows[i], p = prevRows[i];
+            const col = $('wbars').querySelector(`.wcol[data-i="${i}"]`);
+            col.classList.add('sel');
+            const future = r.day > todayStr;
+            const tip = document.createElement('div');
+            tip.className = 'tip';
+            tip.innerHTML = `${md(r.day)} (${WEEK[i]}) <b>${future ? '-' : hmText(r.seconds)}</b><br>그 전 주 ${hmText(p.seconds)}${r.tasks_total ? ` · 할 일 ${r.tasks_done}/${r.tasks_total}` : ''}`;
+            const box = $('wbars').getBoundingClientRect(), cb = col.getBoundingClientRect();
+            let left = cb.left - box.left + cb.width / 2;
+            tip.style.left = left + 'px';
+            tip.style.bottom = 'auto'; tip.style.top = '-46px';
+            $('wbars').appendChild(tip);
+            // 화면 밖으로 나가지 않게
+            const tb = tip.getBoundingClientRect();
+            if (tb.left < 8) tip.style.left = (left + (8 - tb.left)) + 'px';
+            if (tb.right > window.innerWidth - 8) tip.style.left = (left - (tb.right - window.innerWidth + 8)) + 'px';
         }
 
-        // 오늘의 집중 모드
-        function renderFocus(today) {
-            const ok = today.focus_success || 0, stop = today.focus_interrupted || 0, free = today.free_sessions || 0;
-            if (!ok && !stop) {
-                $('focusBody').innerHTML = `<div class="empty">오늘은 집중 모드 기록이 없어요.<br>플래너에서 "집중 모드"로 목표 시간을 정해 공부해 보세요.</div>`;
+        // ---------------------------------------------------------------
+        // 계획 완료율
+        // ---------------------------------------------------------------
+        function renderPlan() {
+            const n = elapsedDays();
+            const rows = weekRows.slice(0, n);
+            const total = sum(rows, 'tasks_total'), done = sum(rows, 'tasks_done'), part = sum(rows, 'tasks_partial');
+            if (!total) { $('planBody').innerHTML = '<div class="empty">이 주에는 적어 둔 할 일이 없어요.</div>'; return; }
+            const pct = Math.round(done / total * 100);
+            const pm = sum(rows, 'planned_minutes'), pa = sum(rows, 'planned_actual_seconds');
+            let html = `<div class="plan-top"><div class="plan-pct">${pct}<small>%</small></div>
+                <div class="plan-sub">할 일 <b>${total}개</b> 중 <b>${done}개</b> 완료${part ? ` · 일부 ${part}개` : ''}</div></div>
+                <div class="track" aria-hidden="true"><div style="width: ${pct}%;"></div></div>`;
+            if (pm > 0) {
+                const ratio = Math.round(pa / (pm * 60) * 100);
+                html += `<div class="plan-row">시간을 정한 할 일: 계획 <b>${goalText(pm)}</b> · 실제 <b>${hmText(pa)}</b> (${ratio}%)</div>`;
+            }
+            html += `<div class="pdays">${weekRows.map((r, i) => {
+                const p = r.tasks_total ? Math.round(r.tasks_done / r.tasks_total * 100) : null;
+                return `<div class="pday ${p === null ? 'none' : ''}" title="${md(r.day)} 할 일 ${r.tasks_done}/${r.tasks_total}">
+                    <div class="pbar"><div style="height: ${p || 0}%;"></div></div><b>${p === null ? '-' : p + '%'}</b>${WEEK[i]}</div>`;
+            }).join('')}</div>`;
+            $('planBody').innerHTML = html;
+        }
+
+        // ---------------------------------------------------------------
+        // 집중 모드 · 모의고사 (이 주)
+        // ---------------------------------------------------------------
+        function renderFocus() {
+            const ok = sum(weekRows, 'focus_success'), stop = sum(weekRows, 'focus_interrupted');
+            const mc = sum(weekRows, 'mock_count'), ms = sum(weekRows, 'mock_seconds');
+            if (!ok && !stop && !mc) {
+                $('focusBody').innerHTML = `<div class="empty">이 주에는 집중 모드 기록이 없어요.<br>플래너에서 "집중 모드"로 목표 시간을 정해 공부해 보세요.</div>`;
                 return;
             }
+            const rateTxt = ok + stop ? `${Math.round(ok / (ok + stop) * 100)}%` : '-';
             $('focusBody').innerHTML = `<div class="focus-row">
                 <div class="focus-item"><div class="label">목표 달성</div><div class="value" style="color: var(--ok-text);">${ok}<small>번</small></div></div>
                 <div class="focus-item"><div class="label">중도 종료</div><div class="value" style="color: var(--danger);">${stop}<small>번</small></div></div>
-                <div class="focus-item"><div class="label">자유 공부</div><div class="value">${free}<small>번</small></div></div>
-            </div>`;
+                <div class="focus-item"><div class="label">모의고사</div><div class="value">${mc}<small>번</small></div></div>
+            </div>
+            <div class="plan-row">집중 모드 목표 달성률 <b>${rateTxt}</b>${mc ? ` · 모의고사 <b>${hmText(ms)}</b>` : ''}</div>`;
         }
 
-        // 30일 잔디
-        function renderGrass(rows, goalSec) {
-            const lv = (sec) => { const h = sec / 3600; return h <= 0 ? 0 : h < 2 ? 1 : h < 4 ? 2 : h < 8 ? 3 : 4; };
-            $('grass').innerHTML = rows.map(r => {
-                const d = new Date(r.day + 'T00:00:00Z');
-                return `<div class="${r.day === todayStr ? 'today' : ''}" style="background: var(--g${lv(r.seconds)});" title="${md(r.day)}(${DOW[d.getUTCDay()]}) ${hmText(r.seconds)}"></div>`;
-            }).join('');
-            const studied = rows.filter(r => r.seconds > 0).length;
-            $('grassSub').textContent = `30일 중 ${studied}일 공부`;
-        }
-
-        // 과목별 공부 시간
-        async function loadSubjects(days) {
-            document.querySelectorAll('.seg button').forEach(b => { const on = +b.dataset.days === days; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+        // ---------------------------------------------------------------
+        // 과목별 공부 시간 (이 주)
+        // ---------------------------------------------------------------
+        async function loadSubjects() {
+            const to = addDays(weekStart, 6) < todayStr ? addDays(weekStart, 6) : todayStr;
+            $('subjSub').textContent = weekStart === thisWeekStart ? '이번 주' : $('weekTag').textContent;
             const box = $('subj');
-            const { data, error } = await db.rpc('my_subject_totals', { p_from: addDays(todayStr, -(days - 1)), p_to: todayStr });
-            if (error) { box.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; return; }
-            if (!data.length) { box.innerHTML = '<div class="empty">이 기간에는 기록이 없어요.</div>'; return; }
+            let data;
+            try { data = await rpc('my_subject_totals', { p_from: weekStart, p_to: to }); }
+            catch (e) { box.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; return; }
+            if (!data.length) { box.innerHTML = '<div class="empty">이 주에는 기록이 없어요.</div>'; return; }
             const total = data.reduce((a, r) => a + r.seconds, 0);
             const max = Math.max(...data.map(r => r.seconds));
             box.innerHTML = data.map(r => {
                 const w = r.seconds / max * 100;
-                const color = subjectFillOf(r.subject);
                 const label = `${hmText(r.seconds)} · ${Math.round(r.seconds / total * 100)}%`;
                 return `<div class="subj-row">
                     <div class="subj-name" title="${esc(subjectName(r.subject))}">${esc(subjectName(r.subject))}</div>
                     <div class="subj-track" title="${esc(subjectName(r.subject))} ${label}">
-                        <div class="subj-fill" style="width: ${w}%; background: ${color};"></div>
+                        <div class="subj-fill" style="width: ${w}%; background: ${subjectFillOf(r.subject)};"></div>
                         <span class="subj-val ${w >= 45 ? 'out' : ''}" style="${w >= 45 ? '' : `left: calc(${w}% + 8px);`}">${label}</span>
                     </div>
                 </div>`;
             }).join('');
         }
-        document.querySelectorAll('.seg button').forEach(b => b.onclick = () => loadSubjects(+b.dataset.days));
 
-        loadStatistics();
+        // ---------------------------------------------------------------
+        // 최근 30일 잔디
+        // ---------------------------------------------------------------
+        async function loadGrass() {
+            let rows;
+            try { rows = await rpc('my_period_stats', { p_from: addDays(todayStr, -29), p_to: todayStr }); } catch (e) { return; }
+            const lv = (sec) => { const h = sec / 3600; return h <= 0 ? 0 : h < 2 ? 1 : h < 4 ? 2 : h < 8 ? 3 : 4; };
+            $('grass').innerHTML = rows.map(r => `<div class="${r.day === todayStr ? 'today' : ''}" style="background: var(--g${lv(r.seconds)});" title="${md(r.day)}(${DOW[dow(r.day)]}) ${hmText(r.seconds)}"></div>`).join('');
+            $('grassSub').textContent = `30일 중 ${rows.filter(r => r.seconds > 0).length}일 공부`;
+        }
+
+        document.addEventListener('click', (e) => { if (!e.target.closest('.wcol')) { selDay = null; hideTip(); } });
+        init();
     </script>
 </body>
 </html>
