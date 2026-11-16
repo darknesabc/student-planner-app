@@ -318,6 +318,11 @@
         .subj-grid button { min-height: 48px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); font-weight: 700; font-size: 14px; padding: 0 6px; }
         .subj-grid button:hover { border-color: currentColor; }
         .center h3 { justify-content: center; }
+        .copy-days { display: flex; flex-direction: column; gap: 6px; margin: -6px 0 16px; }
+        .copy-day { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 0 14px; border: 1px solid var(--border-strong);
+                    border-radius: 12px; background: var(--surface); font-size: 14px; font-weight: 600; text-align: left; }
+        .copy-day[aria-checked="true"] { border-color: var(--accent-text); background: var(--accent-soft); color: var(--accent-text); font-weight: 800; }
+        .copy-day small { font-size: 12px; font-weight: 600; color: var(--text-3); }
         .routine-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); font-size: 14px; }
         .pick-btn { padding: 14px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); text-align: left; display: flex; flex-direction: column; gap: 4px; width: 100%; }
         .pick-btn:hover { border-color: var(--accent-line); }
@@ -560,6 +565,7 @@
         <div class="simple-modal-box">
             <h3>계획 가져오기</h3>
             <p id="copyModalDesc" class="desc"></p>
+            <div id="copyDays" class="copy-days" role="radiogroup" aria-label="가져올 날짜"></div>
             <div class="modal-btns">
                 <button class="modal-btn primary" onclick="copyTasks(true)">못 끝낸 것만 가져오기</button>
                 <button class="modal-btn" onclick="copyTasks(false)">전부 가져오기</button>
@@ -732,7 +738,7 @@
                     <div class="tasks-title" id="tasksTitle">오늘 할 일</div>
                     <div id="achievementText" class="count-text"></div>
                     <div class="head-actions">
-                        <button id="copyBtn" class="btn" onclick="openCopyModal()" aria-label="계획 가져오기"><span data-icon="copy"></span><span class="btn-label" id="copyBtnLabel">어제 계획 가져오기</span></button>
+                        <button id="copyBtn" class="btn" onclick="openCopyModal()" aria-label="계획 가져오기"><span data-icon="copy"></span><span class="btn-label" id="copyBtnLabel">지난 계획 가져오기</span></button>
                         <button id="addToggleBtn" class="btn primary" onclick="toggleAddPanel()"><span data-icon="plus"></span><span class="btn-label">할 일 추가</span></button>
                     </div>
                 </div>
@@ -1272,8 +1278,7 @@
             note.innerText = past ? '지난 날짜예요. 계획은 고칠 수 있지만 타이머는 오늘만 쓸 수 있어요.'
                                   : '미리 세우는 계획이에요. 타이머는 그날 쓸 수 있어요.';
 
-            const prev = addDays(viewDateStr, -1);
-            const label = `${isViewingToday() ? '어제' : shortDate(prev)} 계획 가져오기`;
+            const label = '지난 계획 가져오기';
             $('copyBtnLabel').innerText = label;
             const cb = $('copyBtn');
             cb.setAttribute('aria-label', label);
@@ -1486,7 +1491,7 @@
                 <div class="empty-sub">할 일을 적어 두면 ▶ 버튼으로 바로 공부를 시작하고, 과목별로 시간이 쌓여요.</div>
                 <div class="empty-actions">
                     <button class="btn primary" onclick="openAddPanel(true)">${icon('plus')}할 일 추가</button>
-                    <button class="btn" onclick="openCopyModal()">${icon('copy')}어제 계획 가져오기</button>
+                    <button class="btn" onclick="openCopyModal()">${icon('copy')}지난 계획 가져오기</button>
                     <button class="btn" onclick="openAddPanel(true); toggleRepeatArea(true);">${icon('repeat')}매주 반복 계획 만들기</button>
                 </div>
             </li>`;
@@ -1610,16 +1615,38 @@
         // ---------------------------------------------------------------
         // 전날 계획 가져오기
         // ---------------------------------------------------------------
-        function openCopyModal() {
+        // 최근 2주 중 계획이 있던 날(최대 5일)을 보여 주고, 가장 최근 날을 먼저 골라 둠
+        let copyFrom = null;
+        function dayLabel(d) { return `${+d.slice(5, 7)}월 ${+d.slice(8, 10)}일 (${DOW_LABEL[new Date(d + 'T00:00:00Z').getUTCDay()]})`; }
+        async function openCopyModal() {
             if (viewDateStr < todayStr) return;
-            const from = addDays(viewDateStr, -1);
-            $('copyModalDesc').innerText = `${+from.slice(5, 7)}월 ${+from.slice(8, 10)}일 계획을 ${isViewingToday() ? '오늘' : `${+viewDateStr.slice(5, 7)}월 ${+viewDateStr.slice(8, 10)}일`}로 가져와요. 이미 있는 할 일과 모의고사 기록은 빼고 가져와요.`;
+            const { data, error } = await db.from('planner_tasks').select('task_date, subject, status')
+                .lt('task_date', viewDateStr).gte('task_date', addDays(viewDateStr, -14))
+                .order('task_date', { ascending: false });
+            if (error) return toast('계획을 불러오지 못했어요: ' + error.message, 'error');
+            const byDay = {};
+            (data || []).filter(t => t.subject !== '모의고사').forEach(t => {
+                const d = byDay[t.task_date] || (byDay[t.task_date] = { all: 0, left: 0 });
+                d.all++; if (t.status !== 'DONE') d.left++;
+            });
+            const days = Object.keys(byDay).sort().reverse().slice(0, 5);
+            if (!days.length) return toast('최근 2주 안에 가져올 계획이 없어요.');
+            copyFrom = days[0];
+            const to = isViewingToday() ? '오늘' : dayLabel(viewDateStr);
+            $('copyModalDesc').innerText = `가장 최근에 계획을 세운 날을 골라 두었어요. 다른 날을 골라도 돼요. ${to}에 이미 있는 할 일과 모의고사 기록은 빼고 가져와요.`;
+            $('copyDays').innerHTML = days.map(d => `<button class="copy-day" role="radio" aria-checked="${d === copyFrom}" data-day="${d}" onclick="pickCopyDay('${d}')">
+                <span>${dayLabel(d)}${d === addDays(viewDateStr, -1) ? ' · 어제' : ''}</span><small>할 일 ${byDay[d].all}개 · 못 끝낸 것 ${byDay[d].left}개</small></button>`).join('');
             $('copyModal').style.display = 'flex';
+        }
+        function pickCopyDay(d) {
+            copyFrom = d;
+            document.querySelectorAll('#copyDays .copy-day').forEach(b => b.setAttribute('aria-checked', b.dataset.day === d ? 'true' : 'false'));
         }
         function closeCopyModal() { $('copyModal').style.display = 'none'; }
         async function copyTasks(onlyUnfinished) {
             closeCopyModal();
-            const n = await rpc('copy_my_tasks', { p_from: addDays(viewDateStr, -1), p_to: viewDateStr, p_only_unfinished: onlyUnfinished });
+            if (!copyFrom) return;
+            const n = await rpc('copy_my_tasks', { p_from: copyFrom, p_to: viewDateStr, p_only_unfinished: onlyUnfinished });
             if (n === null) return;
             toast(n > 0 ? `할 일 ${n}개를 가져왔어요.` : '가져올 새 할 일이 없어요.', n > 0 ? 'success' : 'info');
             if (n > 0) loadDay(viewDateStr);
