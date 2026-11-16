@@ -234,6 +234,8 @@
             '집중 모드': '#0b2a68', '과목 없음': '#64748b'
         };
 
+        const CUSTOM_FILL = ['#4f46e5', '#be123c', '#0369a1', '#a21caf', '#4d7c0f', '#92400e', '#57534e', '#1e40af'];
+        function subjectFillOf(s) { const i = (me?.custom_subjects || []).indexOf(s); return SUBJECT_FILL[s] || (i >= 0 ? CUSTOM_FILL[i % 8] : '#64748b'); }
         function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
         function goalText(min) { const h = Math.floor(min / 60), m = min % 60; return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`; }
         function hmText(sec) {               // "3시간 28분"
@@ -358,7 +360,7 @@
             const max = Math.max(...data.map(r => r.seconds));
             box.innerHTML = data.map(r => {
                 const w = r.seconds / max * 100;
-                const color = SUBJECT_FILL[r.subject] || '#64748b';
+                const color = subjectFillOf(r.subject);
                 const label = `${hmText(r.seconds)} · ${Math.round(r.seconds / total * 100)}%`;
                 return `<div class="subj-row">
                     <div class="subj-name" title="${esc(subjectName(r.subject))}">${esc(subjectName(r.subject))}</div>
