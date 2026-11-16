@@ -187,6 +187,7 @@
 
         .add-panel { margin: 0 10px 12px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); display: flex; flex-direction: column; gap: 12px; }
         .add-row { display: flex; gap: 10px; }
+        .add-note { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--accent-text); }
         .add-row select { min-width: 110px; }
         .add-row input { flex: 1; min-width: 0; }
         .toggle-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -571,7 +572,7 @@
     <div id="routineModal" class="simple-modal" style="display: none;" onclick="if(event.target===this) closeRoutineModal()">
         <div class="simple-modal-box" style="max-width: 440px;">
             <h3>반복 계획 <button class="icon-btn" onclick="closeRoutineModal()" aria-label="닫기" data-icon="x"></button></h3>
-            <p class="desc">할 일을 추가할 때 "매주 반복"을 켜면 여기에 생겨요. 멈추면 앞으로는 생기지 않고, 이미 만들어진 할 일은 그대로 남아요.</p>
+            <p class="desc">할 일을 추가할 때 "매주 반복"을 켜면 여기에 생겨요. "수정"으로 내용·시간·요일을 바꾸면 오늘부터 아직 시작 안 한 할 일에도 반영돼요. 멈추면 앞으로는 생기지 않고, 이미 만들어진 할 일은 그대로 남아요.</p>
             <div id="routineList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
     </div>
@@ -738,6 +739,7 @@
 
                 <!-- 할 일 추가 (누르면 열림) -->
                 <div id="addPanel" class="add-panel" hidden>
+                    <div id="addPanelNote" class="add-note" hidden></div>
                     <div class="add-row">
                         <label class="sr-only" for="subjectInput">과목</label>
                         <select id="subjectInput">
@@ -1211,7 +1213,7 @@
             if (t.status !== 'DONE') html += `<button role="menuitem" onclick="closeMenus(); setTaskStatus('${t.id}', 'DONE')">${icon('check')}완료로 표시</button>`;
             if (t.status !== 'PARTIAL') html += `<button role="menuitem" onclick="closeMenus(); setTaskStatus('${t.id}', 'PARTIAL')">${icon('half')}일부만 했어요</button>`;
             if (t.status !== 'NONE') html += `<button role="menuitem" onclick="closeMenus(); setTaskStatus('${t.id}', 'NONE')">${icon('undo')}안 한 것으로 되돌리기</button>`;
-            if (t.routine_id) html += `<button role="menuitem" onclick="closeMenus(); openRoutineModal()">${icon('repeat')}반복 계획 관리</button>`;
+            if (t.routine_id) html += `<button role="menuitem" onclick="closeMenus(); prepareEditRoutine('${t.routine_id}')">${icon('repeat')}반복 계획 수정</button>`;
             html += `<hr><button role="menuitem" class="danger" ${hasRecord ? 'disabled' : ''} onclick="closeMenus(); deleteTask('${t.id}')">${icon('trash')}삭제하기</button>`;
             if (hasRecord) html += `<div class="menu-note">공부 기록이 있어 지울 수 없어요</div>`;
             m.innerHTML = html;
@@ -1573,6 +1575,8 @@
             chips.forEach(b => b.setAttribute('aria-pressed', allOn ? 'false' : 'true'));
         }
 
+        let routineCache = [];
+        let editRoutineId = null;
         async function openRoutineModal() {
             $('routineModal').style.display = 'flex';
             const box = $('routineList');
@@ -1583,12 +1587,14 @@
                 box.innerHTML = '<div class="g-empty" style="text-align:center; padding: 20px 0;">아직 반복 계획이 없어요.</div>';
                 return;
             }
+            routineCache = data;
             box.innerHTML = data.map(r => `
                 <div class="routine-row">
                     <div style="flex: 1; min-width: 0;">
                         <div style="display: flex; align-items: center; gap: 8px; font-weight: 700;">${tagHtml(r.subject)}<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(r.content)}</span></div>
                         <div style="font-size: 12px; color: var(--text-3); margin-top: 4px;">${esc(dayNames(r.weekdays))}${r.mode === 'time' ? ` · ${esc(r.plan_start.slice(0, 5))}~${esc(r.plan_end.slice(0, 5))}` : ''}</div>
                     </div>
+                    <button class="btn" onclick="prepareEditRoutine('${r.id}')">수정</button>
                     <button class="btn danger" onclick="stopRoutine('${r.id}')">멈추기</button>
                 </div>`).join('');
         }
@@ -1711,6 +1717,7 @@
             const row = { subject, content, mode: withTime ? 'time' : 'simple',
                           plan_start: withTime ? startVal : null,
                           plan_end: withTime ? endVal : null };
+            if (editRoutineId) return saveRoutineEdit(row);
             if (!editTaskId && repeatOn()) {
                 const days = selectedDays();
                 if (!days.length) return toast('반복할 요일을 하나 이상 골라 주세요.', 'error');
@@ -1738,6 +1745,7 @@
         function prepareEditTask(taskId) {
             const t = tasks.find(x => x.id === taskId);
             if (!t) return;
+            editRoutineId = null;
             editTaskId = taskId;
             $('subjectInput').value = t.subject;
             $('contentInput').value = t.content;
@@ -1751,13 +1759,66 @@
             toggleRepeatArea(false);
             $('repeatToggleLabel').style.display = 'none';
             $('addBtn').innerText = '수정 완료';
+            $('addPanelNote').hidden = false;
+            $('addPanelNote').innerHTML = `${icon('edit')}할 일 수정 중`;
             $('cancelEditArea').innerHTML = `<button class="btn" onclick="cancelEdit()">수정 취소</button>`;
             $('closeAddBtn').hidden = true;
             openAddPanel(true);
         }
 
+        // 반복 계획 수정: 할 일 추가 창을 그 계획 내용으로 채워서 엶
+        async function prepareEditRoutine(id) {
+            let r = routineCache.find(x => x.id === id);
+            if (!r) {
+                const { data, error } = await db.from('planner_routines').select('*').eq('id', id).limit(1);
+                if (error || !data || !data.length) return toast('반복 계획을 찾을 수 없어요. 이미 멈췄을 수 있어요.', 'error');
+                r = data[0];
+            }
+            closeRoutineModal();
+            cancelEdit();
+            editRoutineId = id;
+            $('subjectInput').value = r.subject;
+            $('contentInput').value = r.content;
+            if (r.mode === 'time') {
+                toggleTimeArea(true);
+                document.querySelector('input[name="timeMode"][value="custom"]').checked = true;
+                toggleTimeInput();
+                $('startTimeInput').value = (r.plan_start || '').slice(0, 5);
+                $('endTimeInput').value = (r.plan_end || '').slice(0, 5);
+            } else toggleTimeArea(false);
+            document.querySelectorAll('.day-chip[data-dow]').forEach(b => b.setAttribute('aria-pressed', r.weekdays.includes(+b.dataset.dow) ? 'true' : 'false'));
+            $('repeatToggle').checked = true;
+            $('repeatArea').style.display = 'flex';
+            $('repeatToggleLabel').style.display = 'none';
+            $('addPanelNote').hidden = false;
+            $('addPanelNote').innerHTML = `${icon('repeat')}반복 계획 수정 중`;
+            $('addBtn').innerText = '반복 계획 저장';
+            $('cancelEditArea').innerHTML = `<button class="btn" onclick="cancelEdit()">수정 취소</button>`;
+            $('closeAddBtn').hidden = true;
+            openAddPanel(true);
+        }
+
+        async function saveRoutineEdit(row) {
+            const days = selectedDays();
+            if (!days.length) return toast('반복할 요일을 하나 이상 골라 주세요.', 'error');
+            const id = editRoutineId;
+            const { error } = await db.from('planner_routines').update({ ...row, weekdays: days }).eq('id', id);
+            if (error) return toast('반복 계획을 저장하지 못했어요: ' + error.message, 'error');
+            // 오늘부터 이미 만들어진, 아직 시작 안 한 할 일도 같이 고침 (지난 기록은 그대로)
+            await db.from('planner_tasks').update({ ...row, updated_at: new Date().toISOString() })
+                .eq('routine_id', id).gte('task_date', todayStr).eq('status', 'NONE');
+            cancelEdit();
+            $('addPanel').hidden = true;
+            toast(`반복 계획을 고쳤어요. 매주 ${dayNames(days)}에 생겨요.`, 'success');
+            loadDay(viewDateStr);
+        }
+
         function cancelEdit() {
             editTaskId = null;
+            editRoutineId = null;
+            $('addPanelNote').hidden = true;
+            if (!$('repeatToggle').disabled) { $('repeatToggle').checked = false; $('repeatArea').style.display = 'none'; }
+            document.querySelectorAll('.day-chip[data-dow]').forEach(b => b.setAttribute('aria-pressed', 'false'));
             $('contentInput').value = ''; $('startTimeInput').value = ''; $('endTimeInput').value = '';
             $('addBtn').innerText = '추가하기';
             toggleTimeArea(false);
