@@ -318,6 +318,9 @@
         .subj-grid button { min-height: 48px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); font-weight: 700; font-size: 14px; padding: 0 6px; }
         .subj-grid button:hover { border-color: currentColor; }
         .center h3 { justify-content: center; }
+        .subj-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .subj-chip { display: inline-flex; align-items: center; gap: 2px; padding-left: 12px; border-radius: 10px; font-size: 14px; font-weight: 700; }
+        .subj-chip .icon-btn { width: 40px; height: 40px; color: inherit; }
         .manual-form { display: flex; flex-direction: column; gap: 8px; }
         .manual-form select, .manual-form input { width: 100%; }
         .field-label { font-size: 13px; font-weight: 700; color: var(--text-2); margin-top: 4px; display: block; }
@@ -590,6 +593,20 @@
         </div>
     </div>
 
+    <!-- 내 과목 관리 -->
+    <div id="subjectsModal" class="simple-modal" style="display: none;" onclick="if(event.target===this) closeSubjects()">
+        <div class="simple-modal-box" style="max-width: 420px;">
+            <h3>내 과목 <button class="icon-btn" onclick="closeSubjects()" aria-label="닫기" data-icon="x"></button></h3>
+            <p class="desc">목록에 없는 과목(예: 일본어, 정보)을 8개까지 추가할 수 있어요. 지워도 이미 적은 할 일과 기록은 그대로 남아요.</p>
+            <div id="subjectsList" class="subj-chips"></div>
+            <div class="add-row" style="margin-top: 14px;">
+                <label class="sr-only" for="newSubjectInput">새 과목 이름</label>
+                <input type="text" id="newSubjectInput" maxlength="10" placeholder="과목 이름 (10자 이내)" onkeydown="if(event.key === 'Enter' && !event.isComposing) addMySubject()">
+                <button class="btn primary" onclick="addMySubject()" style="flex: none;">추가</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 공부 시간 직접 입력 -->
     <div id="manualModal" class="simple-modal" style="display: none;" onclick="if(event.target===this) closeManual()">
         <div class="simple-modal-box" style="max-width: 420px;">
@@ -710,6 +727,7 @@
         <button role="menuitem" onclick="closeMenus(); openNicknameEdit()"><span data-icon="edit"></span>닉네임 바꾸기</button>
         <button role="menuitem" onclick="closeMenus(); editGoal()"><span data-icon="target"></span>하루 목표 정하기</button>
         <button role="menuitem" onclick="closeMenus(); openRoutineModal()"><span data-icon="repeat"></span>반복 계획 관리</button>
+        <button role="menuitem" onclick="closeMenus(); openSubjects()"><span data-icon="listCheck"></span>내 과목 관리</button>
         <button role="menuitem" id="menuThemeBtn" onclick="closeMenus(); toggleTheme()"><span data-icon="moon"></span><span id="menuThemeText">다크 모드</span></button>
         <hr>
         <button role="menuitem" class="danger" onclick="closeMenus(); logout()"><span data-icon="logout"></span>로그아웃</button>
@@ -787,17 +805,8 @@
                     <div id="addPanelNote" class="add-note" hidden></div>
                     <div class="add-row">
                         <label class="sr-only" for="subjectInput">과목</label>
-                        <select id="subjectInput">
+                        <select id="subjectInput" onchange="subjectSelectChanged(this)">
                             <option value="국어">국어</option>
-                            <option value="수학">수학</option>
-                            <option value="영어">영어</option>
-                            <option value="한국사">한국사</option>
-                            <option value="탐구1">탐구1</option>
-                            <option value="탐구2">탐구2</option>
-                            <option value="논술">논술</option>
-                            <option value="면접">면접</option>
-                            <option value="모의고사">모의고사</option>
-                            <option value="자율학습">자율학습</option>
                         </select>
                         <label class="sr-only" for="contentInput">할 일 내용</label>
                         <input type="text" id="contentInput" placeholder="예: 뉴런 수1 3강 완강" maxlength="200" onkeydown="if(event.key === 'Enter' && !event.isComposing) addTask()">
@@ -1010,9 +1019,21 @@
             '한국사': '#a16207', '논술': '#be185d', '면접': '#4d7c0f', '모의고사': '#475569', '자율학습': '#0f766e'
         };
         function isDark() { return document.body.classList.contains('dark-theme'); }
-        function subjectTagColors(s) { return SUBJECT_TAG[isDark() ? 'dark' : 'light'][s] || (isDark() ? ['#cbd5e1', '#2a3244'] : ['#334155', '#e9edf3']); }
+        const CUSTOM_TAG = {
+            light: [['#3730a3', '#e0e7ff'], ['#9f1239', '#ffe4e6'], ['#075985', '#e0f2fe'], ['#86198f', '#fae8ff'], ['#365314', '#ecfccb'], ['#78350f', '#f5e6d3'], ['#44403c', '#f0efee'], ['#1e3a8a', '#dbeafe']],
+            dark: [['#a5b4fc', '#262a5c'], ['#fda4af', '#3f1d26'], ['#7dd3fc', '#0f2f45'], ['#f0abfc', '#3b1a40'], ['#bef264', '#24300f'], ['#e7c9a9', '#3b2a1a'], ['#d6d3d1', '#2e2b29'], ['#93c5fd', '#1e2a4a']]
+        };
+        const CUSTOM_FILL = ['#4f46e5', '#be123c', '#0369a1', '#a21caf', '#4d7c0f', '#92400e', '#57534e', '#1e40af'];
+        function customIdx(s) { return (me?.custom_subjects || []).indexOf(s); }
+        function subjectTagColors(s) {
+            const fixed = SUBJECT_TAG[isDark() ? 'dark' : 'light'][s];
+            if (fixed) return fixed;
+            const i = customIdx(s);
+            if (i >= 0) return CUSTOM_TAG[isDark() ? 'dark' : 'light'][i % 8];
+            return isDark() ? ['#cbd5e1', '#2a3244'] : ['#334155', '#e9edf3'];
+        }
         function subjectColor(s) { return subjectTagColors(s)[0]; }          // 글자·점선
-        function subjectFill(s) { return SUBJECT_FILL[s] || '#64748b'; }    // 흰 글씨가 올라가는 막대
+        function subjectFill(s) { const i = customIdx(s); return SUBJECT_FILL[s] || (i >= 0 ? CUSTOM_FILL[i % 8] : '#64748b'); }    // 흰 글씨가 올라가는 막대
         function tagHtml(subject) {
             const [fg, bg] = subjectTagColors(subject);
             return `<span class="tag" style="color: ${fg}; background: ${bg};">${esc(subjectLabel(subject))}</span>`;
@@ -1281,9 +1302,7 @@
 
         async function initPlanner() {
             renderHeader();
-            const sel = $('subjectInput');
-            if (me.tam1_subject) sel.querySelector('option[value="탐구1"]').innerText = me.tam1_subject;
-            if (me.tam2_subject) sel.querySelector('option[value="탐구2"]').innerText = me.tam2_subject;
+            renderSubjectSelect();
             const b1 = $('btnMockTam1'), b2 = $('btnMockTam2');
             if (b1 && me.tam1_subject) { b1.querySelector('span').innerText = `${me.tam1_subject} 모의고사`; b1.onclick = () => prepareMockExam(30, me.tam1_subject); }
             if (b2 && me.tam2_subject) { b2.querySelector('span').innerText = `${me.tam2_subject} 모의고사`; b2.onclick = () => prepareMockExam(30, me.tam2_subject); }
@@ -1701,7 +1720,8 @@
         // ---------------------------------------------------------------
         // 공부 시간 직접 입력 (오늘·어제, 한 번에 5분~3시간, 다른 기록과 안 겹치게)
         // ---------------------------------------------------------------
-        const MANUAL_SUBJECTS = ['국어', '수학', '영어', '한국사', '탐구1', '탐구2', '논술', '면접', '자율학습'];
+        const BASE_SUBJECTS = ['국어', '수학', '영어', '한국사', '탐구1', '탐구2', '논술', '면접', '자율학습'];
+        function allSubjects() { return [...BASE_SUBJECTS, ...(me?.custom_subjects || [])]; }
         function manualAllowed() { return !!todayStr && (viewDateStr === todayStr || viewDateStr === addDays(todayStr, -1)); }
         function openManual(taskId) {
             if (!manualAllowed()) return toast('직접 입력은 오늘과 어제 기록만 할 수 있어요.', 'error');
@@ -1709,7 +1729,7 @@
             $('manualTask').innerHTML = list.map(t => `<option value="${t.id}">${esc(subjectLabel(t.subject))} · ${esc(t.content)}</option>`).join('')
                 + `<option value="">할 일 없이 과목만 고르기</option>`;
             $('manualTask').value = taskId && list.some(t => t.id === taskId) ? taskId : (list.length ? list[0].id : '');
-            $('manualSubject').innerHTML = MANUAL_SUBJECTS.map(s => `<option value="${s}">${esc(subjectLabel(s))}</option>`).join('');
+            $('manualSubject').innerHTML = allSubjects().map(s => `<option value="${s}">${esc(subjectLabel(s))}</option>`).join('');
             manualTaskChanged();
             // 기본값: 오늘이면 1시간 전부터 1시간, 어제면 저녁 8시부터 1시간
             if (isViewingToday()) {
@@ -1865,11 +1885,68 @@
             loadDay(viewDateStr);
         }
 
+        // ---------------------------------------------------------------
+        // 내 과목 (목록에 없는 과목 추가)
+        // ---------------------------------------------------------------
+        let lastSubject = '국어';
+        function renderSubjectSelect(keep) {
+            const sel = $('subjectInput');
+            const cur = keep || sel.value || lastSubject;
+            const subjects = [...BASE_SUBJECTS.slice(0, 8), ...(me?.custom_subjects || []), '모의고사', '자율학습'];
+            sel.innerHTML = subjects.map(s => `<option value="${esc(s)}">${esc(subjectLabel(s))}</option>`).join('')
+                + `<option value="__add">+ 과목 추가…</option>`;
+            sel.value = subjects.includes(cur) ? cur : '국어';
+            lastSubject = sel.value;
+        }
+        function subjectSelectChanged(sel) {
+            if (sel.value === '__add') { sel.value = lastSubject; openSubjects(); return; }
+            lastSubject = sel.value;
+        }
+        function openSubjects() {
+            renderMySubjects();
+            $('subjectsModal').style.display = 'flex';
+            setTimeout(() => $('newSubjectInput').focus(), 50);
+        }
+        function closeSubjects() { $('subjectsModal').style.display = 'none'; }
+        function renderMySubjects() {
+            const list = me?.custom_subjects || [];
+            $('subjectsList').innerHTML = list.length
+                ? list.map((s, i) => { const [fg, bg] = subjectTagColors(s); return `<span class="subj-chip" style="color: ${fg}; background: ${bg};">${esc(s)}<button class="icon-btn" onclick="removeMySubject(${i})" aria-label="${esc(s)} 지우기">${icon('x')}</button></span>`; }).join('')
+                : '<div class="g-empty">아직 추가한 과목이 없어요.</div>';
+        }
+        async function saveMySubjects(list, okMsg) {
+            const saved = await rpc('set_my_subjects', { p_subjects: list });
+            if (!saved) return false;
+            me.custom_subjects = saved;
+            renderMySubjects();
+            renderSubjectSelect();
+            renderTasks();
+            toast(okMsg, 'success');
+            return true;
+        }
+        async function addMySubject() {
+            const v = $('newSubjectInput').value.trim();
+            if (!v) return $('newSubjectInput').focus();
+            if ((me?.custom_subjects || []).length >= 8) return toast('과목은 8개까지 추가할 수 있어요.', 'error');
+            if (await saveMySubjects([...(me?.custom_subjects || []), v], `"${v}" 과목을 추가했어요.`)) {
+                $('newSubjectInput').value = '';
+                renderSubjectSelect(v);
+            }
+        }
+        async function removeMySubject(i) {
+            const list = [...(me?.custom_subjects || [])];
+            const [gone] = list.splice(i, 1);
+            if (!confirm(`"${gone}" 과목을 목록에서 지울까요? 이미 적은 할 일과 기록은 그대로 남아요.`)) return;
+            saveMySubjects(list, `"${gone}" 과목을 지웠어요.`);
+        }
+
         function prepareEditTask(taskId) {
             const t = tasks.find(x => x.id === taskId);
             if (!t) return;
             editRoutineId = null;
             editTaskId = taskId;
+            renderSubjectSelect(t.subject);
+            if ($('subjectInput').value !== t.subject) $('subjectInput').insertAdjacentHTML('afterbegin', `<option value="${esc(t.subject)}">${esc(t.subject)}</option>`);
             $('subjectInput').value = t.subject;
             $('contentInput').value = t.content;
             if (t.mode === 'time') {
@@ -1900,6 +1977,8 @@
             closeRoutineModal();
             cancelEdit();
             editRoutineId = id;
+            renderSubjectSelect(r.subject);
+            if ($('subjectInput').value !== r.subject) $('subjectInput').insertAdjacentHTML('afterbegin', `<option value="${esc(r.subject)}">${esc(r.subject)}</option>`);
             $('subjectInput').value = r.subject;
             $('contentInput').value = r.content;
             if (r.mode === 'time') {
@@ -2054,7 +2133,6 @@
         // 과목 없이 한 공부(자유 공부 · 집중 모드)를 멈추면 과목을 물어봄
         //   고르면 목록에 '자유 공부'(같은 날 같은 과목은 한 줄) 할 일로 남고 통계에도 반영
         // ---------------------------------------------------------------
-        const ASK_SUBJECTS = ['국어', '수학', '영어', '한국사', '탐구1', '탐구2', '논술', '면접', '자율학습'];
         let subjectAskIds = [];
         function untaggedOf(s) { return s && !s.task_id && (s.kind === 'free' || s.kind === 'focus') ? { ...s } : null; }
         function askSubjectAfterStop(prev) {
@@ -2066,7 +2144,7 @@
         function openSubjectAsk(ids, kind, secs) {
             subjectAskIds = ids;
             $('subjectAskDesc').innerText = `방금 ${kind === 'focus' ? '집중 모드로' : '자유 공부로'} ${durText(secs)} 공부했어요. 과목을 고르면 할 일 목록과 과목별 통계에 남아요.`;
-            $('subjectAskGrid').innerHTML = ASK_SUBJECTS.map(sj => {
+            $('subjectAskGrid').innerHTML = allSubjects().map(sj => {
                 const [fg, bg] = subjectTagColors(sj);
                 return `<button style="color: ${fg}; background: ${bg};" onclick="labelSubject('${sj}')">${esc(subjectLabel(sj))}</button>`;
             }).join('');
