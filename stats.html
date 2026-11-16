@@ -177,7 +177,15 @@
         .cal-cell .d { font-size: 12px; font-weight: 700; }
         .cal-cell .t { font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
         .cal-cell.future { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-3); }
-        .cal-cell.inweek { box-shadow: inset 0 0 0 2px var(--accent-text); }
+        .cal-cell.inweek { box-shadow: 0 0 0 3px var(--accent-soft); }
+        .cal-cell.inweek.future { background: var(--accent-soft); border-color: transparent; color: var(--text-2); }
+        .cal-wrap { display: grid; grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 761px) {
+            .cal-wrap { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+            .cal-wrap .cal-detail { margin-top: 26px; }
+        }
+        .cal-detail.hint .cd-title { color: var(--text-2); }
+        @media (max-width: 760px) { .cal-detail.hint { display: none; } }
         .cal-cell.today .d { text-decoration: underline; text-underline-offset: 3px; }
         .cal-cell.sel { outline: 3px solid var(--goal); outline-offset: 1px; }
         .cal-dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--goal); display: inline-block; }
@@ -266,6 +274,19 @@
             <div class="goal-line" id="goalLine" hidden></div>
         </section>
 
+        <section class="card wide" id="grassCard" hidden aria-labelledby="grassTitle">
+            <div class="card-head"><h2 class="card-title" id="grassTitle">공부 달력</h2><span class="card-sub" id="grassSub"></span></div>
+            <div class="cal-wrap"><div class="cal-main">
+            <div class="cal-head" aria-hidden="true"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>
+            <div class="cal" id="cal" role="grid"></div>
+            <div class="glegend" aria-hidden="true">
+                <span>안 함</span><i style="background: var(--g0);"></i><i style="background: var(--g1);"></i><i style="background: var(--g2);"></i><i style="background: var(--g3);"></i><i style="background: var(--g4);"></i><span>8시간 이상</span>
+                <span class="gl-goal"><b class="cal-dot"></b>목표 달성</span>
+            </div>
+            </div>
+            <div class="cal-detail" id="calDetail" hidden></div></div>
+        </section>
+
         <section class="card wide" id="barsCard" hidden aria-labelledby="barsTitle">
             <div class="card-head">
                 <h2 class="card-title" id="barsTitle">요일별 공부 시간</h2>
@@ -294,21 +315,11 @@
             <div class="lagging" id="hourInsight" hidden></div>
         </section>
 
-        <section class="card" id="focusCard" hidden aria-labelledby="focusTitle">
+        <section class="card wide" id="focusCard" hidden aria-labelledby="focusTitle">
             <div class="card-head"><h2 class="card-title" id="focusTitle">집중 모드 · 모의고사</h2></div>
             <div id="focusBody"></div>
         </section>
 
-        <section class="card" id="grassCard" hidden aria-labelledby="grassTitle">
-            <div class="card-head"><h2 class="card-title" id="grassTitle">공부 달력</h2><span class="card-sub" id="grassSub"></span></div>
-            <div class="cal-head" aria-hidden="true"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>
-            <div class="cal" id="cal" role="grid"></div>
-            <div class="glegend" aria-hidden="true">
-                <span>안 함</span><i style="background: var(--g0);"></i><i style="background: var(--g1);"></i><i style="background: var(--g2);"></i><i style="background: var(--g3);"></i><i style="background: var(--g4);"></i><span>8시간 이상</span>
-                <span class="gl-goal"><b class="cal-dot"></b>목표 달성</span>
-            </div>
-            <div class="cal-detail" id="calDetail" hidden></div>
-        </section>
     </main>
 
     <nav class="bottom-nav" aria-label="메뉴">
@@ -606,6 +617,7 @@
             const timer = Math.max(0, total - manual - idle);
             const pct = (x) => Math.round(x / total * 100);
             el.hidden = false;
+            if (!manual && !idle) { el.innerHTML = `<div class="method-head"><span>기록 방식</span><span>모두 <b>타이머로 잰 시간</b>이에요</span></div>`; return; }
             el.innerHTML = `<div class="method-head"><span>기록 방식</span><span>타이머로 잰 시간 <b>${pct(timer)}%</b></span></div>
                 <div class="mbar" role="img" aria-label="타이머 ${pct(timer)}%, 직접 입력 ${pct(manual)}%, 직접 확인 ${pct(idle)}%">
                     <span class="m-timer" style="width: ${timer / total * 100}%;"></span><span class="m-manual" style="width: ${manual / total * 100}%;"></span><span class="m-idle" style="width: ${idle / total * 100}%;"></span></div>
@@ -725,9 +737,11 @@
             const ins = $('hourInsight');
             if (!max) {
                 $('hbars').innerHTML = ''; $('hx').innerHTML = '';
+                $('hbars').style.display = 'none'; $('hx').style.display = 'none';
                 ins.hidden = false; ins.textContent = `이 ${unit()}에는 공부 기록이 없어요.`;
                 return;
             }
+            $('hbars').style.display = ''; $('hx').style.display = '';
             // 가장 많이 공부한 연속 2시간
             let best = 0;
             for (let i = 0; i < 23; i++) if (vals[i] + vals[i + 1] > vals[best] + vals[best + 1]) best = i;
@@ -775,14 +789,21 @@
             $('cal').innerHTML = html;
             const past = rows.filter(r => r.day <= todayStr);
             $('grassSub').textContent = `${+ms.slice(5, 7)}월 · ${past.length}일 중 ${past.filter(r => r.seconds > 0).length}일 공부`;
-            if (calSel && !rows.some(r => r.day === calSel)) { calSel = null; $('calDetail').hidden = true; }
+            if (calSel && !rows.some(r => r.day === calSel)) calSel = null;
+            if (!calSel) calHint();
+        }
+        function calHint() {
+            const box = $('calDetail');
+            box.className = 'cal-detail hint'; box.hidden = false;
+            box.innerHTML = '<div class="cd-title">날짜를 눌러 보세요</div><div>그날 공부 시간, 할 일, 과목별 시간이 여기에 보여요. 그날 플래너로 바로 갈 수도 있어요.</div>';
         }
         async function pickCal(i) {
             const r = calRows[i];
             calSel = calSel === r.day ? null : r.day;
             document.querySelectorAll('#cal .cal-cell').forEach(c => c.classList.remove('sel'));
             const box = $('calDetail');
-            if (!calSel) { box.hidden = true; return; }
+            if (!calSel) { calHint(); return; }
+            box.className = 'cal-detail';
             document.querySelectorAll('#cal .cal-cell:not(.blank)')[i].classList.add('sel');
             const title = `${+r.day.slice(5, 7)}월 ${+r.day.slice(8, 10)}일 (${DOW[dow(r.day)]})`;
             const go = `<a class="cd-go" href="index.html?date=${r.day}">그날 플래너 보기</a>`;
