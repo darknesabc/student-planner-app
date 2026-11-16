@@ -55,6 +55,9 @@
                     background: var(--surface); color: var(--text-2); border-radius: 12px; padding: 0; }
         .week-label { font-size: 20px; font-weight: 800; min-width: 0; padding: 0 6px; }
         .week-tag { font-size: 13px; font-weight: 700; color: var(--accent-text); background: var(--accent-soft); border-radius: 999px; padding: 5px 12px; }
+        .seg { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 3px; margin-right: 6px; }
+        .seg button { min-height: 38px; min-width: 48px; padding: 0 12px; border: none; border-radius: 9px; background: transparent; font-weight: 600; font-size: 14px; color: var(--text-2); }
+        .seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
         .chip-btn { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--accent-line); background: var(--surface); color: var(--accent-text); font-weight: 700; font-size: 13px; margin-left: auto; }
 
         main { max-width: 1000px; margin: 0 auto; padding: 14px 20px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
@@ -117,6 +120,16 @@
         .m-idle { background: var(--text-3); }
         .lagging { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 14px; color: var(--text-2); }
         .lagging b { color: var(--text); }
+
+        /* 공부 시간대 */
+        .hbars { height: 150px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; align-items: end; border-bottom: 1px solid var(--border); }
+        .hbars div { background: var(--bar); border-radius: 4px 4px 1px 1px; min-height: 2px; }
+        .hbars div.peak { background: var(--bar-today); }
+        .hx { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; margin-top: 6px; }
+        .hx span { font-size: 11px; color: var(--text-3); text-align: left; white-space: nowrap; overflow: visible; }
+        .wbars.month { gap: 2px; }
+        .wbars.month .wbar.cur { width: 70%; }
+        .wx.month { gap: 2px; }
 
         /* 계획 완료율 */
         .plan-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -204,11 +217,15 @@
     </header>
 
     <div class="weeknav" id="weeknav" hidden>
-        <button class="icon-btn" id="prevWeek" onclick="moveWeek(-1)" aria-label="지난주" data-icon="chevL"></button>
+        <div class="seg" role="tablist" aria-label="기간 단위">
+            <button role="tab" id="modeWeek" class="on" aria-selected="true" onclick="setMode('week')">주</button>
+            <button role="tab" id="modeMonth" aria-selected="false" onclick="setMode('month')">월</button>
+        </div>
+        <button class="icon-btn" id="prevWeek" onclick="movePeriod(-1)" aria-label="이전" data-icon="chevL"></button>
         <div class="week-label" id="weekLabel" aria-live="polite"></div>
-        <button class="icon-btn" id="nextWeek" onclick="moveWeek(1)" aria-label="다음 주" data-icon="chevR"></button>
+        <button class="icon-btn" id="nextWeek" onclick="movePeriod(1)" aria-label="다음" data-icon="chevR"></button>
         <span class="week-tag" id="weekTag"></span>
-        <button class="chip-btn" id="thisWeekBtn" onclick="goThisWeek()" hidden>이번 주로</button>
+        <button class="chip-btn" id="thisWeekBtn" onclick="goNow()" hidden>이번 주로</button>
     </div>
 
     <main id="main">
@@ -227,7 +244,7 @@
         <section class="card wide" id="barsCard" hidden aria-labelledby="barsTitle">
             <div class="card-head">
                 <h2 class="card-title" id="barsTitle">요일별 공부 시간</h2>
-                <div class="legend"><span><i style="background: var(--bar);"></i>이 주</span><span><i style="background: var(--bar-prev);"></i>그 전 주</span><span id="lgGoal" hidden><i class="lg-goal"></i>하루 목표</span></div>
+                <div class="legend"><span><i style="background: var(--bar);"></i><span id="lgCur">이 주</span></span><span id="lgPrevWrap"><i style="background: var(--bar-prev);"></i>그 전 주</span><span id="lgGoal" hidden><i class="lg-goal"></i>하루 목표</span></div>
             </div>
             <div class="wbars" id="wbars"></div>
             <div class="wx" id="wx" aria-hidden="true"></div>
@@ -243,6 +260,13 @@
         <section class="card" id="subjCard" hidden aria-labelledby="subjTitle">
             <div class="card-head"><h2 class="card-title" id="subjTitle">과목별 공부 시간</h2><span class="card-sub" id="subjSub"></span></div>
             <div class="subj" id="subj"></div>
+        </section>
+
+        <section class="card wide" id="hourCard" hidden aria-labelledby="hourTitle">
+            <div class="card-head"><h2 class="card-title" id="hourTitle">공부 시간대</h2><span class="card-sub" id="hourSub"></span></div>
+            <div class="hbars" id="hbars" role="img"></div>
+            <div class="hx" id="hx" aria-hidden="true"></div>
+            <div class="lagging" id="hourInsight" hidden></div>
         </section>
 
         <section class="card" id="focusCard" hidden aria-labelledby="focusTitle">
@@ -275,8 +299,8 @@
         const $ = (id) => document.getElementById(id);
         const DOW = ['일', '월', '화', '수', '목', '금', '토'];
         const WEEK = ['월', '화', '수', '목', '금', '토', '일'];
-        let me = null, todayStr = null, weekStart = null, thisWeekStart = null;
-
+        let me = null, todayStr = null;
+        let mode = 'week', start = null, nowStart = null;
         // 아이콘
         const ICON_PATHS = {
             chevL: '<path d="M15 18l-6-6 6-6"/>', chevR: '<path d="M9 18l6-6-6-6"/>',
@@ -346,6 +370,25 @@
         }
 
         // ---------------------------------------------------------------
+        // 기간: 주(월요일 시작) 또는 월
+        // ---------------------------------------------------------------
+        function monthStart(d) { return d.slice(0, 8) + '01'; }
+        function addMonths(d, n) { const x = new Date(d.slice(0, 8) + '01T00:00:00Z'); x.setUTCMonth(x.getUTCMonth() + n); return x.toISOString().slice(0, 10); }
+        function periodOf(st) {
+            if (mode === 'week') return { start: st, end: addDays(st, 6), prevStart: addDays(st, -7), prevEnd: addDays(st, -1) };
+            const end = addDays(addMonths(st, 1), -1);
+            return { start: st, end, prevStart: addMonths(st, -1), prevEnd: addDays(st, -1) };
+        }
+        const unit = () => mode === 'week' ? '주' : '달';
+        function periodName() {
+            if (start === nowStart) return mode === 'week' ? '이번 주' : '이번 달';
+            const ago = mode === 'week'
+                ? Math.round((Date.parse(nowStart) - Date.parse(start)) / (7 * 86400e3))
+                : (+nowStart.slice(0, 4) - +start.slice(0, 4)) * 12 + (+nowStart.slice(5, 7) - +start.slice(5, 7));
+            return ago === 1 ? (mode === 'week' ? '지난주' : '지난달') : `${ago}${mode === 'week' ? '주' : '달'} 전`;
+        }
+
+        // ---------------------------------------------------------------
         // 불러오기
         // ---------------------------------------------------------------
         async function init() {
@@ -356,42 +399,58 @@
                 me = Array.isArray(info) ? info[0] : info;
             } catch (e) { showMsg('통계를 불러오지 못했어요. ' + (e.message || '')); return; }
             todayStr = studyToday();
-            thisWeekStart = mondayOf(todayStr);
-            weekStart = thisWeekStart;
+            try { if (localStorage.getItem('statsMode') === 'month') mode = 'month'; } catch (e) {}
+            nowStart = mode === 'week' ? mondayOf(todayStr) : monthStart(todayStr);
+            start = nowStart;
             $('weeknav').hidden = false;
             loadGrass();
-            await loadWeek();
+            await loadPeriod();
         }
 
-        function moveWeek(n) {
-            const next = addDays(weekStart, n * 7);
-            if (next > thisWeekStart) return;
-            if (next < addDays(thisWeekStart, -7 * 51)) return;
-            weekStart = next;
-            loadWeek();
+        function setMode(m) {
+            if (m === mode) return;
+            mode = m;
+            try { localStorage.setItem('statsMode', m); } catch (e) {}
+            nowStart = mode === 'week' ? mondayOf(todayStr) : monthStart(todayStr);
+            start = nowStart;
+            loadPeriod();
         }
-        function goThisWeek() { weekStart = thisWeekStart; loadWeek(); }
+        function movePeriod(n) {
+            const next = mode === 'week' ? addDays(start, n * 7) : addMonths(start, n);
+            if (next > nowStart) return;
+            if (mode === 'week' ? next < addDays(nowStart, -7 * 51) : next < addMonths(nowStart, -12)) return;
+            start = next;
+            loadPeriod();
+        }
+        function goNow() { start = nowStart; loadPeriod(); }
 
-        let weekRows = null, prevRows = null;
-        async function loadWeek() {
-            const from = addDays(weekStart, -7), to = addDays(weekStart, 6);
-            const isThis = weekStart === thisWeekStart;
-            const end = addDays(weekStart, 6);
-            $('weekLabel').textContent = weekStart.slice(5, 7) === end.slice(5, 7)
-                ? `${+weekStart.slice(5, 7)}월 ${+weekStart.slice(8, 10)}일 ~ ${+end.slice(8, 10)}일`
-                : `${+weekStart.slice(5, 7)}월 ${+weekStart.slice(8, 10)}일 ~ ${+end.slice(5, 7)}월 ${+end.slice(8, 10)}일`;
-            const weeksAgo = Math.round((Date.parse(thisWeekStart) - Date.parse(weekStart)) / (7 * 86400e3));
-            $('weekTag').textContent = weeksAgo === 0 ? '이번 주' : weeksAgo === 1 ? '지난주' : `${weeksAgo}주 전`;
-            $('nextWeek').disabled = isThis;
-            $('thisWeekBtn').hidden = isThis;
+        let P = null, curRows = null, prevRows = null;
+        async function loadPeriod() {
+            P = periodOf(start);
+            const isNow = start === nowStart;
+            $('modeWeek').classList.toggle('on', mode === 'week'); $('modeWeek').setAttribute('aria-selected', mode === 'week');
+            $('modeMonth').classList.toggle('on', mode === 'month'); $('modeMonth').setAttribute('aria-selected', mode === 'month');
+            if (mode === 'week') {
+                $('weekLabel').textContent = P.start.slice(5, 7) === P.end.slice(5, 7)
+                    ? `${+P.start.slice(5, 7)}월 ${+P.start.slice(8, 10)}일 ~ ${+P.end.slice(8, 10)}일`
+                    : `${+P.start.slice(5, 7)}월 ${+P.start.slice(8, 10)}일 ~ ${+P.end.slice(5, 7)}월 ${+P.end.slice(8, 10)}일`;
+            } else {
+                $('weekLabel').textContent = `${P.start.slice(0, 4) !== todayStr.slice(0, 4) ? P.start.slice(0, 4) + '년 ' : ''}${+P.start.slice(5, 7)}월`;
+            }
+            $('weekTag').textContent = periodName();
+            $('prevWeek').setAttribute('aria-label', mode === 'week' ? '이전 주' : '이전 달');
+            $('nextWeek').setAttribute('aria-label', mode === 'week' ? '다음 주' : '다음 달');
+            $('nextWeek').disabled = isNow;
+            $('thisWeekBtn').hidden = isNow;
+            $('thisWeekBtn').textContent = mode === 'week' ? '이번 주로' : '이번 달로';
 
             let rows;
-            try { rows = await rpc('my_period_stats', { p_from: from, p_to: to }); }
+            try { rows = await rpc('my_period_stats', { p_from: P.prevStart, p_to: P.end }); }
             catch (e) { showMsg('통계를 불러오지 못했어요. ' + (e.message || '')); return; }
-            prevRows = rows.slice(0, 7);
-            weekRows = rows.slice(7, 14);
+            prevRows = rows.filter(r => r.day < P.start);
+            curRows = rows.filter(r => r.day >= P.start);
             $('msg').hidden = true;
-            ['summaryCard', 'barsCard', 'planCard', 'subjCard', 'focusCard', 'grassCard'].forEach(id => $(id).hidden = false);
+            ['summaryCard', 'barsCard', 'planCard', 'subjCard', 'hourCard', 'focusCard', 'grassCard'].forEach(id => $(id).hidden = false);
 
             renderSummary();
             renderBars();
@@ -399,30 +458,32 @@
             renderPlan();
             renderFocus();
             loadSubjects();
+            loadHourly();
         }
 
-        // 이번 주는 오늘까지만 비교 (지난주도 같은 요일까지)
-        function elapsedDays() {
-            if (weekStart !== thisWeekStart) return 7;
-            return Math.min(7, Math.round((Date.parse(todayStr) - Date.parse(weekStart)) / 86400e3) + 1);
-        }
+        // 지나간 날 수 (이번 주·이번 달은 오늘까지)
+        function elapsedDays() { return curRows.filter(r => r.day <= todayStr).length || 1; }
         const sum = (rows, k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
+        function lastDay() { return P.end < todayStr ? P.end : todayStr; }
 
         // ---------------------------------------------------------------
         // 요약
         // ---------------------------------------------------------------
         function renderSummary() {
             const n = elapsedDays();
-            const cur = weekRows.slice(0, n), prev = prevRows.slice(0, n);
-            $('cmpNote').textContent = n === 1 ? `↑↓는 지난주 ${WEEK[0]}요일과 비교한 값이에요.`
-                : n < 7 ? `↑↓는 지난주 같은 기간(${WEEK[0]}~${WEEK[n - 1]}요일)과 비교한 값이에요.`
-                : '↑↓는 그 전 주와 비교한 값이에요.';
-            $('kTotalLabel').textContent = weekStart === thisWeekStart ? '이번 주 공부' : '이 주 공부';
+            const cur = curRows.slice(0, n), prev = prevRows.slice(0, Math.min(n, prevRows.length));
+            const full = n >= curRows.length;
+            const prevName = mode === 'week' ? '지난주' : '지난달';
+            $('cmpNote').textContent = full ? `↑↓는 그 전 ${unit()}과 비교한 값이에요.`
+                : mode === 'week' && n === 1 ? `↑↓는 지난주 ${WEEK[0]}요일과 비교한 값이에요.`
+                : mode === 'week' ? `↑↓는 지난주 같은 기간(${WEEK[0]}~${WEEK[n - 1]}요일)과 비교한 값이에요.`
+                : `↑↓는 ${prevName} 같은 기간(1~${Math.min(n, prevRows.length)}일)과 비교한 값이에요.`;
+            $('kTotalLabel').textContent = `${start === nowStart ? (mode === 'week' ? '이번 주' : '이번 달') : `이 ${unit()}`} 공부`;
             const tCur = sum(cur, 'seconds'), tPrev = sum(prev, 'seconds');
             $('kTotal').innerHTML = hmHtml(tCur);
             deltaHtml($('dTotal'), tCur - tPrev, 'time');
             $('kAvg').innerHTML = hmHtml(tCur / n);
-            deltaHtml($('dAvg'), (tCur - tPrev) / n, 'time');
+            deltaHtml($('dAvg'), prev.length ? tCur / n - tPrev / prev.length : null, 'time');
             const pc = rate(cur), pp = rate(prev);
             $('kPlan').innerHTML = pc === null ? '<small>할 일 없음</small>' : `${Math.round(pc)}<small>%</small>`;
             deltaHtml($('dPlan'), pc === null || pp === null ? null : pc - pp, 'pct');
@@ -431,13 +492,85 @@
             if (goalSec > 0) {
                 const hit = cur.filter(r => r.seconds >= goalSec).length;
                 $('goalLine').hidden = false;
-                $('goalLine').innerHTML = `하루 목표 <b>${goalText(me.daily_goal_min)}</b> · ${n < 7 ? `${n}일 중` : '7일 중'} <b>${hit}일</b> 달성
-                    <span class="goal-dots" aria-hidden="true">${weekRows.map((r, i) => `<span class="${i >= n ? 'future' : r.seconds >= goalSec ? 'hit' : ''}" title="${md(r.day)} ${hmText(r.seconds)}"></span>`).join('')}</span>`;
+                $('goalLine').innerHTML = `하루 목표 <b>${goalText(me.daily_goal_min)}</b> · ${n}일 중 <b>${hit}일</b> 달성`
+                    + (mode === 'week' ? ` <span class="goal-dots" aria-hidden="true">${curRows.map((r, i) => `<span class="${i >= n ? 'future' : r.seconds >= goalSec ? 'hit' : ''}" title="${md(r.day)} ${hmText(r.seconds)}"></span>`).join('')}</span>` : '');
             } else $('goalLine').hidden = true;
         }
+        function rate(rows) { const t = sum(rows, 'tasks_total'); return t ? sum(rows, 'tasks_done') / t * 100 : null; }
+
+        // ---------------------------------------------------------------
+        // 날짜별 막대 (주: 그 전 주를 흐리게 겹침 / 월: 날짜별)
+        // ---------------------------------------------------------------
+        let selDay = null;
+        function renderBars() {
+            const week = mode === 'week';
+            $('barsTitle').textContent = week ? '요일별 공부 시간' : '날짜별 공부 시간';
+            $('lgCur').textContent = week ? '이 주' : '이 달';
+            $('lgPrevWrap').hidden = !week;
+            const goalSec = (me?.daily_goal_min || 0) * 60;
+            const maxSec = Math.max(goalSec * 1.15, ...curRows.map(r => r.seconds), ...(week ? prevRows.map(r => r.seconds) : []), 3600);
+            const maxH = Math.ceil(maxSec / 3600);
+            const step = maxH <= 4 ? 1 : maxH <= 8 ? 2 : maxH <= 12 ? 3 : 4;
+            const top = Math.ceil(maxH / step) * step;
+            const cols = curRows.length;
+            let html = '';
+            for (let v = 0; v <= top; v += step) {
+                const pct = v / top * 100;
+                html += `<div class="yline" style="bottom: ${pct}%;"></div><div class="ylab" style="bottom: ${pct}%;">${v}h</div>`;
+            }
+            if (goalSec > 0) html += `<div class="goal" style="bottom: ${goalSec / 3600 / top * 100}%;"></div>`;
+            $('lgGoal').hidden = !(goalSec > 0);
+            html += curRows.map((r, i) => {
+                const p = week ? prevRows[i] : null;
+                const future = r.day > todayStr, today = r.day === todayStr;
+                const label = `${md(r.day)} ${DOW[dow(r.day)]}요일 ${future ? '아직 안 온 날' : hmText(r.seconds)}${p ? `, 그 전 주 ${hmText(p.seconds)}` : ''}`;
+                return `<button class="wcol ${today ? 'today' : ''} ${future ? 'future' : ''}" data-i="${i}" aria-label="${label}" onclick="pickDay(${i})" onmouseenter="pickDay(${i}, true)">
+                    ${p ? `<div class="wbar prev" style="height: ${p.seconds / 3600 / top * 100}%;"></div>` : ''}
+                    <div class="wbar cur" style="height: ${future ? 0 : r.seconds / 3600 / top * 100}%;"></div>
+                </button>`;
+            }).join('');
+            const wb = $('wbars');
+            wb.classList.toggle('month', !week);
+            wb.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            wb.innerHTML = html;
+            wb.onmouseleave = () => { if (selDay === null) hideTip(); };
+            const wx = $('wx');
+            wx.classList.toggle('month', !week);
+            wx.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            wx.innerHTML = curRows.map((r, i) => {
+                const d = +r.day.slice(8, 10);
+                const txt = week ? (r.day === todayStr ? '오늘' : WEEK[i]) : (d === 1 || d % 5 === 0 ? String(d) : '');
+                return `<span class="${r.day === todayStr ? 'today' : ''}">${txt}</span>`;
+            }).join('');
+            selDay = null;
+        }
+        function hideTip() { const t = $('wbars').querySelector('.tip'); if (t) t.remove(); $('wbars').querySelectorAll('.wcol.sel').forEach(c => c.classList.remove('sel')); }
+        function pickDay(i, hover) {
+            if (!hover) selDay = selDay === i ? null : i;
+            hideTip();
+            if (!hover && selDay === null) return;
+            const r = curRows[i], p = mode === 'week' ? prevRows[i] : null;
+            const col = $('wbars').querySelector(`.wcol[data-i="${i}"]`);
+            col.classList.add('sel');
+            const future = r.day > todayStr;
+            const tip = document.createElement('div');
+            tip.className = 'tip';
+            tip.innerHTML = `${md(r.day)} (${DOW[dow(r.day)]}) <b>${future ? '-' : hmText(r.seconds)}</b><br>${p ? `그 전 주 ${hmText(p.seconds)}` : ''}${r.tasks_total ? `${p ? ' · ' : ''}할 일 ${r.tasks_done}/${r.tasks_total}` : (p ? '' : '할 일 없음')}`;
+            const box = $('wbars').getBoundingClientRect(), cb = col.getBoundingClientRect();
+            const left = cb.left - box.left + cb.width / 2;
+            tip.style.left = left + 'px';
+            tip.style.bottom = 'auto'; tip.style.top = '-46px';
+            $('wbars').appendChild(tip);
+            const tb = tip.getBoundingClientRect();
+            if (tb.left < 8) tip.style.left = (left + (8 - tb.left)) + 'px';
+            if (tb.right > window.innerWidth - 8) tip.style.left = (left - (tb.right - window.innerWidth + 8)) + 'px';
+        }
+
+        // ---------------------------------------------------------------
+        // 기록 방식
+        // ---------------------------------------------------------------
         function renderMethod() {
-            const n = elapsedDays();
-            const rows = weekRows.slice(0, n);
+            const rows = curRows.slice(0, elapsedDays());
             const total = sum(rows, 'seconds');
             const el = $('method');
             if (total < 60) { el.hidden = true; return; }
@@ -450,83 +583,38 @@
                     <span class="m-timer" style="width: ${timer / total * 100}%;"></span><span class="m-manual" style="width: ${manual / total * 100}%;"></span><span class="m-idle" style="width: ${idle / total * 100}%;"></span></div>
                 <div class="mlegend"><span><i class="m-timer"></i>타이머 ${hmText(timer)}</span>${manual ? `<span><i class="m-manual"></i>직접 입력 ${hmText(manual)}</span>` : ''}${idle ? `<span><i class="m-idle"></i>직접 확인 포함 ${hmText(idle)}</span>` : ''}</div>`;
         }
-        function rate(rows) { const t = sum(rows, 'tasks_total'); return t ? sum(rows, 'tasks_done') / t * 100 : null; }
 
         // ---------------------------------------------------------------
-        // 요일별 막대
-        // ---------------------------------------------------------------
-        let selDay = null;
-        function renderBars() {
-            const goalSec = (me?.daily_goal_min || 0) * 60;
-            const maxSec = Math.max(goalSec * 1.15, ...weekRows.map(r => r.seconds), ...prevRows.map(r => r.seconds), 3600);
-            const maxH = Math.ceil(maxSec / 3600);
-            const step = maxH <= 4 ? 1 : maxH <= 8 ? 2 : maxH <= 12 ? 3 : 4;
-            const top = Math.ceil(maxH / step) * step;
-            let html = '';
-            for (let v = 0; v <= top; v += step) {
-                const pct = v / top * 100;
-                html += `<div class="yline" style="bottom: ${pct}%;"></div><div class="ylab" style="bottom: ${pct}%;">${v}h</div>`;
-            }
-            if (goalSec > 0) html += `<div class="goal" style="bottom: ${goalSec / 3600 / top * 100}%;"></div>`;
-            $('lgGoal').hidden = !(goalSec > 0);
-            html += weekRows.map((r, i) => {
-                const p = prevRows[i];
-                const future = r.day > todayStr, today = r.day === todayStr;
-                const label = `${md(r.day)} ${WEEK[i]}요일 ${future ? '아직 안 온 날' : hmText(r.seconds)}, 그 전 주 ${hmText(p.seconds)}`;
-                return `<button class="wcol ${today ? 'today' : ''} ${future ? 'future' : ''}" data-i="${i}" aria-label="${label}" onclick="pickDay(${i})" onmouseenter="pickDay(${i}, true)">
-                    <div class="wbar prev" style="height: ${p.seconds / 3600 / top * 100}%;"></div>
-                    <div class="wbar cur" style="height: ${future ? 0 : r.seconds / 3600 / top * 100}%;"></div>
-                </button>`;
-            }).join('');
-            $('wbars').innerHTML = html;
-            $('wbars').onmouseleave = () => { if (selDay === null) hideTip(); };
-            $('wx').innerHTML = weekRows.map((r, i) => `<span class="${r.day === todayStr ? 'today' : ''}">${r.day === todayStr ? '오늘' : WEEK[i]}</span>`).join('');
-            selDay = null;
-        }
-        function hideTip() { const t = $('wbars').querySelector('.tip'); if (t) t.remove(); $('wbars').querySelectorAll('.wcol.sel').forEach(c => c.classList.remove('sel')); }
-        function pickDay(i, hover) {
-            if (!hover) selDay = selDay === i ? null : i;
-            hideTip();
-            if (!hover && selDay === null) return;
-            const r = weekRows[i], p = prevRows[i];
-            const col = $('wbars').querySelector(`.wcol[data-i="${i}"]`);
-            col.classList.add('sel');
-            const future = r.day > todayStr;
-            const tip = document.createElement('div');
-            tip.className = 'tip';
-            tip.innerHTML = `${md(r.day)} (${WEEK[i]}) <b>${future ? '-' : hmText(r.seconds)}</b><br>그 전 주 ${hmText(p.seconds)}${r.tasks_total ? ` · 할 일 ${r.tasks_done}/${r.tasks_total}` : ''}`;
-            const box = $('wbars').getBoundingClientRect(), cb = col.getBoundingClientRect();
-            let left = cb.left - box.left + cb.width / 2;
-            tip.style.left = left + 'px';
-            tip.style.bottom = 'auto'; tip.style.top = '-46px';
-            $('wbars').appendChild(tip);
-            // 화면 밖으로 나가지 않게
-            const tb = tip.getBoundingClientRect();
-            if (tb.left < 8) tip.style.left = (left + (8 - tb.left)) + 'px';
-            if (tb.right > window.innerWidth - 8) tip.style.left = (left - (tb.right - window.innerWidth + 8)) + 'px';
-        }
-
-        // ---------------------------------------------------------------
-        // 계획 완료율
+        // 계획 완료율 (주: 요일별 / 월: 주차별)
         // ---------------------------------------------------------------
         function renderPlan() {
-            const n = elapsedDays();
-            const rows = weekRows.slice(0, n);
+            const rows = curRows.slice(0, elapsedDays());
             const total = sum(rows, 'tasks_total'), done = sum(rows, 'tasks_done'), part = sum(rows, 'tasks_partial');
-            if (!total) { $('planBody').innerHTML = '<div class="empty">이 주에는 적어 둔 할 일이 없어요.</div>'; return; }
+            if (!total) { $('planBody').innerHTML = `<div class="empty">이 ${unit()}에는 적어 둔 할 일이 없어요.</div>`; return; }
             const pct = Math.round(done / total * 100);
             const pm = sum(rows, 'planned_minutes'), pa = sum(rows, 'planned_actual_seconds');
             let html = `<div class="plan-top"><div class="plan-pct">${pct}<small>%</small></div>
                 <div class="plan-sub">할 일 <b>${total}개</b> 중 <b>${done}개</b> 완료${part ? ` · 일부 ${part}개` : ''}</div></div>
                 <div class="track" aria-hidden="true"><div style="width: ${pct}%;"></div></div>`;
-            if (pm > 0) {
-                const ratio = Math.round(pa / (pm * 60) * 100);
-                html += `<div class="plan-row">시간을 정한 할 일: 계획 <b>${goalText(pm)}</b> · 실제 <b>${hmText(pa)}</b> (${ratio}%)</div>`;
+            if (pm > 0) html += `<div class="plan-row">시간을 정한 할 일: 계획 <b>${goalText(pm)}</b> · 실제 <b>${hmText(pa)}</b> (${Math.round(pa / (pm * 60) * 100)}%)</div>`;
+            // 작은 막대: 주는 요일, 월은 주차
+            let groups;
+            if (mode === 'week') groups = curRows.map((r, i) => ({ label: WEEK[i], rows: [r], title: md(r.day) }));
+            else {
+                groups = [];
+                curRows.forEach(r => {
+                    const wk = mondayOf(r.day);
+                    let g = groups.find(x => x.key === wk);
+                    if (!g) { g = { key: wk, label: `${groups.length + 1}주`, rows: [], title: '' }; groups.push(g); }
+                    g.rows.push(r);
+                });
+                groups.forEach(g => g.title = `${md(g.rows[0].day)}~${md(g.rows[g.rows.length - 1].day)}`);
             }
-            html += `<div class="pdays">${weekRows.map((r, i) => {
-                const p = r.tasks_total ? Math.round(r.tasks_done / r.tasks_total * 100) : null;
-                return `<div class="pday ${p === null ? 'none' : ''}" title="${md(r.day)} 할 일 ${r.tasks_done}/${r.tasks_total}">
-                    <div class="pbar"><div style="height: ${p || 0}%;"></div></div><b>${p === null ? '-' : p + '%'}</b>${WEEK[i]}</div>`;
+            html += `<div class="pdays" style="grid-template-columns: repeat(${groups.length}, minmax(0, 1fr));">${groups.map(g => {
+                const t = sum(g.rows, 'tasks_total'), d = sum(g.rows, 'tasks_done');
+                const p = t ? Math.round(d / t * 100) : null;
+                return `<div class="pday ${p === null ? 'none' : ''}" title="${g.title} 할 일 ${d}/${t}">
+                    <div class="pbar"><div style="height: ${p || 0}%;"></div></div><b>${p === null ? '-' : p + '%'}</b>${g.label}</div>`;
             }).join('')}</div>`;
             html += `<div class="lagging" id="lagging" hidden></div>`;
             $('planBody').innerHTML = html;
@@ -535,32 +623,29 @@
 
         // 자주 밀리는 과목: 할 일 2개 이상인 과목 중 완료율이 가장 낮은 과목
         async function loadLagging() {
-            const to = addDays(weekStart, 6) < todayStr ? addDays(weekStart, 6) : todayStr;
             let rows;
-            try { rows = await rpc('my_period_task_subjects', { p_from: weekStart, p_to: to }); } catch (e) { return; }
+            try { rows = await rpc('my_period_task_subjects', { p_from: P.start, p_to: lastDay() }); } catch (e) { return; }
             const el = $('lagging');
             if (!el) return;
             const cand = rows.filter(r => r.tasks_total >= 2).map(r => ({ ...r, rate: r.tasks_done / r.tasks_total }));
             if (!cand.length) return;
             cand.sort((a, b) => a.rate - b.rate || b.tasks_total - a.tasks_total);
             const w = cand[0];
-            const when = weekStart === thisWeekStart ? '이번 주' : '이 주';
+            const when = start === nowStart ? (mode === 'week' ? '이번 주' : '이번 달') : `이 ${unit()}`;
             el.hidden = false;
-            if (w.rate >= 0.8) {
-                el.innerHTML = `${when}에는 모든 과목의 할 일을 고르게 해냈어요.`;
-            } else {
-                el.innerHTML = `${when} <b>${esc(subjectName(w.subject))}</b> 할 일이 가장 자주 밀렸어요 (${w.tasks_total}개 중 ${w.tasks_done}개 완료${w.tasks_partial ? `, 일부 ${w.tasks_partial}개` : ''}). 다음 주에는 양을 조금 줄이거나 시간을 먼저 정해 두면 도움이 돼요.`;
-            }
+            el.innerHTML = w.rate >= 0.8
+                ? `${when}에는 모든 과목의 할 일을 고르게 해냈어요.`
+                : `${when} <b>${esc(subjectName(w.subject))}</b> 할 일이 가장 자주 밀렸어요 (${w.tasks_total}개 중 ${w.tasks_done}개 완료${w.tasks_partial ? `, 일부 ${w.tasks_partial}개` : ''}). 양을 조금 줄이거나 시간을 먼저 정해 두면 도움이 돼요.`;
         }
 
         // ---------------------------------------------------------------
-        // 집중 모드 · 모의고사 (이 주)
+        // 집중 모드 · 모의고사
         // ---------------------------------------------------------------
         function renderFocus() {
-            const ok = sum(weekRows, 'focus_success'), stop = sum(weekRows, 'focus_interrupted');
-            const mc = sum(weekRows, 'mock_count'), ms = sum(weekRows, 'mock_seconds');
+            const ok = sum(curRows, 'focus_success'), stop = sum(curRows, 'focus_interrupted');
+            const mc = sum(curRows, 'mock_count'), ms = sum(curRows, 'mock_seconds');
             if (!ok && !stop && !mc) {
-                $('focusBody').innerHTML = `<div class="empty">이 주에는 집중 모드 기록이 없어요.<br>플래너에서 "집중 모드"로 목표 시간을 정해 공부해 보세요.</div>`;
+                $('focusBody').innerHTML = `<div class="empty">이 ${unit()}에는 집중 모드 기록이 없어요.<br>플래너에서 "집중 모드"로 목표 시간을 정해 공부해 보세요.</div>`;
                 return;
             }
             const rateTxt = ok + stop ? `${Math.round(ok / (ok + stop) * 100)}%` : '-';
@@ -573,16 +658,15 @@
         }
 
         // ---------------------------------------------------------------
-        // 과목별 공부 시간 (이 주)
+        // 과목별 공부 시간
         // ---------------------------------------------------------------
         async function loadSubjects() {
-            const to = addDays(weekStart, 6) < todayStr ? addDays(weekStart, 6) : todayStr;
-            $('subjSub').textContent = weekStart === thisWeekStart ? '이번 주' : $('weekTag').textContent;
+            $('subjSub').textContent = periodName();
             const box = $('subj');
             let data;
-            try { data = await rpc('my_subject_totals', { p_from: weekStart, p_to: to }); }
+            try { data = await rpc('my_subject_totals', { p_from: P.start, p_to: lastDay() }); }
             catch (e) { box.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; return; }
-            if (!data.length) { box.innerHTML = '<div class="empty">이 주에는 기록이 없어요.</div>'; return; }
+            if (!data.length) { box.innerHTML = `<div class="empty">이 ${unit()}에는 기록이 없어요.</div>`; return; }
             const total = data.reduce((a, r) => a + r.seconds, 0);
             const max = Math.max(...data.map(r => r.seconds));
             box.innerHTML = data.map(r => {
@@ -596,6 +680,39 @@
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        // ---------------------------------------------------------------
+        // 공부 시간대 (오전 6시 ~ 다음 날 새벽 5시 순서)
+        // ---------------------------------------------------------------
+        function hourName(h) { h = h % 24; return h === 0 ? '밤 12시' : h < 6 ? `새벽 ${h}시` : h < 12 ? `오전 ${h}시` : h === 12 ? '낮 12시' : h < 18 ? `오후 ${h - 12}시` : `저녁 ${h - 12}시`; }
+        async function loadHourly() {
+            $('hourSub').textContent = periodName();
+            let rows;
+            try { rows = await rpc('my_period_hourly', { p_from: P.start, p_to: lastDay() }); } catch (e) { return; }
+            const order = [...Array(24).keys()].map(i => (i + 6) % 24);
+            const byH = Object.fromEntries(rows.map(r => [r.hour, r.seconds]));
+            const vals = order.map(h => byH[h] || 0);
+            const max = Math.max(...vals);
+            const ins = $('hourInsight');
+            if (!max) {
+                $('hbars').innerHTML = ''; $('hx').innerHTML = '';
+                ins.hidden = false; ins.textContent = `이 ${unit()}에는 공부 기록이 없어요.`;
+                return;
+            }
+            // 가장 많이 공부한 연속 2시간
+            let best = 0;
+            for (let i = 0; i < 23; i++) if (vals[i] + vals[i + 1] > vals[best] + vals[best + 1]) best = i;
+            // 낮 시간(오전 9시 ~ 밤 10시) 중 가장 비는 연속 2시간
+            let worst = -1;
+            for (let i = 3; i < 15; i++) if (worst < 0 || vals[i] + vals[i + 1] < vals[worst] + vals[worst + 1]) worst = i;
+            $('hbars').innerHTML = vals.map((v, i) => `<div class="${i === best || i === best + 1 ? 'peak' : ''}" style="height: ${v / max * 100}%;" title="${hourName(order[i])} ~ ${hourName(order[i] + 1)} · ${hmText(v)}"></div>`).join('');
+            $('hbars').setAttribute('aria-label', '시간대별 공부 시간: ' + vals.map((v, i) => `${order[i]}시 ${hmText(v)}`).join(', '));
+            $('hx').innerHTML = order.map((h, i) => `<span>${i % 3 === 0 ? h + '시' : ''}</span>`).join('');
+            const days = elapsedDays();
+            ins.hidden = false;
+            ins.innerHTML = `가장 많이 공부한 시간대는 <b>${hourName(order[best])} ~ ${hourName(order[best] + 2)}</b>예요 (${hmText(vals[best] + vals[best + 1])}).`
+                + (worst >= 0 && worst !== best ? ` 낮 시간 중에는 <b>${hourName(order[worst])} ~ ${hourName(order[worst] + 2)}</b>가 가장 비어요${days > 1 ? ` (하루 평균 ${hmText((vals[worst] + vals[worst + 1]) / days)})` : ''}.` : '');
         }
 
         // ---------------------------------------------------------------
