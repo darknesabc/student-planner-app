@@ -318,6 +318,13 @@
         .subj-grid button { min-height: 48px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); font-weight: 700; font-size: 14px; padding: 0 6px; }
         .subj-grid button:hover { border-color: currentColor; }
         .center h3 { justify-content: center; }
+        .manual-form { display: flex; flex-direction: column; gap: 8px; }
+        .manual-form select, .manual-form input { width: 100%; }
+        .field-label { font-size: 13px; font-weight: 700; color: var(--text-2); margin-top: 4px; display: block; }
+        .manual-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .tt-act.manual { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.22) 0 6px, transparent 6px 12px); }
+        .lg-manual { width: 16px; height: 10px; border-radius: 3px; background: var(--text-3) repeating-linear-gradient(135deg, rgba(255,255,255,.45) 0 3px, transparent 3px 6px); }
+        .tt-legend .link-btn { margin-left: auto; padding: 0; }
         .copy-days { display: flex; flex-direction: column; gap: 6px; margin: -6px 0 16px; }
         .copy-day { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 0 14px; border: 1px solid var(--border-strong);
                     border-radius: 12px; background: var(--surface); font-size: 14px; font-weight: 600; text-align: left; }
@@ -583,6 +590,38 @@
         </div>
     </div>
 
+    <!-- 공부 시간 직접 입력 -->
+    <div id="manualModal" class="simple-modal" style="display: none;" onclick="if(event.target===this) closeManual()">
+        <div class="simple-modal-box" style="max-width: 420px;">
+            <h3>공부 시간 직접 입력 <button class="icon-btn" onclick="closeManual()" aria-label="닫기" data-icon="x"></button></h3>
+            <p id="manualDesc" class="desc">타이머를 깜빡한 공부를 적어 넣어요. 오늘과 어제만, 한 번에 3시간까지 적을 수 있어요.</p>
+            <div class="manual-form">
+                <label class="field-label" for="manualTask">무엇을 공부했나요?</label>
+                <select id="manualTask" onchange="manualTaskChanged()"></select>
+                <div id="manualSubjectRow" hidden>
+                    <label class="field-label" for="manualSubject">과목</label>
+                    <select id="manualSubject"></select>
+                </div>
+                <div class="manual-grid">
+                    <div><label class="field-label" for="manualStart">시작 시각</label><input type="time" id="manualStart" oninput="manualPreview()"></div>
+                    <div><label class="field-label" for="manualMinutes">공부한 시간 (분)</label><input type="number" id="manualMinutes" min="5" max="180" step="5" inputmode="numeric" oninput="manualPreview()"></div>
+                </div>
+                <div class="day-chips" id="manualChips">
+                    <button type="button" class="day-chip" onclick="setManualMin(30)">30분</button>
+                    <button type="button" class="day-chip" onclick="setManualMin(60)">1시간</button>
+                    <button type="button" class="day-chip" onclick="setManualMin(90)">1시간 30분</button>
+                    <button type="button" class="day-chip" onclick="setManualMin(120)">2시간</button>
+                    <button type="button" class="day-chip" onclick="setManualMin(180)">3시간</button>
+                </div>
+                <div id="manualPreviewText" class="hint"></div>
+            </div>
+            <div class="modal-btns" style="margin-top: 16px;">
+                <button class="modal-btn primary" onclick="saveManual()">저장하기</button>
+            </div>
+            <p class="hint" style="margin: 12px 0 0;">타임테이블과 선생님 화면에 '직접 입력'으로 표시돼요.</p>
+        </div>
+    </div>
+
     <!-- 끝내기: 다 했는지 물어보기 -->
     <div id="finishModal" class="simple-modal" style="display: none;" onclick="if(event.target===this) closeFinishModal()">
         <div class="simple-modal-box">
@@ -821,7 +860,7 @@
 
                 <div id="ttSlotTab">
                     <div id="timeTableContainer" class="tt" style="display: none;">
-                        <div class="tt-legend"><span><i class="lg-plan" aria-hidden="true"></i>계획한 시간</span><span><i class="lg-act" aria-hidden="true"></i>실제 공부한 시간</span></div>
+                        <div class="tt-legend"><span><i class="lg-plan" aria-hidden="true"></i>계획</span><span><i class="lg-act" aria-hidden="true"></i>실제 공부</span><span><i class="lg-manual" aria-hidden="true"></i>직접 입력</span><button id="ttManualBtn" class="link-btn" onclick="openManual(null)">+ 시간 직접 입력</button></div>
                         <div id="ttEmptyNote" class="tt-empty" hidden>시간을 정한 할 일이 왼쪽 '계획' 줄에 점선으로 표시돼요. 할 일을 추가할 때 "시간 정하기"를 켜 보세요.</div>
                         <div class="tt-head" aria-hidden="true"><span>계획</span><span>실제</span></div>
                         <div id="timelineScrollWrapper">
@@ -1220,6 +1259,10 @@
             if (t.status !== 'PARTIAL') html += `<button role="menuitem" onclick="closeMenus(); setTaskStatus('${t.id}', 'PARTIAL')">${icon('half')}일부만 했어요</button>`;
             if (t.status !== 'NONE') html += `<button role="menuitem" onclick="closeMenus(); setTaskStatus('${t.id}', 'NONE')">${icon('undo')}안 한 것으로 되돌리기</button>`;
             if (t.routine_id) html += `<button role="menuitem" onclick="closeMenus(); prepareEditRoutine('${t.routine_id}')">${icon('repeat')}반복 계획 수정</button>`;
+            if (manualAllowed() && t.subject !== '모의고사') html += `<button role="menuitem" onclick="closeMenus(); openManual('${t.id}')">${icon('clock')}시간 직접 입력</button>`;
+            (day?.sessions || []).filter(x => x.is_manual && x.task_id === t.id).forEach(x => {
+                html += `<button role="menuitem" class="danger" onclick="closeMenus(); deleteManual('${x.id}')">${icon('trash')}직접 입력 지우기 (${kstHHMM(Date.parse(x.started_at))} · ${durText(x.seconds)})</button>`;
+            });
             html += `<hr><button role="menuitem" class="danger" ${hasRecord ? 'disabled' : ''} onclick="closeMenus(); deleteTask('${t.id}')">${icon('trash')}삭제하기</button>`;
             if (hasRecord) html += `<div class="menu-note">공부 기록이 있어 지울 수 없어요</div>`;
             m.innerHTML = html;
@@ -1275,8 +1318,11 @@
 
             const note = $('pastNote');
             note.hidden = isViewingToday();
-            note.innerText = past ? '지난 날짜예요. 계획은 고칠 수 있지만 타이머는 오늘만 쓸 수 있어요.'
+            const yday = viewDateStr === addDays(todayStr, -1);
+            note.innerHTML = yday ? `어제 기록이에요. 타이머는 오늘만 쓸 수 있지만, 깜빡한 공부는 <button class="link-btn" style="padding: 0;" onclick="openManual(null)">시간 직접 입력</button>으로 채울 수 있어요.`
+                           : past ? '지난 날짜예요. 계획은 고칠 수 있지만 타이머는 오늘만 쓸 수 있어요.'
                                   : '미리 세우는 계획이에요. 타이머는 그날 쓸 수 있어요.';
+            $('ttManualBtn').hidden = !manualAllowed();
 
             const label = '지난 계획 가져오기';
             $('copyBtnLabel').innerText = label;
@@ -1533,10 +1579,10 @@
                 const name = t ? subjectLabel(t.subject) : s.kind === 'focus' ? '집중' : '자유 공부';
                 const mins = Math.round((s.seconds || 0) / 60);
                 const live = !s.ended_at;
-                const label = `${name} ${live ? '공부 중' : mins + '분'}${s.end_reason === 'idle_ok' ? ' · 직접 확인' : ''}`;
+                const label = `${name} ${live ? '공부 중' : mins + '분'}${s.end_reason === 'idle_ok' ? ' · 직접 확인' : s.is_manual ? ' · 직접 입력' : ''}`;
                 const top = ttOff(kstMinutesOfDay(startMs));
                 const h = Math.min(1440 - top, Math.max(1, Math.round((endMs - startMs) / 60000)));
-                html += ttBlock('tt-act', top, h, `background: ${bg};`, label,
+                html += ttBlock(s.is_manual ? 'tt-act manual' : 'tt-act', top, h, `background-color: ${bg};`, label,
                     `실제 ${kstHHMM(startMs)} ~ ${kstHHMM(endMs)} (${durText(s.seconds || 0) || '0분'})\n${t ? `${subjectLabel(t.subject)} ${t.content}` : name}${s.end_reason === 'idle_ok' ? '\n화면이 꺼진 동안의 시간을 직접 확인했어요' : ''}`);
             });
             $('timelineVisualsSimple').innerHTML = html;
@@ -1650,6 +1696,56 @@
             if (n === null) return;
             toast(n > 0 ? `할 일 ${n}개를 가져왔어요.` : '가져올 새 할 일이 없어요.', n > 0 ? 'success' : 'info');
             if (n > 0) loadDay(viewDateStr);
+        }
+
+        // ---------------------------------------------------------------
+        // 공부 시간 직접 입력 (오늘·어제, 한 번에 5분~3시간, 다른 기록과 안 겹치게)
+        // ---------------------------------------------------------------
+        const MANUAL_SUBJECTS = ['국어', '수학', '영어', '한국사', '탐구1', '탐구2', '논술', '면접', '자율학습'];
+        function manualAllowed() { return !!todayStr && (viewDateStr === todayStr || viewDateStr === addDays(todayStr, -1)); }
+        function openManual(taskId) {
+            if (!manualAllowed()) return toast('직접 입력은 오늘과 어제 기록만 할 수 있어요.', 'error');
+            const list = tasks.filter(t => t.subject !== '모의고사');
+            $('manualTask').innerHTML = list.map(t => `<option value="${t.id}">${esc(subjectLabel(t.subject))} · ${esc(t.content)}</option>`).join('')
+                + `<option value="">할 일 없이 과목만 고르기</option>`;
+            $('manualTask').value = taskId && list.some(t => t.id === taskId) ? taskId : (list.length ? list[0].id : '');
+            $('manualSubject').innerHTML = MANUAL_SUBJECTS.map(s => `<option value="${s}">${esc(subjectLabel(s))}</option>`).join('');
+            manualTaskChanged();
+            // 기본값: 오늘이면 1시간 전부터 1시간, 어제면 저녁 8시부터 1시간
+            if (isViewingToday()) {
+                const m = Math.floor((kstMinutesOfDay(serverNow()) - 60) / 10) * 10;
+                const mm = ((m % 1440) + 1440) % 1440;
+                $('manualStart').value = `${String(Math.floor(mm / 60)).padStart(2, '0')}:${String(mm % 60).padStart(2, '0')}`;
+            } else $('manualStart').value = '20:00';
+            $('manualMinutes').value = 60;
+            $('manualDesc').innerText = `${isViewingToday() ? '오늘' : '어제'} 타이머를 깜빡한 공부를 적어 넣어요. 오늘과 어제만, 한 번에 3시간까지 적을 수 있어요.`;
+            manualPreview();
+            $('manualModal').style.display = 'flex';
+        }
+        function closeManual() { $('manualModal').style.display = 'none'; }
+        function manualTaskChanged() { $('manualSubjectRow').hidden = $('manualTask').value !== ''; }
+        function setManualMin(m) { $('manualMinutes').value = m; manualPreview(); }
+        function manualPreview() {
+            const st = $('manualStart').value, min = parseInt($('manualMinutes').value);
+            if (!st || !(min > 0)) { $('manualPreviewText').innerText = ''; return; }
+            const [h, m] = st.split(':').map(Number);
+            const end = (h * 60 + m + min) % 1440;
+            $('manualPreviewText').innerText = `${st} ~ ${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')} · ${goalText(min)} 공부한 것으로 적어요.`;
+        }
+        async function saveManual() {
+            const st = $('manualStart').value, min = parseInt($('manualMinutes').value);
+            if (!st) return toast('시작 시각을 적어 주세요.', 'error');
+            if (!(min >= 5 && min <= 180)) return toast('공부한 시간은 5분~180분(3시간)으로 적어 주세요.', 'error');
+            const taskId = $('manualTask').value || null;
+            const row = await rpc('add_manual_study', { p_day: viewDateStr, p_start: st, p_minutes: min, p_task_id: taskId, p_subject: taskId ? null : $('manualSubject').value });
+            if (!row) return;
+            closeManual();
+            toast(`${goalText(min)}을 직접 입력했어요.`, 'success');
+            loadDay(viewDateStr);
+        }
+        async function deleteManual(id) {
+            if (!confirm('직접 입력한 이 기록을 지울까요?')) return;
+            if (await rpc('delete_manual_study', { p_session_id: id })) { toast('직접 입력 기록을 지웠어요.'); loadDay(viewDateStr); }
         }
 
         // ---------------------------------------------------------------
@@ -2150,7 +2246,7 @@
                 box.className = 'now-box idle';
                 html = `<div class="now-label">지난 기록을 보고 있어요</div>
                         <div class="now-text">공부 시작과 타이머는 오늘 날짜에서 쓸 수 있어요.</div>
-                        <div class="now-actions"><button class="btn primary" onclick="goToToday()">오늘로 돌아가기</button></div>`;
+                        <div class="now-actions"><button class="btn primary" onclick="goToToday()">오늘로 돌아가기</button>${manualAllowed() ? `<button class="btn" onclick="openManual(null)">${icon('clock')}시간 직접 입력</button>` : ''}</div>`;
             } else if (!s && freeRunPaused()) {
                 box.className = 'now-box idle';
                 html = `<div class="now-label">자유 공부 쉬는 중</div>
