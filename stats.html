@@ -104,6 +104,20 @@
                padding: 7px 10px; border-radius: 8px; white-space: nowrap; pointer-events: none; line-height: 1.5; }
         .tip b { font-weight: 800; }
 
+        /* 기록 방식 */
+        .method { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .method-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); }
+        .method-head b { color: var(--text); }
+        .mbar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--track); margin-top: 8px; }
+        .mbar span { height: 100%; }
+        .mlegend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--text-2); }
+        .mlegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+        .m-timer { background: var(--bar); }
+        .m-manual { background: var(--goal); }
+        .m-idle { background: var(--text-3); }
+        .lagging { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 14px; color: var(--text-2); }
+        .lagging b { color: var(--text); }
+
         /* 계획 완료율 */
         .plan-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
         .plan-pct { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
@@ -218,6 +232,7 @@
             <div class="wbars" id="wbars"></div>
             <div class="wx" id="wx" aria-hidden="true"></div>
             <div class="card-sub" style="margin-top: 10px;">막대를 누르면 그날 시간이 보여요.</div>
+            <div class="method" id="method" hidden></div>
         </section>
 
         <section class="card" id="planCard" hidden aria-labelledby="planTitle">
@@ -380,6 +395,7 @@
 
             renderSummary();
             renderBars();
+            renderMethod();
             renderPlan();
             renderFocus();
             loadSubjects();
@@ -418,6 +434,21 @@
                 $('goalLine').innerHTML = `하루 목표 <b>${goalText(me.daily_goal_min)}</b> · ${n < 7 ? `${n}일 중` : '7일 중'} <b>${hit}일</b> 달성
                     <span class="goal-dots" aria-hidden="true">${weekRows.map((r, i) => `<span class="${i >= n ? 'future' : r.seconds >= goalSec ? 'hit' : ''}" title="${md(r.day)} ${hmText(r.seconds)}"></span>`).join('')}</span>`;
             } else $('goalLine').hidden = true;
+        }
+        function renderMethod() {
+            const n = elapsedDays();
+            const rows = weekRows.slice(0, n);
+            const total = sum(rows, 'seconds');
+            const el = $('method');
+            if (total < 60) { el.hidden = true; return; }
+            const manual = sum(rows, 'manual_seconds'), idle = sum(rows, 'idle_ok_seconds');
+            const timer = Math.max(0, total - manual - idle);
+            const pct = (x) => Math.round(x / total * 100);
+            el.hidden = false;
+            el.innerHTML = `<div class="method-head"><span>기록 방식</span><span>타이머로 잰 시간 <b>${pct(timer)}%</b></span></div>
+                <div class="mbar" role="img" aria-label="타이머 ${pct(timer)}%, 직접 입력 ${pct(manual)}%, 직접 확인 ${pct(idle)}%">
+                    <span class="m-timer" style="width: ${timer / total * 100}%;"></span><span class="m-manual" style="width: ${manual / total * 100}%;"></span><span class="m-idle" style="width: ${idle / total * 100}%;"></span></div>
+                <div class="mlegend"><span><i class="m-timer"></i>타이머 ${hmText(timer)}</span>${manual ? `<span><i class="m-manual"></i>직접 입력 ${hmText(manual)}</span>` : ''}${idle ? `<span><i class="m-idle"></i>직접 확인 포함 ${hmText(idle)}</span>` : ''}</div>`;
         }
         function rate(rows) { const t = sum(rows, 'tasks_total'); return t ? sum(rows, 'tasks_done') / t * 100 : null; }
 
@@ -497,7 +528,29 @@
                 return `<div class="pday ${p === null ? 'none' : ''}" title="${md(r.day)} 할 일 ${r.tasks_done}/${r.tasks_total}">
                     <div class="pbar"><div style="height: ${p || 0}%;"></div></div><b>${p === null ? '-' : p + '%'}</b>${WEEK[i]}</div>`;
             }).join('')}</div>`;
+            html += `<div class="lagging" id="lagging" hidden></div>`;
             $('planBody').innerHTML = html;
+            loadLagging();
+        }
+
+        // 자주 밀리는 과목: 할 일 2개 이상인 과목 중 완료율이 가장 낮은 과목
+        async function loadLagging() {
+            const to = addDays(weekStart, 6) < todayStr ? addDays(weekStart, 6) : todayStr;
+            let rows;
+            try { rows = await rpc('my_period_task_subjects', { p_from: weekStart, p_to: to }); } catch (e) { return; }
+            const el = $('lagging');
+            if (!el) return;
+            const cand = rows.filter(r => r.tasks_total >= 2).map(r => ({ ...r, rate: r.tasks_done / r.tasks_total }));
+            if (!cand.length) return;
+            cand.sort((a, b) => a.rate - b.rate || b.tasks_total - a.tasks_total);
+            const w = cand[0];
+            const when = weekStart === thisWeekStart ? '이번 주' : '이 주';
+            el.hidden = false;
+            if (w.rate >= 0.8) {
+                el.innerHTML = `${when}에는 모든 과목의 할 일을 고르게 해냈어요.`;
+            } else {
+                el.innerHTML = `${when} <b>${esc(subjectName(w.subject))}</b> 할 일이 가장 자주 밀렸어요 (${w.tasks_total}개 중 ${w.tasks_done}개 완료${w.tasks_partial ? `, 일부 ${w.tasks_partial}개` : ''}). 다음 주에는 양을 조금 줄이거나 시간을 먼저 정해 두면 도움이 돼요.`;
+            }
         }
 
         // ---------------------------------------------------------------
